@@ -464,6 +464,47 @@ internal_gzopen(cfile *cfh)
 }
 
 unsigned int
+cclose_bz2(cfile *cfh)
+{
+	if(cfh->access_flags & CFILE_WONLY) {
+		BZ2_bzCompressEnd(cfh->bzs);
+	} else {
+		BZ2_bzDecompressEnd(cfh->bzs);
+	}
+	if(cfh->bzs) {
+		free(cfh->bzs);
+		cfh->bzs = NULL;
+	}
+	return 0;
+}
+
+unsigned int
+cclose_gz(cfile *cfh)
+{
+	if(cfh->access_flags & CFILE_WONLY) {
+		deflateEnd(cfh->zs);
+	} else {
+		inflateEnd(cfh->zs);
+	}
+	if(cfh->zs) {
+		free(cfh->zs);
+		cfh->zs = NULL;
+	}
+	return 0;
+}
+
+unsigned int
+cclose_xz(cfile *cfh)
+{
+	if(cfh->xzs) {
+		lzma_end(cfh->xzs);
+		free(cfh->xzs);
+		cfh->xzs = NULL;
+	}
+	return 0;
+}
+
+unsigned int
 cclose(cfile *cfh)
 {
 	if(cfh->access_flags & CFILE_WONLY) {
@@ -476,25 +517,15 @@ cclose(cfile *cfh)
 	}
 	if(cfh->raw.buff)
 		free(cfh->raw.buff);
+	unsigned int result = 0;
 	if(cfh->compressor_type == BZIP2_COMPRESSOR) {
-		if(cfh->access_flags & CFILE_WONLY) {
-			BZ2_bzCompressEnd(cfh->bzs);
-		} else {
-			BZ2_bzDecompressEnd(cfh->bzs);
-		}
-		free(cfh->bzs);
+		result = cclose_bz2(cfh);
 	}
 	if(cfh->compressor_type == GZIP_COMPRESSOR) {
-		if(cfh->access_flags & CFILE_WONLY) {
-			deflateEnd(cfh->zs);
-		} else {
-			inflateEnd(cfh->zs);
-		}
-		free(cfh->zs);
+		result = cclose_gz(cfh);
 	}
 	if(cfh->compressor_type == XZ_COMPRESSOR) {
-		lzma_end(cfh->xzs);
-		free(cfh->xzs);
+		result = cclose_xz(cfh);
 	}
 	/* XXX questionable */
 	if(cfh->state_flags & CFILE_OPEN_FH) {
@@ -507,7 +538,7 @@ cclose(cfile *cfh)
 			cfh->data.pos = cfh->data.end = cfh->data.size = cfh->data.offset = 
 			cfh->raw_total_len = cfh->data_total_len = 0;
 	}
-	return 0;
+	return result;
 }
 
 ssize_t
