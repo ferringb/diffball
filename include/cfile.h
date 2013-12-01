@@ -146,7 +146,6 @@ typedef struct _cfile {
 	bz_stream			*bzs;
 	z_stream			*zs;
 	lzma_stream			*xzs;
-	gzFile				gz_handle;
 
 } cfile;
 
