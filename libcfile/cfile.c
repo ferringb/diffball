@@ -194,6 +194,86 @@ copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end,
 }
 
 int
+internal_copen_bzip2(cfile *cfh)
+{
+	cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
+	cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
+	if((cfh->bzs = (bz_stream *)
+		malloc(sizeof(bz_stream)))==NULL) {
+		v1printf("mem error for bz2 stream\n");
+		return MEM_ERROR;
+	} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
+		return MEM_ERROR;
+	} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
+		return MEM_ERROR;
+	}
+	cfh->bzs->bzalloc = NULL;
+	cfh->bzs->bzfree =  NULL;
+	cfh->bzs->opaque = NULL;
+/*	if(cfh->access_flags & CFILE_WONLY)
+		BZ2_bzCompressInit(cfh->bzs, BZIP2_DEFAULT_COMPRESS_LEVEL, 
+			BZIP2_VERBOSITY_LEVEL, BZIP2_DEFAULT_WORK_LEVEL);
+		cfh->bzs->next_in = cfh->data.buff;
+		cfh->bzs->next_out = cfh->raw.buff;
+	else {
+*/
+		BZ2_bzDecompressInit(cfh->bzs, BZIP2_VERBOSITY_LEVEL, 0);
+		cfh->bzs->next_in = (char *)cfh->raw.buff;
+		cfh->bzs->next_out = (char *)cfh->data.buff;
+		cfh->bzs->avail_in = cfh->bzs->avail_out = 0;
+//	}
+	cfh->raw.pos = cfh->raw.offset  = cfh->raw.end = cfh->data.pos = 
+		cfh->data.offset = cfh->data.end = cfh->raw.write_end = cfh->raw.write_start = 0;
+	cfh->data.offset = 10;
+	if(0 != cseek(cfh, 0, CSEEK_FSTART)) {
+		return (cfh->err = IO_ERROR);
+	}
+	return 0;
+}
+
+int
+internal_copen_gz(cfile *cfh)
+{
+	cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
+	cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
+	if((cfh->zs = (z_stream *)malloc(sizeof(z_stream))) == NULL) { 
+		return MEM_ERROR;
+	} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
+		return MEM_ERROR;
+	} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
+		return MEM_ERROR;
+	}
+	cfh->raw.write_end = cfh->raw.write_start = cfh->data.write_start = cfh->data.write_end = 0;
+	internal_gzopen(cfh);
+	return 0;
+}
+
+int
+internal_copen_xz(cfile *cfh)
+{
+	cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
+	cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
+	if((cfh->xzs = (lzma_stream *)malloc(sizeof(lzma_stream)))==NULL) {
+		return MEM_ERROR;
+	} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
+		return MEM_ERROR;
+	} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
+		return MEM_ERROR;
+	}
+	lzma_stream tmp = LZMA_STREAM_INIT;
+	memcpy(cfh->xzs, &tmp, sizeof(lzma_stream));
+	cfh->raw.write_end = cfh->raw.write_start = cfh->data.write_start =
+		cfh->data.write_end = 0;
+	/* compression unsupported for now */
+	if(lzma_stream_decoder(cfh->xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK){
+		return IO_ERROR;
+	}
+	cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
+		cfh->data.offset = cfh->data.end = 0;
+	return 0;
+}
+
+int
 internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end, 
 	size_t data_fh_start, size_t data_fh_end, unsigned int compressor_type, unsigned int access_flags)
 {
@@ -232,7 +312,9 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 		(compressor_type != NO_COMPRESSOR)) ){
 		cfh->access_flags |= CFILE_SEEKABLE;
 	}
-*/	switch(cfh->compressor_type) {
+*/	
+	int result = 0;
+	switch(cfh->compressor_type) {
 	case NO_COMPRESSOR:
 		dcprintf("copen: opening w/ no_compressor\n");
 		cfh->data_fh_offset = raw_fh_start;
@@ -254,93 +336,33 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
  		break;
  		
 	case BZIP2_COMPRESSOR:
-		cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
-		cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
 		cfh->raw_fh_offset = raw_fh_start;
 		cfh->raw_total_len = raw_fh_end - raw_fh_start;
 		cfh->data_fh_offset = data_fh_start;
 		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
-		if((cfh->bzs = (bz_stream *)
-			malloc(sizeof(bz_stream)))==NULL) {
-			v1printf("mem error for bz2 stream\n");
-			return MEM_ERROR;
-		} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
-			return MEM_ERROR;
-		} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
-			return MEM_ERROR;
-		}
-		cfh->bzs->bzalloc = NULL;
-		cfh->bzs->bzfree =  NULL;
-		cfh->bzs->opaque = NULL;
-/*		if(cfh->access_flags & CFILE_WONLY)
-			BZ2_bzCompressInit(cfh->bzs, BZIP2_DEFAULT_COMPRESS_LEVEL, 
-				BZIP2_VERBOSITY_LEVEL, BZIP2_DEFAULT_WORK_LEVEL);
-			cfh->bzs->next_in = cfh->data.buff;
-			cfh->bzs->next_out = cfh->raw.buff;
-		else {
-*/
-			BZ2_bzDecompressInit(cfh->bzs, BZIP2_VERBOSITY_LEVEL, 0);
-			cfh->bzs->next_in = (char *)cfh->raw.buff;
-			cfh->bzs->next_out = (char *)cfh->data.buff;
-			cfh->bzs->avail_in = cfh->bzs->avail_out = 0;
-//		}
-		cfh->raw.pos = cfh->raw.offset  = cfh->raw.end = cfh->data.pos = 
-			cfh->data.offset = cfh->data.end = cfh->raw.write_end = cfh->raw.write_start = 0;
-		cfh->data.offset = 10;
-		if(0 != cseek(cfh, 0, CSEEK_FSTART)) {
-			return (cfh->err = IO_ERROR);
-		}
+		result = internal_copen_bzip2(cfh);
 		break;
 
 	case GZIP_COMPRESSOR:
-		cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
-		cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
 		cfh->raw_fh_offset = raw_fh_start;
 		cfh->raw_total_len = raw_fh_end - raw_fh_start;
 		cfh->data_fh_offset = data_fh_start;
 		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
-		if((cfh->zs = (z_stream *)malloc(sizeof(z_stream)))
-			==NULL) { 
-			return MEM_ERROR;
-		} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
-			return MEM_ERROR;
-		} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
-			return MEM_ERROR;
-		}
-		cfh->raw.write_end = cfh->raw.write_start = cfh->data.write_start = cfh->data.write_end = 0;
-		internal_gzopen(cfh);
+		result = internal_copen_gz(cfh);
 		break;
 
 	case XZ_COMPRESSOR:
-		cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
-		cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
 		cfh->raw_fh_offset = raw_fh_start;
 		cfh->raw_total_len = raw_fh_end - raw_fh_start;
 		cfh->data_fh_offset = data_fh_start;
 		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
-		if((cfh->xzs = (lzma_stream *)malloc(sizeof(lzma_stream)))==NULL) {
-			return MEM_ERROR;
-		} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
-			return MEM_ERROR;
-		} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
-			return MEM_ERROR;
-		}
-		lzma_stream tmp = LZMA_STREAM_INIT;
-		memcpy(cfh->xzs, &tmp, sizeof(lzma_stream));
-		cfh->raw.write_end = cfh->raw.write_start = cfh->data.write_start =
-			cfh->data.write_end = 0;
-		/* compression unsupported for now */
-		if(lzma_stream_decoder(cfh->xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK){
-			return IO_ERROR;
-		}
-		cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
-			cfh->data.offset = cfh->data.end = 0;
+		result = internal_copen_xz(cfh);
 		break;
 	}
 	/* no longer in use.  leaving it as a reminder for updating when 
 		switching over to the full/correct sub-window opening */
 //	cfh->state_flags |= CFILE_SEEK_NEEDED;
-	return 0;
+	return result;
 }
 
 unsigned int
