@@ -238,7 +238,9 @@ internal_copen_gz(cfile *cfh)
 {
 	cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
 	cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
-	if((cfh->zs = (z_stream *)malloc(sizeof(z_stream))) == NULL) { 
+	z_stream *zs = (z_stream *)malloc(sizeof(z_stream));
+	cfh->io.data = zs;
+	if (!zs) {
 		return MEM_ERROR;
 	} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
 		return MEM_ERROR;
@@ -306,7 +308,6 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 
 	assert(raw_fh_start <= raw_fh_end);
 	cfh->access_flags = access_flags;
-	cfh->zs = NULL;
 	cfh->xzs = NULL;
 
 	if(AUTODETECT_COMPRESSOR == compressor_type) {
@@ -378,14 +379,15 @@ unsigned int
 internal_gzopen(cfile *cfh)
 {
 	unsigned int x, y, skip;
+	z_stream *zs = cfh->io.data;
 	dcprintf("internal gz_open called\n");
-	assert(cfh->zs != NULL);
-	cfh->zs->next_in = cfh->raw.buff;
-	cfh->zs->next_out = cfh->data.buff;
-	cfh->zs->avail_out = cfh->zs->avail_in = 0;
-	cfh->zs->zalloc = NULL;
-	cfh->zs->zfree = NULL;
-	cfh->zs->opaque = NULL;
+	assert(zs != NULL);
+	zs->next_in = cfh->raw.buff;
+	zs->next_out = cfh->data.buff;
+	zs->avail_out = zs->avail_in = 0;
+	zs->zalloc = NULL;
+	zs->zfree = NULL;
+	zs->opaque = NULL;
 	cfh->raw.pos = cfh->raw.end = 0;
 	/* skip the headers */
 	cfh->raw.offset = 2;
@@ -398,7 +400,7 @@ internal_gzopen(cfile *cfh)
 		cfh->raw_total_len -2));
 	cfh->raw.end = x;
 
-	if(inflateInit2(cfh->zs, -MAX_WBITS) != Z_OK) {
+	if(inflateInit2(zs, -MAX_WBITS) != Z_OK) {
 		dcprintf("internal_gzopen:%u inflateInit2 failed\n", __LINE__);
 		return IO_ERROR;
 	}
@@ -459,8 +461,8 @@ internal_gzopen(cfile *cfh)
 		}
 	}
 
-	cfh->zs->avail_in = cfh->raw.end - cfh->raw.pos;
-	cfh->zs->next_in = cfh->raw.buff + cfh->raw.pos;
+	zs->avail_in = cfh->raw.end - cfh->raw.pos;
+	zs->next_in = cfh->raw.buff + cfh->raw.pos;
 	cfh->data.pos = cfh->data.offset = cfh->data.end = 0;
 	return 0L;
 }
@@ -484,14 +486,15 @@ cclose_bz2(cfile *cfh)
 unsigned int
 cclose_gz(cfile *cfh)
 {
-	if(cfh->access_flags & CFILE_WONLY) {
-		deflateEnd(cfh->zs);
-	} else {
-		inflateEnd(cfh->zs);
-	}
-	if(cfh->zs) {
-		free(cfh->zs);
-		cfh->zs = NULL;
+	z_stream *zs = cfh->io.data;
+	if (zs) {
+		if(cfh->access_flags & CFILE_WONLY) {
+			deflateEnd(zs);
+		} else {
+			inflateEnd(zs);
+		}
+		free(zs);
+		cfh->io.data = NULL;
 	}
 	return 0;
 }
@@ -598,6 +601,7 @@ cwrite(cfile *cfh, void *buff, size_t len)
 ssize_t
 cseek_gzip(cfile *cfh, ssize_t offset, ssize_t data_offset, int offset_type)
 {
+	z_stream *zs = cfh->io.data;
 	dcprintf("cseek: %u: gz: data_off(%li), data.offset(%lu)\n", cfh->cfh_id, data_offset, cfh->data.offset);
 	if(offset < 0) {
 		// this sucks.  quick kludge to find the eof, then set data_offset appropriately.
@@ -616,7 +620,7 @@ cseek_gzip(cfile *cfh, ssize_t offset, ssize_t data_offset, int offset_type)
 		   zlib to support seeking... */
 		dcprintf("cseek: gz: data_offset < cfh->data.offset, resetting\n");
 		flag_lseek_needed(cfh);
-		inflateEnd(cfh->zs);
+		inflateEnd(zs);
 		cfh->state_flags &= ~CFILE_EOF;
 		internal_gzopen(cfh);
 		if(ensure_lseek_position(cfh)) {
@@ -1004,7 +1008,8 @@ crefill_gz(cfile *cfh)
 {
 	size_t x;
 	int err;
-	assert(cfh->zs->total_out >= cfh->data.offset + cfh->data.end);
+	z_stream *zs = cfh->io.data;
+	assert(zs->total_out >= cfh->data.offset + cfh->data.end);
 	if(cfh->state_flags & CFILE_EOF) {
 		dcprintf("crefill: %u: gz: CFILE_EOF flagged, returning 0\n", cfh->cfh_id);
 		cfh->data.offset += cfh->data.end;
@@ -1012,11 +1017,11 @@ crefill_gz(cfile *cfh)
 	} else {
 		cfh->data.offset += cfh->data.end;
 		dcprintf("crefill: %u: zs, refilling data\n", cfh->cfh_id);
-		cfh->zs->avail_out = cfh->data.size;
-		cfh->zs->next_out = cfh->data.buff;
+		zs->avail_out = cfh->data.size;
+		zs->next_out = cfh->data.buff;
 		do {
-			if(0 == cfh->zs->avail_in && (cfh->raw.offset +
-				(cfh->raw.end - cfh->zs->avail_in) < cfh->raw_total_len)) {
+			if(0 == zs->avail_in && (cfh->raw.offset +
+				(cfh->raw.end - zs->avail_in) < cfh->raw_total_len)) {
 				dcprintf("crefill: %u: zs, refilling raw: ", cfh->cfh_id);
 				if(ensure_lseek_position(cfh)) {
 					v1printf("encountered IO_ERROR in gz crefill: %u\n", __LINE__);
@@ -1026,11 +1031,11 @@ crefill_gz(cfile *cfh)
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size,
 					cfh->raw_total_len - cfh->raw.offset));
 				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
-				cfh->zs->avail_in = cfh->raw.end = x;
+				zs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
-				cfh->zs->next_in = cfh->raw.buff;
+				zs->next_in = cfh->raw.buff;
 			}
-			err = inflate(cfh->zs, Z_NO_FLUSH);
+			err = inflate(zs, Z_NO_FLUSH);
 
 			if(err != Z_OK && err != Z_STREAM_END) {
 				v1printf("encountered err(%i) in gz crefill:%u\n", err, __LINE__);
@@ -1039,12 +1044,12 @@ crefill_gz(cfile *cfh)
 			if(err==Z_STREAM_END) {
 				dcprintf("encountered stream_end\n");
 				/* this doesn't handle u64 yet, so make it do so at some point*/
-				cfh->data_total_len = MAX(cfh->zs->total_out,
+				cfh->data_total_len = MAX(zs->total_out,
 					cfh->data_total_len);
 				cfh->state_flags |= CFILE_EOF;
 			}
-		} while((!(cfh->state_flags & CFILE_EOF)) && cfh->zs->avail_out > 0);
-		cfh->data.end = cfh->data.size - cfh->zs->avail_out;
+		} while((!(cfh->state_flags & CFILE_EOF)) && zs->avail_out > 0);
+		cfh->data.end = cfh->data.size - zs->avail_out;
 		cfh->data.pos = 0;
 	}
 	return 0;

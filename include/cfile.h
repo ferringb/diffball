@@ -144,8 +144,6 @@ typedef struct _cfile {
 	cfile_io 			io;
 
 	/* compression crap */
-//	bz_stream			*bzs;
-	z_stream			*zs;
 	lzma_stream			*xzs;
 
 } cfile;
