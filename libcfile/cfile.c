@@ -257,7 +257,9 @@ internal_copen_xz(cfile *cfh)
 {
 	cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
 	cfh->raw.size = CFILE_DEFAULT_BUFFER_SIZE;
-	if((cfh->xzs = (lzma_stream *)malloc(sizeof(lzma_stream)))==NULL) {
+	lzma_stream *xzs = (lzma_stream *)malloc(sizeof(lzma_stream));
+	cfh->io.data = (void *)xzs;
+	if (!xzs) {
 		return MEM_ERROR;
 	} else if((cfh->data.buff = (unsigned char *)malloc(cfh->data.size))==NULL) {
 		return MEM_ERROR;
@@ -265,11 +267,11 @@ internal_copen_xz(cfile *cfh)
 		return MEM_ERROR;
 	}
 	lzma_stream tmp = LZMA_STREAM_INIT;
-	memcpy(cfh->xzs, &tmp, sizeof(lzma_stream));
+	memcpy(xzs, &tmp, sizeof(lzma_stream));
 	cfh->raw.write_end = cfh->raw.write_start = cfh->data.write_start =
 		cfh->data.write_end = 0;
 	/* compression unsupported for now */
-	if(lzma_stream_decoder(cfh->xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK){
+	if(lzma_stream_decoder(xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK){
 		return IO_ERROR;
 	}
 	cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
@@ -308,7 +310,6 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 
 	assert(raw_fh_start <= raw_fh_end);
 	cfh->access_flags = access_flags;
-	cfh->xzs = NULL;
 
 	if(AUTODETECT_COMPRESSOR == compressor_type) {
 		dcprintf("copen: autodetecting comp_type: ");
@@ -502,10 +503,11 @@ cclose_gz(cfile *cfh)
 unsigned int
 cclose_xz(cfile *cfh)
 {
-	if(cfh->xzs) {
-		lzma_end(cfh->xzs);
-		free(cfh->xzs);
-		cfh->xzs = NULL;
+	lzma_stream *xzs = cfh->io.data;
+	if(xzs) {
+		lzma_end(xzs);
+		free(xzs);
+		cfh->io.data = NULL;
 	}
 	return 0;
 }
@@ -712,6 +714,7 @@ cseek_bz2(cfile *cfh, ssize_t offset, ssize_t data_offset, int offset_type)
 ssize_t
 cseek_xz(cfile *cfh, ssize_t offset, ssize_t data_offset, int offset_type)
 {
+	lzma_stream *xzs = cfh->io.data;
 	dcprintf("cseek: %u: xz: data_off(%li), data.offset(%lu)\n", cfh->cfh_id, data_offset, cfh->data.offset);
 	if(data_offset < 0) {
 		// this sucks.  quick kludge to find the eof, then set data_offset appropriately.
@@ -730,7 +733,7 @@ cseek_xz(cfile *cfh, ssize_t offset, ssize_t data_offset, int offset_type)
 		dcprintf("cseek: xz: data_offset < cfh->data.offset, resetting\n");
 		flag_lseek_needed(cfh);
 		cfh->state_flags &= ~CFILE_EOF;
-		if(lzma_stream_decoder(cfh->xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK) {
+		if(lzma_stream_decoder(xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK) {
 			return IO_ERROR;
 		}
 		cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
@@ -1060,8 +1063,9 @@ crefill_xz(cfile *cfh)
 {
 	size_t x;
 	lzma_ret xz_err;
+	lzma_stream *xzs = cfh->io.data;
 
-	assert(cfh->xzs->total_out >= cfh->data.offset + cfh->data.end);
+	assert(xzs->total_out >= cfh->data.offset + cfh->data.end);
 	if(cfh->state_flags & CFILE_EOF) {
 		dcprintf("crefill: %u: xz: CFILE_EOF flagged, returning 0\n", cfh->cfh_id);
 		cfh->data.offset += cfh->data.end;
@@ -1069,11 +1073,11 @@ crefill_xz(cfile *cfh)
 	} else {
 		cfh->data.offset += cfh->data.end;
 		dcprintf("crefill: %u: xzs, refilling data\n", cfh->cfh_id);
-		cfh->xzs->avail_out = cfh->data.size;
-		cfh->xzs->next_out = cfh->data.buff;
+		xzs->avail_out = cfh->data.size;
+		xzs->next_out = cfh->data.buff;
 		do {
-			if(0 == cfh->xzs->avail_in && (cfh->raw.offset +
-				(cfh->raw.end - cfh->xzs->avail_in) < cfh->raw_total_len)) {
+			if(0 == xzs->avail_in && (cfh->raw.offset +
+				(cfh->raw.end - xzs->avail_in) < cfh->raw_total_len)) {
 				dcprintf("crefill: %u: xzs, refilling raw: ", cfh->cfh_id);
 				if(ensure_lseek_position(cfh)) {
 					v1printf("encountered IO_ERROR in xz crefill: %u\n", __LINE__);
@@ -1083,23 +1087,23 @@ crefill_xz(cfile *cfh)
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size,
 					cfh->raw_total_len - cfh->raw.offset));
 				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
-				cfh->xzs->avail_in = cfh->raw.end = x;
+				xzs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
-				cfh->xzs->next_in = cfh->raw.buff;
+				xzs->next_in = cfh->raw.buff;
 			}
-			xz_err = lzma_code(cfh->xzs, LZMA_RUN);
+			xz_err = lzma_code(xzs, LZMA_RUN);
 			if(xz_err != LZMA_OK && xz_err != LZMA_STREAM_END) {
 				v1printf("encountered err(%i) in xz crefill:%u\n", xz_err, __LINE__);
 				return IO_ERROR;
 			}
 			if((xz_err == LZMA_STREAM_END)) {
 				dcprintf("encountered stream_end\n");
-				cfh->data_total_len = MAX(cfh->xzs->total_out,
+				cfh->data_total_len = MAX(xzs->total_out,
 					cfh->data_total_len);
 				cfh->state_flags |= CFILE_EOF;
 			}
-		} while((!(cfh->state_flags & CFILE_EOF)) && cfh->xzs->avail_out > 0);
-		cfh->data.end = cfh->data.size - cfh->xzs->avail_out;
+		} while((!(cfh->state_flags & CFILE_EOF)) && xzs->avail_out > 0);
+		cfh->data.end = cfh->data.size - xzs->avail_out;
 		cfh->data.pos = 0;
 	}
 	return 0;

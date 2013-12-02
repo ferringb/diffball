@@ -143,9 +143,6 @@ typedef struct _cfile {
 	/* io backing */
 	cfile_io 			io;
 
-	/* compression crap */
-	lzma_stream			*xzs;
-
 } cfile;
 
 #define CFH_IS_SEEKABLE(cfh)		(((cfh)->access_flags & CFILE_SEEKABLE) > 1)
