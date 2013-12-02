@@ -827,7 +827,6 @@ cseek(cfile *cfh, ssize_t offset, int offset_type)
 	case BZIP2_COMPRESSOR:
 		result = cseek_bz2(cfh, offset, data_offset, offset_type);
 		break;
-
 	case XZ_COMPRESSOR:
 		result = cseek_xz(cfh, offset, data_offset, offset_type);
 		break;
@@ -910,7 +909,8 @@ cflush(cfile *cfh)
 			}
 			cfh->data.write_end = cfh->data.write_start = cfh->data.pos = cfh->data.end = 0;
 			break;
-/*		case BZIP2_COMPRESSOR:
+/*
+		case BZIP2_COMPRESSOR:
 			// fairly raw, if working at all //
 			if(cfh->raw.pos == cfh->raw.end) {
 				if(cfh->raw.pos != write(cfh->raw_fh, cfh->raw.buff, 
