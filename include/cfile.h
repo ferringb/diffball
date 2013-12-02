@@ -32,6 +32,7 @@ extern unsigned int cfile_verbosity;
 #define XZ_COMPRESSOR					(0x3)
 #define AUTODETECT_COMPRESSOR			(0x4)
 
+// access flags
 #define CFILE_RONLY						(0x1)
 #define CFILE_WONLY						(0x2)
 #define CFILE_NEW						(0x10)
@@ -41,12 +42,14 @@ extern unsigned int cfile_verbosity;
 #define CFILE_OPEN_FH					(0x8)
 #define CFILE_SEEKABLE					(0x10)
 #define CFILE_BUFFER_ALL				(0x20)
+
+// state flags
 #define CFILE_MEM_ALIAS					(0x40)
 #define CFILE_CHILD_CFH					(0x80)
 #define CFILE_EOF						(0x100)
-#define CFILE_DATA_SEEK_NEEDED			(0x200)
+//#define CFILE_DATA_SEEK_NEEDED			(0x200)
 #define CFILE_FREE_AT_CLOSING			(0x400)
-#define CFILE_FLAG_BACKWARD_SEEKS		(0x800)
+//#define CFILE_FLAG_BACKWARD_SEEKS		(0x800)
 
 #define BZIP2_DEFAULT_COMPRESS_LEVEL		9
 #ifdef DEBUG_CFILE
