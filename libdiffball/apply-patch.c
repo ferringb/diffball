@@ -145,9 +145,6 @@ read_seq_write_rand(command_list *cl, DCB_registered_src *r_src, unsigned char i
 		return MEM_ERROR;
 	}
 
-	// we should *never* go backwards
-	u_src.cfh->state_flags |= CFILE_FLAG_BACKWARD_SEEKS;		
-
 	while(start < cl->com_count) {
 		if(pos < cl->full_command[start].src_pos) {
 			pos = cl->full_command[start].src_pos;
@@ -227,7 +224,6 @@ read_seq_write_rand(command_list *cl, DCB_registered_src *r_src, unsigned char i
 			pos += len;
 		}
 	}
-	u_src.cfh->state_flags &= ~CFILE_FLAG_BACKWARD_SEEKS;
 	free(buf);
 	return 0;
 }
