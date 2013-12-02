@@ -88,12 +88,12 @@ SEEK_END
 
 typedef struct _cfile *cfile_ptr;
 typedef int (*copen_io_func)(cfile_ptr);
-typedef unsigned int (*cclose_io_func)(cfile_ptr);
+typedef unsigned int (*cclose_io_func)(cfile_ptr, void *);
 typedef ssize_t (*cwrite_io_func)(cfile_ptr, void *src, size_t len);
 typedef ssize_t (*cread_io_func)(cfile_ptr, void *out, size_t len);
-typedef ssize_t (*crefill_io_func)(cfile_ptr);
-typedef ssize_t (*cflush_io_func)(cfile_ptr);
-typedef ssize_t (*cseek_io_func)(cfile_ptr, size_t offset);
+typedef int     (*crefill_io_func)(cfile_ptr, void *);
+typedef ssize_t (*cflush_io_func)(cfile_ptr, void *);
+typedef ssize_t (*cseek_io_func)(cfile_ptr, void *, ssize_t raw_offset, ssize_t data_offset, int offset_type);
 
 typedef struct _cfile_io {
 	copen_io_func       open;
