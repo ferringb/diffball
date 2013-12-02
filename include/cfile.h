@@ -173,7 +173,6 @@ ssize_t cwrite(cfile *cfh, void *in_buff, size_t len);
 ssize_t crefill(cfile *cfh);
 ssize_t cflush(cfile *cfh);
 size_t ctell(cfile *cfh, unsigned int tell_type);
-signed int raw_ensure_position(cfile *cfh);
 ssize_t cseek(cfile *cfh, ssize_t offset, int offset_type);
 ssize_t copy_cfile_block(cfile *out_cfh, cfile *in_cfh, size_t in_offset, size_t len);
 size_t cfile_len(cfile *cfh);
