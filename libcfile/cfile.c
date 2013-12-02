@@ -578,30 +578,6 @@ ensure_lseek_position(cfile *cfh)
 	return 0;
 }
 
-ssize_t
-copy_add_block(cfile *out_cfh, cfile *src_cfh, size_t src_offset, size_t len, void *extra)
-{
-	unsigned char buff[CFILE_DEFAULT_BUFFER_SIZE];
-	unsigned int lb;
-	size_t bytes_wrote=0;;
-	if(src_offset!=cseek(src_cfh, src_offset, CSEEK_FSTART)) {
-		v2printf("twas copy_add_block!\n");
-		return EOF_ERROR;
-	}
-	while(len) {
-		lb = MIN(CFILE_DEFAULT_BUFFER_SIZE, len);
-		if( (lb!=cread(src_cfh, buff, lb)) ||
-			(lb!=cwrite(out_cfh, buff, lb)) ) {
-			v2printf("twas copy_add_block2\n");
-			return EOF_ERROR;
-		}
-		len -= lb;
-		bytes_wrote+=lb;
-	}
-	return bytes_wrote;
-}
-
-
 cfile_window *
 expose_page(cfile *cfh)
 {
