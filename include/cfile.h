@@ -99,6 +99,7 @@ typedef struct _cfile_io {
 	crefill_io_func     refill;
 	cflush_io_func      flush;
 	cseek_io_func       seek;
+	void				*data;
 } cfile_io;
 
 typedef struct {
@@ -140,10 +141,10 @@ typedef struct _cfile {
 	cfile_window		raw;
 
 	/* io backing */
-	cfile_io 			*io;
+	cfile_io 			io;
 
 	/* compression crap */
-	bz_stream			*bzs;
+//	bz_stream			*bzs;
 	z_stream			*zs;
 	lzma_stream			*xzs;
 
