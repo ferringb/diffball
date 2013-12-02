@@ -116,7 +116,6 @@ typedef struct {
 	unsigned char *buff;
 } cfile_window;
 
-typedef struct _cfile **cfile_ptr_array;
 typedef unsigned short 		CFH_ID;
 typedef signed int			ECFH_ID;
 
