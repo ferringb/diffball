@@ -7,4 +7,4 @@ libcfile_la_CFLAGS = \
 libcfile_la_LIBADD = \
 	$(AM_LIBADD) \
 	$(LIBLZMA_LIBS)
-noinst_HEADERS = defs.h
+noinst_HEADERS = internal.h
