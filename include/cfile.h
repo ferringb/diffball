@@ -42,6 +42,7 @@ extern unsigned int cfile_verbosity;
 #define CFILE_OPEN_FH					(0x8)
 #define CFILE_SEEKABLE					(0x10)
 #define CFILE_BUFFER_ALL				(0x20)
+#define CFILE_SEEK_IS_COSTLY			(0x40)
 
 // state flags
 #define CFILE_MEM_ALIAS					(0x40)
@@ -149,6 +150,7 @@ typedef struct _cfile {
 } cfile;
 
 #define CFH_IS_SEEKABLE(cfh)		(((cfh)->access_flags & CFILE_SEEKABLE) > 1)
+#define CFH_SEEK_IS_COSTLY(cfh)		(((cfh)->access_flags & CFILE_SEEK_IS_COSTLY) > 1)
 #define FREE_CFH_AT_CLOSE(cfh)		((cfh)->state_flags |= CFILE_FREE_AT_CLOSING)
 #define CFH_IS_CHILD(cfh)		((cfh)->state_flags & CFILE_CHILD_CFH)
 

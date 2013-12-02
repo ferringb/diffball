@@ -90,7 +90,7 @@ simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_count,
 	   concern; it shouldn't be hard completing the support, just no motivation currently :) */
 	
 	for(x=0; x < patch_count; x++) {
-		if(patch_cfh[x]->compressor_type != NO_COMPRESSOR) {
+		if(CFH_SEEK_IS_COSTLY(patch_cfh[x])) {
 			reorder_commands = 1;
 		}
 
@@ -110,7 +110,7 @@ simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_count,
 		v1printf("patch_type=%lu\n", patch_id[x]);
 	}
 
-	if(src_cfh->compressor_type != NO_COMPRESSOR) {
+	if(CFH_SEEK_IS_COSTLY(src_cfh)) {
 			reorder_commands = 1;
 	}
 

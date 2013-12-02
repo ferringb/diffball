@@ -77,7 +77,7 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 {
 	int err = 0;
 	dcprintf("copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
-	cfh->state_flags = CFILE_CHILD_CFH;
+	cfh->state_flags = CFILE_CHILD_CFH | (~CFILE_SEEK_IS_COSTLY & parent->access_flags);
 	cfh->lseek_info.last_ptr = &parent->lseek_info.parent.last;
 	parent->lseek_info.parent.handle_count++;
 	dcprintf("setting child id=%u\n", parent->lseek_info.parent.handle_count);
@@ -224,6 +224,7 @@ internal_copen_bzip2(cfile *cfh)
 		bzs->next_out = (char *)cfh->data.buff;
 		bzs->avail_in = bzs->avail_out = 0;
 //	}
+	cfh->access_flags |= CFILE_SEEK_IS_COSTLY;
 	cfh->raw.pos = cfh->raw.offset  = cfh->raw.end = cfh->data.pos = 
 		cfh->data.offset = cfh->data.end = cfh->raw.write_end = cfh->raw.write_start = 0;
 	cfh->data.offset = 10;
@@ -247,6 +248,7 @@ internal_copen_gz(cfile *cfh)
 	} else if((cfh->raw.buff = (unsigned char *)malloc(cfh->raw.size))==NULL) {
 		return MEM_ERROR;
 	}
+	cfh->access_flags |= CFILE_SEEK_IS_COSTLY;
 	cfh->raw.write_end = cfh->raw.write_start = cfh->data.write_start = cfh->data.write_end = 0;
 	internal_gzopen(cfh);
 	return 0;
@@ -274,6 +276,7 @@ internal_copen_xz(cfile *cfh)
 	if(lzma_stream_decoder(xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK)!=LZMA_OK){
 		return IO_ERROR;
 	}
+	cfh->access_flags |= CFILE_SEEK_IS_COSTLY;
 	cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
 		cfh->data.offset = cfh->data.end = 0;
 	return 0;
