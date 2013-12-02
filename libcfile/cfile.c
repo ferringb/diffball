@@ -49,7 +49,6 @@ cfile_identify_compressor(int fh)
 	return NO_COMPRESSOR;
 }
 
-
 cfile *
 copen_dup_cfh(cfile *cfh)
 {
