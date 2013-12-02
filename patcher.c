@@ -119,7 +119,7 @@ main(int argc, char **argv)
 		}
 		DUMP_USAGE(EXIT_USAGE);
 	} else if (optind >= argc) {
-		v0printf("Must specify a patch file!\n")
+		v0printf("Must specify a patch file!\n");
 		DUMP_USAGE(EXIT_USAGE);
 	}
 	patch_count = argc - optind;

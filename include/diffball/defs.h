@@ -49,18 +49,18 @@ typedef signed   long long act_off_s64;
 #define PATCH_CORRUPT_ERROR		 	(-18)
 #define UNKNOWN_FORMAT				(-19)
 
-#define v0printf(expr...) fprintf(stderr, expr);
+#define v0printf(expr...) fprintf(stderr, expr)
 
 #ifdef DEV_VERSION
 #include <assert.h>
-#define eprintf(expr...)   abort(); fprintf(stderr, expr);
-#define v1printf(expr...)  fprintf(stderr,expr);
+#define eprintf(expr...)   abort(); fprintf(stderr, expr)
+#define v1printf(expr...)  fprintf(stderr,expr)
 #define v2printf(expr...)  if(global_verbosity>0){fprintf(stderr,expr);}
 #define v3printf(expr...)  if(global_verbosity>1){fprintf(stderr,expr);}
 #define v4printf(expr...)  if(global_verbosity>2){fprintf(stderr,expr);}
 #else
 #define assert(expr) ((void)0)
-#define eprintf(expr...)   fprintf(stderr, expr);
+#define eprintf(expr...)   fprintf(stderr, expr)
 #define v1printf(expr...)  if(global_verbosity>0){fprintf(stderr,expr);}
 #define v2printf(expr...)  if(global_verbosity>1){fprintf(stderr,expr);}
 #define v3printf(expr...)  if(global_verbosity>2){fprintf(stderr,expr);}
@@ -73,9 +73,9 @@ typedef signed   long long act_off_s64;
 #include <stdio.h>
 #define dcprintf(fmt...) \
 	fprintf(stderr, "%s: ",__FILE__);   \
-	fprintf(stderr, fmt);
+	fprintf(stderr, fmt)
 #else
-#define dcprintf(expr...) ((void) 0);
+#define dcprintf(expr...) ((void) 0)
 #endif
 
 #endif
