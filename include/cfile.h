@@ -154,11 +154,6 @@ typedef struct _cfile {
 #define FREE_CFH_AT_CLOSE(cfh)		((cfh)->state_flags |= CFILE_FREE_AT_CLOSING)
 #define CFH_IS_CHILD(cfh)		((cfh)->state_flags & CFILE_CHILD_CFH)
 
-#define LAST_LSEEKER(cfh) (CFH_IS_CHILD(cfh) ?								\
-	*((cfh)->lseek_info.last_ptr) : (cfh)->lseek_info.parent.last)
-//#define LAST_LSEEKER(cfh) (CFH_IS_CHILD(cfh) &&	*((cfh)->lseek_info.last_ptr) || (cfh)->lseek_info.parent.last)
-
-#define IS_LAST_LSEEKER(cfh) ( (cfh)->cfh_id == LAST_LSEEKER((cfh)) || ((cfh)->state_flags & CFILE_MEM_ALIAS) )
 
 int internal_copen(cfile *cfh, int fh, 
 	size_t raw_fh_start, size_t raw_fh_end,
@@ -176,16 +171,12 @@ cfile *copen_dup_cfh(cfile *cfh);
 int copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end, 
 	unsigned int compressor_type, unsigned int access_flags);
 
-inline signed int ensure_lseek_position(cfile *cfh);
-inline void flag_lseek_needed(cfile *cfh);
-inline void set_last_lseeker(cfile *cfh);
 unsigned int cclose(cfile *cfh);
 ssize_t cread(cfile *cfh, void *out_buff, size_t len);
 ssize_t cwrite(cfile *cfh, void *in_buff, size_t len);
 ssize_t crefill(cfile *cfh);
 ssize_t cflush(cfile *cfh);
 size_t ctell(cfile *cfh, unsigned int tell_type);
-signed int raw_ensure_position(cfile *cfh);
 ssize_t cseek(cfile *cfh, ssize_t offset, int offset_type);
 ssize_t copy_cfile_block(cfile *out_cfh, cfile *in_cfh, size_t in_offset, size_t len);
 ssize_t copy_add_block(cfile *out_cfh, cfile *src_cfh, size_t src_offset, size_t len, void *extra);
