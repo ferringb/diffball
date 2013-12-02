@@ -19,6 +19,7 @@
 #define _HEADER_DEFS 1
 
 #include "config.h"
+#include <stdio.h>
 #include <errno.h>
 
 #define MAX(x,y) ((x) > (y) ? (x) : (y))

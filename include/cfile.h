@@ -18,11 +18,8 @@
 #ifndef _HEADER_CFILE
 #define _HEADER_CFILE
 
+#include <sys/types.h>
 extern unsigned int cfile_verbosity;
-
-#include <bzlib.h>
-#include <zlib.h>
-#include <lzma.h>
 
 #define CFILE_DEFAULT_BUFFER_SIZE 		(4096)
 //#define CFILE_DEFAULT_BUFFER_SIZE		(BUFSIZ)
