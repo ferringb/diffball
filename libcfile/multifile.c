@@ -325,6 +325,12 @@ multifile_recurse_directory(const char *root, const char *directory, char **file
 }		
 
 int
+rstrcmp(const void *x, const void *y)
+{
+	return -strcmp((const char *)x, (const char *)y);
+}
+
+int
 copen_multifile_directory(cfile *cfh, const char *src_directory)
 {
 	char **files = NULL;
@@ -352,6 +358,6 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		free(directory);
 		return 1;
 	}
-	qsort(files, files_count, sizeof(char *), (int (*)(const void *, const void *))strcmp);
+	qsort(files, files_count, sizeof(char *), rstrcmp);
 	return copen_multifile(cfh, directory, files, files_count);
 }
