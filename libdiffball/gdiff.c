@@ -93,8 +93,8 @@ gdiffEncodeDCBuffer(CommandBuffer *buffer,
 			continue;
 		}
 		if(dc.type == DC_ADD) {
-			v2printf("add command, delta_pos(%u), src_off(%llu), ver_pos(%llu), len(%llu)\n",
-				delta_pos, (act_off_u64)dc.data.src_pos, (act_off_u64)dc.data.ver_pos, (act_off_u64)dc.data.len);
+//			v2printf("add command, delta_pos(%u), src_off(%llu), ver_pos(%llu), len(%llu)\n",
+//				delta_pos, (act_off_u64)dc.data.src_pos, (act_off_u64)dc.data.ver_pos, (act_off_u64)dc.data.len);
 			u_off = dc.data.len;
 			if(dc.data.len <= 246) {
 				out_buff[0] = dc.data.len;
@@ -170,10 +170,10 @@ gdiffEncodeDCBuffer(CommandBuffer *buffer,
 			clen+= ob;
 			writeUBytesBE(out_buff + clen, dc.data.len, lb);
 			clen+=lb;
-			v2printf("copy delta_pos(%u), type(%u), src_pos(%llu), ver_pos(%llu), len(%llu)\n",
-				delta_pos, out_buff[0], (act_off_u64)dc.data.src_pos, (act_off_u64)dc.data.ver_pos,
-				//(off_is_sbytes ?  dc_pos + s_off : u_off), 
-				(act_off_u64)dc.data.len);
+//			v2printf("copy delta_pos(%u), type(%u), src_pos(%llu), ver_pos(%llu), len(%llu)\n",
+//				delta_pos, out_buff[0], (act_off_u64)dc.data.src_pos, (act_off_u64)dc.data.ver_pos,
+//				//(off_is_sbytes ?  dc_pos + s_off : u_off), 
+//				(act_off_u64)dc.data.len);
 			if(cwrite(out_cfh, out_buff, clen)!=clen) {
 				return IO_ERROR;
 			}
@@ -215,7 +215,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID  src_id, cfile *patchf, CommandBuffer *dcbuff,
 	while(cread(patchf, buff, 1)==1 && *buff != 0) {
 		if(*buff > 0 && *buff <= 248) {
 			//add command
-			v2printf("add command type(%u) ", *buff);
+//			v2printf("add command type(%u) ", *buff);
 			if(*buff >=247 && *buff <= 248){
 				if (*buff==247)
 					lb=2;
@@ -232,7 +232,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID  src_id, cfile *patchf, CommandBuffer *dcbuff,
 			cseek(patchf, len, CSEEK_CUR);
 		} else if(*buff >= 249 ) {
 			//copy command
-			v2printf("copy command ccom(%u) ", *buff);
+//			v2printf("copy command ccom(%u) ", *buff);
 			if(*buff >=249 && *buff <= 251) {
 				ob=2;
 				if(*buff==249)

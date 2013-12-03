@@ -11,11 +11,15 @@ endif
 
 DIFF_LIBS = libdiffball/libdiffball.la
 CFILE_LIBS = libcfile/libcfile.la
-bin_PROGRAMS = differ patcher diffball convert_delta delta_tree ${cfile_bins}
+bin_PROGRAMS = differ patcher diffball convert_delta delta_tree delta_patcher quick_test ${cfile_bins}
 
 patcher_LDADD	=	${DIFF_LIBS} ${CFILE_LIBS}
 patcher_SOURCES = 	patcher.c	\
 					options.c
+
+delta_patcher_LDADD	=	${DIFF_LIBS} ${CFILE_LIBS}
+delta_patcher_SOURCES = 	delta_patcher.c	\
+						options.c
 
 diffball_LDADD	= 	${DIFF_LIBS} ${CFILE_LIBS}
 diffball_SOURCES = 	diffball.c	\
@@ -34,6 +38,9 @@ convert_delta_SOURCES = convert_delta.c	\
 delta_tree_LDADD	=	${DIFF_LIBS} ${CFILE_LIBS}
 delta_tree_SOURCES = 	delta_tree.c 	\
 						options.c 
+
+quick_test_LDADD	=	${DIFF_LIBS} ${CFILE_LIBS}
+quick_test_SOURCES = 	quick_test.c
 
 #man_MANS = differ.1 diffball.1 patcher.1 convert_delta.1
 #EXTRA_DIST = $(man_MANS)

@@ -957,6 +957,9 @@ DCB_add_overlay(CommandBuffer *dcb, off_u64 diff_src_pos, off_u32 len, DCB_SRC_I
 int 
 DCB_add_add(CommandBuffer *buffer, off_u64 src_pos, off_u32 len, DCB_SRC_ID src_id)
 {
+	if (buffer->reconstruct_pos == 1463174) {
+		printf("yo");
+	}
 	v3printf("add v(%llu), l(%u), id(%u), rpos(%llu)\n", (act_off_u64)src_pos, len, src_id, 
 		(act_off_u64)buffer->reconstruct_pos);
 	if(buffer->add_add)

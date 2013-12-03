@@ -178,8 +178,14 @@ crefill_multifile(cfile *cfh, void *raw)
 		eprintf("Somehow lseek w/in refill failed\n");
 		return (cfh->err = IO_ERROR);
 	}
-	cfh->data.end = read(data->active_fd, cfh->data.buff,
+	ssize_t result = read(data->active_fd, cfh->data.buff,
 		MIN(cfh->data.size, data->file_map[data->current_file_index].end - cfh->data.offset));
+	if (result >= 0) {
+		cfh->data.end = result;
+	} else {
+		eprintf("got nonzero read: errno %i for %s\n", errno, data->files[data->current_file_index]);
+		return (cfh->err = IO_ERROR);
+	}
 	dcprintf("crefill_multifile: %u: no_compress, got %lu\n", cfh->cfh_id, cfh->data.end);
 	return 0;
 }
