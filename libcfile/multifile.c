@@ -21,9 +21,11 @@
 #include "internal.h"
 #include <string.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #include <linux/limits.h>
 
+#define FREE_FILES_ON_CLOSE 0x01
 
 typedef struct {
 	size_t	start;
@@ -40,6 +42,7 @@ typedef struct {
 	unsigned long file_count;
 	int active_fd;
 	unsigned long current_file_index;
+	int flags;
 } multifile_data;
 
 void
@@ -96,6 +99,9 @@ cclose_multifile(cfile *cfh, void *raw)
 	if (data) {
 		multifile_close_active_fd(data);
 		free(data->file_map);
+		if (data->flags & FREE_FILES_ON_CLOSE) {
+			free(data->files);
+		}
 		free(data);
 	}
 	return 0;
@@ -171,7 +177,7 @@ crefill_multifile(cfile *cfh, void *raw)
 }
 
 int
-copen_multifile(cfile *cfh, const char *files[], unsigned long file_count)
+copen_multifile(cfile *cfh, const char *root, const char *files[], unsigned long file_count)
 {
 	int result = 0;
 	memset(cfh, 0, sizeof(cfile));
@@ -184,6 +190,7 @@ copen_multifile(cfile *cfh, const char *files[], unsigned long file_count)
 		free(data);
 		return MEM_ERROR;
 	}
+	data->root = root;
 	data->files = files;
 	data->file_count = file_count;
 	data->active_fd = -1;
@@ -221,3 +228,114 @@ cleanup:
 	cclose_multifile(cfh, data);
 	return result;
 }	
+
+int
+multifile_recurse_directory(const char *root, const char *directory, char **files[], unsigned long *files_count, unsigned long *files_size)
+{
+	DIR *the_dir;
+	struct dirent *entry;
+	char buf[PATH_MAX];
+	strcpy(buf, root);
+	char *directory_start = buf + strlen(root);
+	char *start = directory_start;
+	if (directory) {
+		strcpy(directory_start, directory);
+		start += strlen(directory);
+	}
+
+	if (!(the_dir = opendir(buf))) {
+		eprintf("multifile: Failed opening directory %s, errno %i\n", directory, errno);
+		return 1;
+	}
+
+	while ((entry = readdir(the_dir))) {
+		const char *name = entry->d_name;
+		if (name[0] == '.' && (name[1] == 0 || (name[1] == '.' && name[2] == 0))) {
+			// . or .. ; ignore.
+			continue;
+		}
+		start[0] = 0;
+		if (entry->d_type == DT_UNKNOWN) {
+			strcpy(start, name);
+			struct stat st;
+			if (lstat(buf, &st)) {
+				eprintf("multifile: Failed lstating %s; errno %i\n", buf, errno);
+				return 1;
+			}
+
+			if (!S_ISREG(st.st_mode)) {
+				if (S_ISDIR(st.st_mode)){
+					strcat(start, "/");;
+					if(multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
+						return 1;
+					}
+				}
+				continue;
+			}
+		} else if (entry->d_type != DT_REG) {
+			if (entry->d_type == DT_DIR) {
+				strcat(start, name);
+				strcat(start, "/");
+				if (multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
+					return 1;
+				}
+			}
+			continue;
+		} else {
+			strcpy(start, name);
+		}
+			
+		if (*files_size == *files_count) {
+			if (*files_size == 0) {
+				*files_size = 16;
+			}
+			char **tmp = realloc(*files, sizeof(char *) * ((*files_size) * 2));
+			if (!tmp) {
+				eprintf("multifile: failed reallocing files array to size %lu\n", ((*files_size) * 2));
+				return 1;
+			}
+			*files = tmp;
+			*files_size *= 2;
+		}
+		(*files)[*files_count] = strdup(directory_start);
+		if (!((*files)[*files_count])) {
+			eprintf("multifile: failed strdup for %s\n", buf);
+			return 1;
+		}
+		*files_count += 1;
+	}
+	closedir(the_dir);
+	return 0;
+}		
+
+int
+copen_multifile_directory(cfile *cfh, const char *src_directory)
+{
+	char **files = NULL;
+	unsigned long files_count = 0;
+	unsigned long files_size = 0;
+	char *directory = NULL;
+
+	int dir_len = strlen(src_directory);
+	if (src_directory[dir_len] != '/') {
+		directory = malloc(dir_len + 2);
+		if(directory) {
+			memcpy(directory, src_directory, dir_len);
+			directory[dir_len] = '/';
+			dir_len++;
+			directory[dir_len] = 0;
+		}
+	} else {
+		directory = strdup(src_directory);
+	}
+	if (!directory) {
+		eprintf("multifile: directory dup mem allocaiton failed\n");
+		return 1;
+	}
+	if (multifile_recurse_directory(directory, NULL, &files, &files_count, &files_size)) {
+		free(directory);
+		return 1;
+	}
+	printf("got %zi files\n", files_count);
+	return 0;
+}
