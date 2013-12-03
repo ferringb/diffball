@@ -25,8 +25,6 @@
 
 #include <linux/limits.h>
 
-#define FREE_FILES_ON_CLOSE 0x01
-
 typedef struct {
 	size_t	start;
 	size_t	end;
@@ -34,10 +32,10 @@ typedef struct {
 
 typedef struct {
 	// Directory root for all files that were given.  Guranteed to have a trailig /
-	const char *root;
+	char *root;
 	int root_len;
 	// The sorted list of files.
-	const char **files;
+	char **files;
 	file_position *file_map;
 	unsigned long file_count;
 	int active_fd;
@@ -50,7 +48,7 @@ get_filepath(multifile_data *data, unsigned long file_pos, char *buf)
 {
 	if (data->root_len) {
 		memcpy(buf, data->root, data->root_len);
-		buf += data->root_len + 1;
+		buf += data->root_len;
 	}
 	strcpy(buf, data->files[file_pos]);
 }
@@ -99,9 +97,8 @@ cclose_multifile(cfile *cfh, void *raw)
 	if (data) {
 		multifile_close_active_fd(data);
 		free(data->file_map);
-		if (data->flags & FREE_FILES_ON_CLOSE) {
-			free(data->files);
-		}
+		free(data->files);
+		free(data->root);
 		free(data);
 	}
 	return 0;
@@ -177,20 +174,22 @@ crefill_multifile(cfile *cfh, void *raw)
 }
 
 int
-copen_multifile(cfile *cfh, const char *root, const char *files[], unsigned long file_count)
+copen_multifile(cfile *cfh, char *root, char *files[], unsigned long file_count)
 {
 	int result = 0;
 	memset(cfh, 0, sizeof(cfile));
 	multifile_data *data = (multifile_data *)calloc(sizeof(multifile_data), 1);
 	if (!data) {
-		return MEM_ERROR;
+		result = MEM_ERROR;
+		goto cleanup;
 	}
 	data->file_map = calloc(sizeof(file_position), file_count);
 	if (!data->file_map) {
-		free(data);
-		return MEM_ERROR;
+		result = MEM_ERROR;
+		goto cleanup;
 	}
 	data->root = root;
+	data->root_len = strlen(root);
 	data->files = files;
 	data->file_count = file_count;
 	data->active_fd = -1;
@@ -199,7 +198,8 @@ copen_multifile(cfile *cfh, const char *root, const char *files[], unsigned long
 	struct stat st;
 	size_t position = 0;
 	unsigned long x = 0;
-	const char *file = files[0];
+	char *file = files[0];
+	strcpy(buf, root);
 	for (; x < file_count; x++, file++) {
 		get_filepath(data, x, buf);
 		result = lstat(buf, &st);
@@ -225,7 +225,12 @@ copen_multifile(cfile *cfh, const char *root, const char *files[], unsigned long
 	return 0;
 
 cleanup:
-	cclose_multifile(cfh, data);
+	if (data) {
+		cclose_multifile(cfh, data);
+	} else {
+		free(root);
+		free(files);
+	}
 	return result;
 }	
 
@@ -336,6 +341,6 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		free(directory);
 		return 1;
 	}
-	printf("got %zi files\n", files_count);
-	return 0;
+	qsort(files, files_count, sizeof(char *), (int (*)(const void *, const void *))strcmp);
+	return copen_multifile(cfh, directory, files, files_count);
 }
