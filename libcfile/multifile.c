@@ -105,22 +105,22 @@ cclose_multifile(cfile *cfh, void *raw)
 }
 
 ssize_t
-cseek_multifile(cfile *cfh, void *raw, ssize_t offset, ssize_t data_offset, int offset_type)
+cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset, int offset_type)
 {
 	multifile_data *data = (multifile_data *)raw;
-	if (offset >= data->file_map[data->current_file_index].end || offset < data->file_map[data->current_file_index].start) {
+	if (data_offset >= data->file_map[data->current_file_index].end || data_offset < data->file_map[data->current_file_index].start) {
 		if (set_file_index(data, data_offset)) {
 			return (cfh->err = IO_ERROR);
 		}
 		cfh->data.pos = 0;
 		cfh->data.end = 0;
-		cfh->data.offset = offset;
+		cfh->data.offset = data_offset;
 	} else {
 		// We were asked to seek in a handle we already have- iow, greater seek then the crefill machinery
 		// provided.
 		cfh->data.pos = 0;
 		cfh->data.end = 0;
-		cfh->data.offset = offset;
+		cfh->data.offset = data_offset;
 		if (data->active_fd != -1) {
 			// Only lseek if the handle is actually open.
 			size_t desired = cfh->data.offset - data->file_map[data->current_file_index].start;
@@ -131,7 +131,7 @@ cseek_multifile(cfile *cfh, void *raw, ssize_t offset, ssize_t data_offset, int 
 		}
 	}
 	// Check this; CSEEK_ABS behaviour may be retarded.
-	return offset;
+	return data_offset;
 }
 
 int
@@ -221,6 +221,7 @@ copen_multifile(cfile *cfh, char *root, char *files[], unsigned long file_count)
 	cfh->io.seek = cseek_multifile;
 	cfh->io.refill = crefill_multifile;
 	cfh->io.close = cclose_multifile;
+	cfh->io.data = (void *)data;
 	
 	return 0;
 
