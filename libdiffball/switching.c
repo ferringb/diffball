@@ -143,7 +143,7 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	if(count < 0) 
 		return count;
 
-	v1printf("output add block, len(%u)\n", delta_pos);
+//	v1printf("output add block, len(%u)\n", delta_pos);
 	DCBufferReset(buffer);
 	last_com = DC_COPY;
 	dc_pos=0;
@@ -175,14 +175,14 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			writeUBitsBE(out_buff, temp_len, lb);
 			out_buff[0] |= (temp << 6); 
 			cwrite(out_cfh, out_buff, temp + 1);
-			v2printf("writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
+//			v2printf("writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
 			delta_pos += temp + 1;
 			fh_pos += dcc.len;
 			last_com = DC_ADD;
 			commands_processed = count;
 		} else {
 			if(last_com == DC_COPY) {
-				v2printf("last command was a copy, outputing blank add\n");
+//				v2printf("last command was a copy, outputing blank add\n");
 				out_buff[0]=0;
 				cwrite(out_cfh, out_buff, 1);
 				delta_pos++;
@@ -192,9 +192,9 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			if(offset_type == ENCODING_OFFSET_DC_POS) {
 				s_off = dcc.commands[commands_processed].data.src_pos - dc_pos;
 				u_off = abs(s_off);
-				v2printf("off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ", 
-					(act_off_u64)dcc.commands[commands_processed].data.src_pos, 
-					dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
+//				v2printf("off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ", 
+//					(act_off_u64)dcc.commands[commands_processed].data.src_pos, 
+//					dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
 			} else {
 				u_off = dcc.commands[commands_processed].data.src_pos;
 			}
@@ -238,9 +238,9 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 						s_off -= copy_off_array[temp];
 						is_neg=0;
 					} else { 
-						v2printf("s_off(%lld): ", (act_off_s64)s_off);
+//						v2printf("s_off(%lld): ", (act_off_s64)s_off);
 						s_off += copy_off_array[temp];
-						v2printf("s_off(%lld): ", (act_off_s64)s_off);
+//						v2printf("s_off(%lld): ", (act_off_s64)s_off);
 						is_neg = 1;
 					}
 				}
@@ -253,9 +253,9 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 				writeUBytesBE(out_buff + lb, u_off, temp + 1);
 			} 
 			cwrite(out_cfh, out_buff, lb + temp + 1);
-			v2printf("writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
-				delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
-				dcc.commands[commands_processed].data.len);
+//			v2printf("writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
+//				delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
+//				dcc.commands[commands_processed].data.len);
 			fh_pos += dcc.commands[commands_processed].data.len;
 			delta_pos += lb + temp + 1;
 			last_com=DC_COPY;

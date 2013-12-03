@@ -110,20 +110,7 @@ int main(int argc, char **argv)
 			exit(EXIT_USAGE);
 		}
 	}
-	exit(0);
-	
-	if( ((src_file = (char *)get_next_arg(argc,argv)) == NULL) ||
-		(err = copen(&ref_cfh, src_file, NO_COMPRESSOR, CFILE_RONLY)) != 0) {
-		if(src_file) {
-			if(err == MEM_ERROR) {
-				v0printf("alloc failure for src_file\n");
-			} else {
-				v0printf("Must specify an existing source file.\n");
-			}
-			exit(EXIT_USAGE);
-		}
-		DUMP_USAGE(EXIT_USAGE);
-	}
+
 	err = 0;
 	if( ((trg_file=(char *)get_next_arg(argc, argv)) == NULL) ||
 		(err = copen(&ver_cfh, trg_file, NO_COMPRESSOR, CFILE_RONLY)) != 0) {

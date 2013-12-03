@@ -499,6 +499,7 @@ crefill(cfile *cfh)
 	assert((cfh->state_flags & CFILE_MEM_ALIAS) == 0);
 	assert(cfh->io.refill != NULL);
 
+	memset(cfh->data.buff, 0, cfh->data.size);
 	int result = cfh->io.refill(cfh, cfh->io.data);
 
 	return result == 0 ? cfh->data.end : result;
