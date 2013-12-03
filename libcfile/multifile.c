@@ -155,14 +155,24 @@ crefill_multifile(cfile *cfh, void *raw)
 	multifile_data *data = (multifile_data *)raw;
 	cfh->data.offset += cfh->data.end;
 	cfh->data.end = cfh->data.pos = 0;
-	if (cfh->data.offset >= data->file_map[data->current_file_index].end) {
-		multifile_close_active_fd(data);
-		if (data->current_file_index + 1 == data->file_count) {
+
+	unsigned long current = data->current_file_index;
+
+	// Seek forward for the next file.
+	// This should be a single step, but zero length files may be in
+	// the list- as such we use a while loop here to skip them.
+	while (cfh->data.offset >= data->file_map[current].end) {
+		if (current + 1 == data->file_count) {
 			cfh->state_flags |= CFILE_EOF;
 			cfh->data.offset += cfh->data.end;
 			cfh->data.pos = cfh->data.end = 0;
 			return 0;
 		}
+		current++;
+	}
+	if (current != data->current_file_index) {
+		data->current_file_index = current;
+		multifile_close_active_fd(data);
 	}
 	if (multifile_ensure_open_active(data)) {
 		return (cfh->err = IO_ERROR);
