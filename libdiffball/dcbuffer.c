@@ -941,7 +941,7 @@ DCB_add_overlay(CommandBuffer *dcb, off_u64 diff_src_pos, off_u32 len, DCB_SRC_I
 			dcbnb->dc.ov_len = 2;
 			dcbnb->dc.ov_offset = 0;
 			if(len != copyDCB_add_src(dcb, &dcbnb->dc, dcbnb->out_cfh)) {
-				v1printf("error executing add_overlay during bufferless mode\n")
+				v1printf("error executing add_overlay during bufferless mode\n");
 				return IO_ERROR;
 			}
 			dcb->reconstruct_pos += len;
