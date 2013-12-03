@@ -60,10 +60,10 @@ bsearch_compar(const void *key, const void *array_item)
 	file_position *item = (file_position *)array_item;
 	if (offset < item->start) {
 		return -1;
-	} else if (offset > item->end) {
-		return 1;
+	} else if (offset < item->end) {
+		return 0;
 	}
-	return 0;
+	return 1;
 }
 
 void
@@ -107,28 +107,24 @@ cclose_multifile(cfile *cfh, void *raw)
 ssize_t
 cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset, int offset_type)
 {
+	dcprintf("requested to cseek to %lu\n", data_offset);
 	multifile_data *data = (multifile_data *)raw;
+	cfh->data.pos = 0;
+	cfh->data.end = 0;
 	if (data_offset >= data->file_map[data->current_file_index].end || data_offset < data->file_map[data->current_file_index].start) {
+		// This requires a new file; jump to that file.
 		if (set_file_index(data, data_offset)) {
 			return (cfh->err = IO_ERROR);
 		}
-		cfh->data.pos = 0;
-		cfh->data.end = 0;
-		cfh->data.offset = data_offset;
-	} else {
-		// We were asked to seek in a handle we already have- iow, greater seek then the crefill machinery
-		// provided.
-		cfh->data.pos = 0;
-		cfh->data.end = 0;
-		cfh->data.offset = data_offset;
-		if (data->active_fd != -1) {
-			// Only lseek if the handle is actually open.
-			size_t desired = cfh->data.offset - data->file_map[data->current_file_index].start;
-			if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
-				eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->files[data->current_file_index]);
-				return (cfh->err = IO_ERROR);
-			}
-		}
+	}
+	if(multifile_ensure_open_active(data)) {
+		return (cfh->err = IO_ERROR);
+	}
+	cfh->data.offset = data_offset;
+	size_t desired = data_offset - data->file_map[data->current_file_index].start;
+	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
+		eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->files[data->current_file_index]);
+		return (cfh->err = IO_ERROR);
 	}
 	// Check this; CSEEK_ABS behaviour may be retarded.
 	return data_offset;
@@ -175,6 +171,11 @@ crefill_multifile(cfile *cfh, void *raw)
 		multifile_close_active_fd(data);
 	}
 	if (multifile_ensure_open_active(data)) {
+		return (cfh->err = IO_ERROR);
+	}
+	size_t desired = cfh->data.offset - data->file_map[data->current_file_index].start;
+	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
+		eprintf("Somehow lseek w/in refill failed\n");
 		return (cfh->err = IO_ERROR);
 	}
 	cfh->data.end = read(data->active_fd, cfh->data.buff,
@@ -324,10 +325,10 @@ multifile_recurse_directory(const char *root, const char *directory, char **file
 	return 0;
 }		
 
-int
-rstrcmp(const void *x, const void *y)
+static int
+cmpstrcmp(const void *p1, const void *p2)
 {
-	return -strcmp((const char *)x, (const char *)y);
+	return strcmp(* (char * const *) p1, * (char * const *) p2);
 }
 
 int
@@ -358,6 +359,12 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		free(directory);
 		return 1;
 	}
-	qsort(files, files_count, sizeof(char *), rstrcmp);
+	qsort(files, files_count, sizeof(char *), cmpstrcmp);
+/*
+	unsigned long i=0;
+	for (; i < files_count; i++) {
+		printf("%s\n", files[i]);
+	}
+*/
 	return copen_multifile(cfh, directory, files, files_count);
 }
