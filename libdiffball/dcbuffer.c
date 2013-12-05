@@ -96,6 +96,7 @@ DCB_get_next_collapsed_command(CommandBuffer *dcb, DCommand_collapsed *dcc)
 				return dcc->pos = dcc->count = 0;
 			}
 			dcc->pos = dcc->count = 0;
+			dcc->len = dcc->commands[dcc->pos].data.len;
 			return 1;
 		}
 	} else {
