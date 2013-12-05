@@ -109,7 +109,7 @@ writeUBytesBE(unsigned char *buff, unsigned long value, unsigned int l)
 {
 	unsigned int x;
 	for(x=0; x < l; x++)
-		buff[x] = (value >> (l - 1 -x)*8) & 0xff;
+		buff[x] = (value >> ((l - 1 -x)*8)) & 0xff;
 	if(l > 4 && (value >> (l * 8)) > 0) 
 		return 1;
 	return 0;
