@@ -207,7 +207,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID  src_id, cfile *patchf, CommandBuffer *dcbuff,
 	else
 		off_is_sbytes=0;
 //	assert(DCBUFFER_FULL_TYPE == dcbuff->DCBtype);
-	cseek(patchf, 5, CSEEK_CUR);
+	cseek(patchf, 5, CSEEK_FSTART);
 
 	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 //	ref_id = DCB_REGISTER_COPY_SRC(dcbuff, ref_cfh, NULL, 0);
@@ -215,7 +215,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID  src_id, cfile *patchf, CommandBuffer *dcbuff,
 	while(cread(patchf, buff, 1)==1 && *buff != 0) {
 		if(*buff > 0 && *buff <= 248) {
 			//add command
-//			v2printf("add command type(%u) ", *buff);
+			v2printf("add command type(%u) ", *buff);
 			if(*buff >=247 && *buff <= 248){
 				if (*buff==247)
 					lb=2;
@@ -232,7 +232,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID  src_id, cfile *patchf, CommandBuffer *dcbuff,
 			cseek(patchf, len, CSEEK_CUR);
 		} else if(*buff >= 249 ) {
 			//copy command
-//			v2printf("copy command ccom(%u) ", *buff);
+			v2printf("copy command ccom(%u) ", *buff);
 			if(*buff >=249 && *buff <= 251) {
 				ob=2;
 				if(*buff==249)
