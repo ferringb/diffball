@@ -93,9 +93,15 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	}
 	
 	DCBufferReset(buffer);
-	cwrite(out_cfh, SWITCHING_MAGIC, SWITCHING_MAGIC_LEN);
+	if (SWITCHING_MAGIC_LEN != cwrite(out_cfh, SWITCHING_MAGIC, SWITCHING_MAGIC_LEN)) {
+		eprintf("Failed writing %i bytes to the patch file\n", SWITCHING_MAGIC_LEN);
+		return IO_ERROR;
+	}
 	writeUBytesBE(out_buff, SWITCHING_VERSION, SWITCHING_VERSION_LEN);
-	cwrite(out_cfh, out_buff, SWITCHING_VERSION_LEN);
+	if (SWITCHING_VERSION_LEN != cwrite(out_cfh, out_buff, SWITCHING_VERSION_LEN)) {
+		eprintf("Failed writing %i bytes to the patch file\n", SWITCHING_VERSION_LEN);
+		return IO_ERROR;
+	}
 	delta_pos += SWITCHING_MAGIC_LEN + SWITCHING_VERSION_LEN;
 	total_add_len=0;
 //	while(DCB_commands_remain(buffer)) {
@@ -174,17 +180,23 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			temp_len -= add_len_start[temp];
 			writeUBitsBE(out_buff, temp_len, lb);
 			out_buff[0] |= (temp << 6); 
-			cwrite(out_cfh, out_buff, temp + 1);
-//			v2printf("writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
+			if (temp +1 != cwrite(out_cfh, out_buff, temp + 1)) {
+				eprintf("Failed writing %lu to the patch fileu\n", temp + 1);
+				return IO_ERROR;
+			}
+			v2printf("writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
 			delta_pos += temp + 1;
 			fh_pos += dcc.len;
 			last_com = DC_ADD;
 			commands_processed = count;
 		} else {
 			if(last_com == DC_COPY) {
-//				v2printf("last command was a copy, outputing blank add\n");
+				v2printf("last command was a copy, outputing blank add\n");
 				out_buff[0]=0;
-				cwrite(out_cfh, out_buff, 1);
+				if (1 != cwrite(out_cfh, out_buff, 1)) {
+					eprintf("Failed writing to the patch file\n");
+					return IO_ERROR;
+				}
 				delta_pos++;
 			}
 
@@ -192,9 +204,9 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			if(offset_type == ENCODING_OFFSET_DC_POS) {
 				s_off = dcc.commands[commands_processed].data.src_pos - dc_pos;
 				u_off = abs(s_off);
-//				v2printf("off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ", 
-//					(act_off_u64)dcc.commands[commands_processed].data.src_pos, 
-//					dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
+				v2printf("off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ", 
+					(act_off_u64)dcc.commands[commands_processed].data.src_pos, 
+					dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
 			} else {
 				u_off = dcc.commands[commands_processed].data.src_pos;
 			}
@@ -252,10 +264,13 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 				u_off -= copy_off_array[temp];
 				writeUBytesBE(out_buff + lb, u_off, temp + 1);
 			} 
-			cwrite(out_cfh, out_buff, lb + temp + 1);
-//			v2printf("writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
-//				delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
-//				dcc.commands[commands_processed].data.len);
+			if (lb + temp + 1 != cwrite(out_cfh, out_buff, lb + temp + 1)) {
+				eprintf("Failed writing to the patch file\n");
+				return IO_ERROR;
+			}
+			v2printf("writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
+				delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
+				dcc.commands[commands_processed].data.len);
 			fh_pos += dcc.commands[commands_processed].data.len;
 			delta_pos += lb + temp + 1;
 			last_com=DC_COPY;
@@ -269,10 +284,16 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	free_DCommand_collapsed(&dcc);
 	writeUBytesBE(out_buff, 0, 2);
 	if(last_com==DC_COPY) {
-		cwrite(out_cfh, out_buff,1);
+		if (1 != cwrite(out_cfh, out_buff,1)) {
+			eprintf("Failed writing to the patch file\n");
+			return IO_ERROR;
+		}
 		delta_pos++;
 	}
-	cwrite(out_cfh, out_buff, 2);
+	if (2 != cwrite(out_cfh, out_buff, 2)) {
+		eprintf("Failed writing to the patch file\n");
+		return IO_ERROR;
+	}
 	delta_pos+=2;
 	return 0;
 }
