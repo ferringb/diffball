@@ -232,8 +232,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 		seed_len = 128;
 	}
 	v1printf("multipass, hash_size(%lu)\n", hash_size);
-//	for(; seed_len >=16; seed_len /= 2) {
-	for(; seed_len == 512; seed_len /= 2) {
+	for(; seed_len >=16; seed_len /= 2) {
 		if( ((DCB_llm *)buff->DCB)->main_head == NULL) {
 			first_run=1;
 		}
