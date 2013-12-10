@@ -609,6 +609,7 @@ next_page(cfile *cfh)
 cfile_window *
 prev_page(cfile *cfh)
 {
+	ssize_t page_start = cfh->data.offset;
 	/* possibly do an error check or something here */
 	if(cfh->access_flags & CFILE_WRITEABLE) {
 		cflush(cfh);
@@ -623,6 +624,12 @@ prev_page(cfile *cfh)
 			cseek(cfh, -cfh->data.size, CSEEK_CUR);
 		} 
 		crefill(cfh);
+		// Hack: multifile can rewind too far if it crosses a file boundary-
+		// Remove this once the api is expanded to allow the cfile implementation
+		// to do page exposure.
+		while(cfh->data.offset + cfh->data.end < page_start) {
+			crefill(cfh);
+		}
 	}
 	return &cfh->data;
 }
