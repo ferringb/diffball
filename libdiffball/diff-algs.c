@@ -116,17 +116,28 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 		//back matching
 		vm = vc;
 		rm = hash_offset;
+		assert(vm >= vcfw->offset && vm < end_pos(vcfw));
+		assert(rm >= rcfw->offset && rm < end_pos(rcfw));
+		if (vm == 10336418 && rm == 922885) {
+			printf("yes'm\n");
+		}
 		while(vm > 0 && rm > 0) {
-			while(vm - 1 < vcfw->offset) {
+			while(vcfw->offset > vm -1) {
+				assert(end_pos(vcfw) > vm - 1);
 				vcfw = prev_page(vcfh);
 				if(vcfw->end == 0)
 					return IO_ERROR;
 			}
-			while(rm - 1 < rcfw->offset) {
+			while(rcfw->offset > rm - 1) {
+				assert(end_pos(rcfw) > rm - 1);
 				rcfw = prev_page(rh->ref_cfh);
 				if(rcfw->end == 0) 
 					return IO_ERROR;
 			}
+			assert(vm -1 >= vcfw->offset);
+			assert(rm -1 >= rcfw->offset);
+			assert(end_pos(vcfw) > vm - 1);
+			assert(end_pos(rcfw) > rm - 1);
 			if(vcfw->buff[vm - 1 - vcfw->offset] == rcfw->buff[rm - 1 - rcfw->offset]) {
 				rm--;
 				vm--;
