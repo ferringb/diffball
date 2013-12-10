@@ -180,4 +180,12 @@ size_t cfile_start_offset(cfile *cfh);
 cfile_window *expose_page(cfile *cfh);
 cfile_window *next_page(cfile *cfh);
 cfile_window *prev_page(cfile *cfh);
+
+typedef struct {
+	char *file;
+	struct stat *st;
+	size_t start;
+	size_t end;
+} multifile_file_data;
+
 #endif
