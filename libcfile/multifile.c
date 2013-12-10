@@ -26,18 +26,14 @@
 #include <linux/limits.h>
 
 typedef struct {
-	size_t	start;
-	size_t	end;
-} file_position;
-
-typedef struct {
 	// Directory root for all files that were given.  Guranteed to have a trailig /
 	char *root;
 	int root_len;
-	// The sorted list of files.
-	char **files;
-	file_position *file_map;
+
+	// The individual files themselves.
+	multifile_file_data **files;
 	unsigned long file_count;
+
 	int active_fd;
 	unsigned long current_file_index;
 	int flags;
@@ -50,14 +46,14 @@ get_filepath(multifile_data *data, unsigned long file_pos, char *buf)
 		memcpy(buf, data->root, data->root_len);
 		buf += data->root_len;
 	}
-	strcpy(buf, data->files[file_pos]);
+	strcpy(buf, data->files[file_pos]->file);
 }
 
 int
 bsearch_compar(const void *key, const void *array_item)
 {
 	size_t offset = *((size_t *)key);
-	file_position *item = (file_position *)array_item;
+	multifile_file_data *item = *((multifile_file_data **)array_item);
 	if (offset < item->start) {
 		return -1;
 	} else if (offset < item->end) {
@@ -78,14 +74,14 @@ multifile_close_active_fd(multifile_data *data)
 int
 set_file_index(multifile_data *data, size_t offset)
 {
-	assert(offset <= data->file_map[data->file_count - 1].end);
-	file_position *match = (file_position *)bsearch(&offset, data->file_map, data->file_count, sizeof(file_position), bsearch_compar);
+	assert(offset <= data->files[data->file_count -1]->end);
+	multifile_file_data **match = (multifile_file_data **)bsearch(&offset, data->files, data->file_count, sizeof(multifile_file_data *), bsearch_compar);
 	if (!match) {
-		eprintf("Somehow received NULL from bsearch for multitfile: offset %li\n", offset);
+		eprintf("Somehow received NULL from bsearch for multifile: offset %li\n", offset);
 		return 1;
 	}
 	multifile_close_active_fd(data);
-	data->current_file_index = match - data->file_map;
+	data->current_file_index = match - data->files;
 	assert (data->current_file_index < data->file_count);
 	return 0;
 }
@@ -96,7 +92,12 @@ cclose_multifile(cfile *cfh, void *raw)
 	multifile_data *data = (multifile_data *)raw;
 	if (data) {
 		multifile_close_active_fd(data);
-		free(data->file_map);
+		while (data->file_count > 0){
+			data->file_count--;
+			free(data->files[data->file_count]->file);
+			free(data->files[data->file_count]->st);
+			free(data->files[data->file_count]);
+		}
 		free(data->files);
 		free(data->root);
 		free(data);
@@ -111,7 +112,7 @@ cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset,
 	multifile_data *data = (multifile_data *)raw;
 	cfh->data.pos = 0;
 	cfh->data.end = 0;
-	if (data_offset >= data->file_map[data->current_file_index].end || data_offset < data->file_map[data->current_file_index].start) {
+	if (data_offset >= data->files[data->current_file_index]->end || data_offset < data->files[data->current_file_index]->start) {
 		// This requires a new file; jump to that file.
 		if (set_file_index(data, data_offset)) {
 			return (cfh->err = IO_ERROR);
@@ -121,9 +122,9 @@ cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset,
 		return (cfh->err = IO_ERROR);
 	}
 	cfh->data.offset = data_offset;
-	size_t desired = data_offset - data->file_map[data->current_file_index].start;
+	size_t desired = data_offset - data->files[data->current_file_index]->start;
 	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
-		eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->files[data->current_file_index]);
+		eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->files[data->current_file_index]->file);
 		return (cfh->err = IO_ERROR);
 	}
 	// Check this; CSEEK_ABS behaviour may be retarded.
@@ -157,7 +158,7 @@ crefill_multifile(cfile *cfh, void *raw)
 	// Seek forward for the next file.
 	// This should be a single step, but zero length files may be in
 	// the list- as such we use a while loop here to skip them.
-	while (cfh->data.offset >= data->file_map[current].end) {
+	while (cfh->data.offset >= data->files[current]->end) {
 		if (current + 1 == data->file_count) {
 			cfh->state_flags |= CFILE_EOF;
 			cfh->data.offset += cfh->data.end;
@@ -173,17 +174,17 @@ crefill_multifile(cfile *cfh, void *raw)
 	if (multifile_ensure_open_active(data)) {
 		return (cfh->err = IO_ERROR);
 	}
-	size_t desired = cfh->data.offset - data->file_map[data->current_file_index].start;
+	size_t desired = cfh->data.offset - data->files[data->current_file_index]->start;
 	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
 		eprintf("Somehow lseek w/in refill failed\n");
 		return (cfh->err = IO_ERROR);
 	}
 	ssize_t result = read(data->active_fd, cfh->data.buff,
-		MIN(cfh->data.size, data->file_map[data->current_file_index].end - cfh->data.offset));
+		MIN(cfh->data.size, data->files[data->current_file_index]->end - cfh->data.offset));
 	if (result >= 0) {
 		cfh->data.end = result;
 	} else {
-		eprintf("got nonzero read: errno %i for %s\n", errno, data->files[data->current_file_index]);
+		eprintf("got nonzero read: errno %i for %s\n", errno, data->files[data->current_file_index]->file);
 		return (cfh->err = IO_ERROR);
 	}
 	dcprintf("crefill_multifile: %u: no_compress, got %lu\n", cfh->cfh_id, cfh->data.end);
@@ -191,17 +192,12 @@ crefill_multifile(cfile *cfh, void *raw)
 }
 
 int
-copen_multifile(cfile *cfh, char *root, char *files[], unsigned long file_count)
+copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long file_count)
 {
 	int result = 0;
 	memset(cfh, 0, sizeof(cfile));
 	multifile_data *data = (multifile_data *)calloc(sizeof(multifile_data), 1);
 	if (!data) {
-		result = MEM_ERROR;
-		goto cleanup;
-	}
-	data->file_map = calloc(sizeof(file_position), file_count);
-	if (!data->file_map) {
 		result = MEM_ERROR;
 		goto cleanup;
 	}
@@ -212,22 +208,14 @@ copen_multifile(cfile *cfh, char *root, char *files[], unsigned long file_count)
 	data->active_fd = -1;
 
 	char buf[PATH_MAX];
-	struct stat st;
 	size_t position = 0;
 	unsigned long x = 0;
-	char *file = files[0];
 	strcpy(buf, root);
-	for (; x < file_count; x++, file++) {
+	for (; x < file_count; x++) {
 		get_filepath(data, x, buf);
-		result = lstat(buf, &st);
-		if (result != 0) {
-			result = IO_ERROR;
-			eprintf("Failed initialized multifile due to errno %i for %s\n", errno, buf);
-			goto cleanup;
-		}
-		data->file_map[x].start = position;
-		position += st.st_size;
-		data->file_map[x].end = position;
+		data->files[x]->start = position;
+		position += data->files[x]->st->st_size;
+		data->files[x]->end = position;
 	}
 
 	result = internal_copen(cfh, -1, 0, position, 0, 0, NO_COMPRESSOR, CFILE_RONLY);
@@ -253,7 +241,7 @@ cleanup:
 }	
 
 int
-multifile_recurse_directory(const char *root, const char *directory, char **files[], unsigned long *files_count, unsigned long *files_size)
+multifile_recurse_directory(const char *root, const char *directory, multifile_file_data **files[], unsigned long *files_count, unsigned long *files_size)
 {
 	DIR *the_dir;
 	struct dirent *entry;
@@ -278,41 +266,32 @@ multifile_recurse_directory(const char *root, const char *directory, char **file
 			continue;
 		}
 		start[0] = 0;
-		if (entry->d_type == DT_UNKNOWN) {
-			strcpy(start, name);
-			struct stat st;
-			if (lstat(buf, &st)) {
-				eprintf("multifile: Failed lstating %s; errno %i\n", buf, errno);
-				return 1;
-			}
+		strcpy(start, name);
+		struct stat *st = malloc(sizeof(struct stat));
+		if (!st) {
+			eprintf("multifile: Failed mallocing stat structure\n");
+			return 1;
+		}
 
-			if (!S_ISREG(st.st_mode)) {
-				if (S_ISDIR(st.st_mode)){
-					strcat(start, "/");;
-					if(multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
-						return 1;
-					}
-				}
-				continue;
-			}
-		} else if (entry->d_type != DT_REG) {
-			if (entry->d_type == DT_DIR) {
-				strcat(start, name);
-				strcat(start, "/");
-				if (multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
+		if (lstat(buf, st)) {
+			eprintf("multifile: Failed lstating %s; errno %i\n", buf, errno);
+			return 1;
+		}
+		if (!S_ISREG(st->st_mode)) {
+			if (S_ISDIR(st->st_mode)){
+				strcat(start, "/");;
+				if(multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
 					return 1;
 				}
 			}
 			continue;
-		} else {
-			strcpy(start, name);
 		}
-			
+
 		if (*files_size == *files_count) {
 			if (*files_size == 0) {
 				*files_size = 16;
 			}
-			char **tmp = realloc(*files, sizeof(char *) * ((*files_size) * 2));
+			multifile_file_data **tmp = realloc(*files, sizeof(multifile_file_data *) * ((*files_size) * 2));
 			if (!tmp) {
 				eprintf("multifile: failed reallocing files array to size %lu\n", ((*files_size) * 2));
 				return 1;
@@ -320,8 +299,16 @@ multifile_recurse_directory(const char *root, const char *directory, char **file
 			*files = tmp;
 			*files_size *= 2;
 		}
-		(*files)[*files_count] = strdup(directory_start);
-		if (!((*files)[*files_count])) {
+		multifile_file_data *entry = (multifile_file_data *)calloc(sizeof(multifile_file_data), 1);
+		if (!entry) {
+			eprintf("multifile: failed allocing file_data entry\n");
+			return 1;
+		}
+
+		(*files)[*files_count] = entry;
+		entry->file = strdup(directory_start);
+		entry->st = st;
+		if (!entry->file) {
 			eprintf("multifile: failed strdup for %s\n", buf);
 			return 1;
 		}
@@ -334,13 +321,15 @@ multifile_recurse_directory(const char *root, const char *directory, char **file
 static int
 cmpstrcmp(const void *p1, const void *p2)
 {
-	return strcmp(* (char * const *) p1, * (char * const *) p2);
+	multifile_file_data *i1 = *((multifile_file_data **)p1);
+	multifile_file_data *i2 = *((multifile_file_data **)p2);
+	return strcmp(i1->file, i2->file);
 }
 
 int
 copen_multifile_directory(cfile *cfh, const char *src_directory)
 {
-	char **files = NULL;
+	multifile_file_data **files = NULL;
 	unsigned long files_count = 0;
 	unsigned long files_size = 0;
 	char *directory = NULL;
@@ -365,7 +354,7 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		free(directory);
 		return 1;
 	}
-	qsort(files, files_count, sizeof(char *), cmpstrcmp);
+	qsort(files, files_count, sizeof(multifile_file_data *), cmpstrcmp);
 /*
 	unsigned long i=0;
 	for (; i < files_count; i++) {
