@@ -162,7 +162,7 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 
 	dcbuff->ver_size = 0;
 //	assert(DCBUFFER_FULL_TYPE == dcbuff->DCBtype);
-	if(3!=cseek(patchf, 3, CSEEK_FSTART))
+	if(3!=cseek(patchf, BDELTA_MAGIC_LEN, CSEEK_FSTART))
 		goto truncated_patch;
 	if(2!=cread(patchf, buff, BDELTA_VERSION_LEN))
 		goto truncated_patch;
