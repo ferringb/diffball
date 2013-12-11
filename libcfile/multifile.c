@@ -17,27 +17,64 @@
 */
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 #include "internal.h"
 #include <string.h>
 #include <fcntl.h>
 #include <dirent.h>
 
-#include <linux/limits.h>
 
 typedef struct {
 	// Directory root for all files that were given.  Guranteed to have a trailig /
 	char *root;
 	int root_len;
 
-	// The individual files themselves.
-	multifile_file_data **files;
+	multifile_file_data **fs;
+
+
+	// The # of files (regardless of type).
+	unsigned long fs_count;
+
+	// # of S_ISREG (literal files) count.
 	unsigned long file_count;
 
+	// An FD to whatever current_fs_index points at, or -1 if no file is open currently.
 	int active_fd;
-	unsigned long current_file_index;
+
+	// The current FS index- this always points at an actual file.
+	unsigned long current_fs_index;
 	int flags;
 } multifile_data;
+
+
+static char *
+readlink_dup(char *filepath, struct stat *st)
+{
+	char *linkname;
+	ssize_t r;
+
+	if (lstat(filepath, st) == -1) {
+		eprintf("Failed readlink'ing %s; did the FS change?\n", filepath);
+		return NULL;
+	}
+
+	linkname = malloc(st->st_size + 1);
+	if (linkname == NULL) {
+		eprintf("Failed allocating memory for symlink target of len %i: %s\n", st->st_size +1, filepath);
+		return NULL;
+	}
+
+	r = readlink(filepath, linkname, st->st_size + 1);
+
+	if (r == -1 || r > st->st_size) {
+		eprintf("Lstat failed: link changed under foot: %s\n", filepath);
+		return NULL;
+	}
+
+    linkname[r] = '\0';
+	return linkname;
+}
 
 void
 get_filepath(multifile_data *data, unsigned long file_pos, char *buf)
@@ -46,7 +83,7 @@ get_filepath(multifile_data *data, unsigned long file_pos, char *buf)
 		memcpy(buf, data->root, data->root_len);
 		buf += data->root_len;
 	}
-	strcpy(buf, data->files[file_pos]->file);
+	strcpy(buf, data->fs[file_pos]->filename);
 }
 
 int
@@ -74,15 +111,15 @@ multifile_close_active_fd(multifile_data *data)
 int
 set_file_index(multifile_data *data, size_t offset)
 {
-	assert(offset <= data->files[data->file_count -1]->end);
-	multifile_file_data **match = (multifile_file_data **)bsearch(&offset, data->files, data->file_count, sizeof(multifile_file_data *), bsearch_compar);
+	assert(offset <= data->fs[data->fs_count -1]->end);
+	multifile_file_data **match = (multifile_file_data **)bsearch(&offset, data->fs, data->fs_count, sizeof(multifile_file_data *), bsearch_compar);
 	if (!match) {
 		eprintf("Somehow received NULL from bsearch for multifile: offset %li\n", offset);
 		return 1;
 	}
 	multifile_close_active_fd(data);
-	data->current_file_index = match - data->files;
-	assert (data->current_file_index < data->file_count);
+	data->current_fs_index = match - data->fs;
+	assert (data->current_fs_index < data->fs_count);
 	return 0;
 }
 
@@ -92,13 +129,13 @@ cclose_multifile(cfile *cfh, void *raw)
 	multifile_data *data = (multifile_data *)raw;
 	if (data) {
 		multifile_close_active_fd(data);
-		while (data->file_count > 0){
-			data->file_count--;
-			free(data->files[data->file_count]->file);
-			free(data->files[data->file_count]->st);
-			free(data->files[data->file_count]);
+		while (data->fs_count > 0){
+			data->fs_count--;
+			free(data->fs[data->fs_count]->filename);
+			free(data->fs[data->fs_count]->st);
+			free(data->fs[data->fs_count]);
 		}
-		free(data->files);
+		free(data->fs);
 		free(data->root);
 		free(data);
 	}
@@ -112,7 +149,7 @@ cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset,
 	multifile_data *data = (multifile_data *)raw;
 	cfh->data.pos = 0;
 	cfh->data.end = 0;
-	if (data_offset >= data->files[data->current_file_index]->end || data_offset < data->files[data->current_file_index]->start) {
+	if (data_offset >= data->fs[data->current_fs_index]->end || data_offset < data->fs[data->current_fs_index]->start) {
 		// This requires a new file; jump to that file.
 		if (set_file_index(data, data_offset)) {
 			return (cfh->err = IO_ERROR);
@@ -122,9 +159,9 @@ cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset,
 		return (cfh->err = IO_ERROR);
 	}
 	cfh->data.offset = data_offset;
-	size_t desired = data_offset - data->files[data->current_file_index]->start;
+	size_t desired = data_offset - data->fs[data->current_fs_index]->start;
 	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
-		eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->files[data->current_file_index]->file);
+		eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->fs[data->current_fs_index]->filename);
 		return (cfh->err = IO_ERROR);
 	}
 	// Check this; CSEEK_ABS behaviour may be retarded.
@@ -136,7 +173,7 @@ multifile_ensure_open_active(multifile_data *data)
 {
 	char buf[PATH_MAX];
 	if (data->active_fd == -1) {
-		get_filepath(data, data->current_file_index, buf);
+		get_filepath(data, data->current_fs_index, buf);
 		data->active_fd = open(buf, O_NOFOLLOW|O_RDONLY);
 		if (data->active_fd == -1) {
 			eprintf("Failed opening multifile %s; errno %i\n", buf, errno);
@@ -153,13 +190,13 @@ crefill_multifile(cfile *cfh, void *raw)
 	cfh->data.offset += cfh->data.end;
 	cfh->data.end = cfh->data.pos = 0;
 
-	unsigned long current = data->current_file_index;
+	unsigned long current = data->current_fs_index;
 
 	// Seek forward for the next file.
 	// This should be a single step, but zero length files may be in
 	// the list- as such we use a while loop here to skip them.
-	while (cfh->data.offset >= data->files[current]->end) {
-		if (current + 1 == data->file_count) {
+	while (cfh->data.offset >= data->fs[current]->end) {
+		if (current + 1 == data->fs_count) {
 			cfh->state_flags |= CFILE_EOF;
 			cfh->data.offset += cfh->data.end;
 			cfh->data.pos = cfh->data.end = 0;
@@ -167,24 +204,24 @@ crefill_multifile(cfile *cfh, void *raw)
 		}
 		current++;
 	}
-	if (current != data->current_file_index) {
-		data->current_file_index = current;
+	if (current != data->current_fs_index) {
+		data->current_fs_index = current;
 		multifile_close_active_fd(data);
 	}
 	if (multifile_ensure_open_active(data)) {
 		return (cfh->err = IO_ERROR);
 	}
-	size_t desired = cfh->data.offset - data->files[data->current_file_index]->start;
+	size_t desired = cfh->data.offset - data->fs[data->current_fs_index]->start;
 	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
 		eprintf("Somehow lseek w/in refill failed\n");
 		return (cfh->err = IO_ERROR);
 	}
 	ssize_t result = read(data->active_fd, cfh->data.buff,
-		MIN(cfh->data.size, data->files[data->current_file_index]->end - cfh->data.offset));
+		MIN(cfh->data.size, data->fs[data->current_fs_index]->end - cfh->data.offset));
 	if (result >= 0) {
 		cfh->data.end = result;
 	} else {
-		eprintf("got nonzero read: errno %i for %s\n", errno, data->files[data->current_file_index]->file);
+		eprintf("got nonzero read: errno %i for %s\n", errno, data->fs[data->current_fs_index]->filename);
 		return (cfh->err = IO_ERROR);
 	}
 	dcprintf("crefill_multifile: %u: no_compress, got %lu\n", cfh->cfh_id, cfh->data.end);
@@ -192,7 +229,7 @@ crefill_multifile(cfile *cfh, void *raw)
 }
 
 int
-copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long file_count)
+copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long fs_count)
 {
 	int result = 0;
 	memset(cfh, 0, sizeof(cfile));
@@ -203,22 +240,23 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 	}
 	data->root = root;
 	data->root_len = strlen(root);
-	data->files = files;
-	data->file_count = file_count;
+	data->fs = files;
+	data->fs_count = fs_count;
 	data->active_fd = -1;
 
 	char buf[PATH_MAX];
 	size_t position = 0;
 	unsigned long x = 0;
 	strcpy(buf, root);
-	for (; x < file_count; x++) {
+	for (; x < fs_count; x++) {
 		get_filepath(data, x, buf);
-		data->files[x]->start = position;
+		data->fs[x]->start = position;
 		// ignore all secondary hardlinks.
-		if (!data->files[x]->hardlink && S_ISREG(data->files[x]->st->st_mode)) {
-			position += data->files[x]->st->st_size;
+		if (!data->fs[x]->link_target && S_ISREG(data->fs[x]->st->st_mode)) {
+			position += data->fs[x]->st->st_size;
+			data->file_count++;
 		}
-		data->files[x]->end = position;
+		data->fs[x]->end = position;
 	}
 
 	result = internal_copen(cfh, -1, 0, position, 0, 0, NO_COMPRESSOR, CFILE_RONLY);
@@ -306,10 +344,17 @@ multifile_recurse_directory(const char *root, const char *directory, multifile_f
 			return 1;
 		}
 
+		if (S_ISLNK(st->st_mode)) {
+			entry->link_target = readlink_dup(buf, st);
+			if (!entry->link_target) {
+				return 1;
+			}
+		}
+
 		(*files)[*files_count] = entry;
-		entry->file = strdup(directory_start);
+		entry->filename = strdup(directory_start);
 		entry->st = st;
-		if (!entry->file) {
+		if (!entry->filename) {
 			eprintf("multifile: failed strdup for %s\n", buf);
 			return 1;
 		}
@@ -324,7 +369,7 @@ cmpstrcmp(const void *p1, const void *p2)
 {
 	multifile_file_data *i1 = *((multifile_file_data **)p1);
 	multifile_file_data *i2 = *((multifile_file_data **)p2);
-	return strcmp(i1->file, i2->file);
+	return strcmp(i1->filename, i2->filename);
 }
 
 static int
@@ -336,7 +381,7 @@ cmp_hardlinks(const void *p1, const void *p2)
 	icmp(i1->st->st_dev, i2->st->st_dev);
 	icmp(i1->st->st_ino, i2->st->st_ino);
 	#undef icmp
-	return strcmp(i1->file, i2->file);
+	return strcmp(i1->filename, i2->filename);
 }
 
 int
@@ -372,10 +417,8 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 	for (i=1; i < files_count; i++) {
 		if (files[i -1]->st->st_dev == files[i]->st->st_dev &&
 			files[i -1]->st->st_ino == files[i]->st->st_ino) {
-			files[i]->hardlink = files[i -1]->file;
-			dcprintf("hardlink found: %s to %s\n", files[i]->file, files[i]->hardlink);
-		} else {
-			files[i]->hardlink = NULL;
+			files[i]->link_target = files[i -1]->filename;
+			dcprintf("hardlink found: %s to %s\n", files[i]->filename, files[i]->link_target);
 		}
 	}
 	qsort(files, files_count, sizeof(multifile_file_data *), cmpstrcmp);
@@ -386,4 +429,13 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 	}
 */
 	return copen_multifile(cfh, directory, files, files_count);
+}
+
+int
+multifile_expose_content(cfile *cfh, multifile_file_data ***results, unsigned long *fs_count)
+{
+	multifile_data *data = (multifile_data *)cfh->io.data;
+	*results = data->fs;
+	*fs_count = data->fs_count;
+	return 0;
 }

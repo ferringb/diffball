@@ -227,6 +227,9 @@ int internal_DCB_register_volatile_cfh_src(CommandBuffer *dcb, cfile *cfh,
 	dcb_src_read_func read_func, dcb_src_copy_func copy_func, 
 	unsigned char free, unsigned char type);
 
+#define DCB_EXPOSE_ADD_CFH(dcb) ((dcb)->default_add_src->src_ptr.cfh)
+#define DCB_EXPOSE_COPY_CFH(dcb) ((dcb)->default_copy_src->src_ptr.cfh)
+
 #define DCB_REGISTER_VOLATILE_ADD_SRC(dcb, cfh, func, free)				\
 	internal_DCB_register_volatile_cfh_src((dcb), (cfh), NULL, (func), DC_ADD, (free))
 #define DCB_REGISTER_VOLATILE_COPY_SRC(dcb, cfh, func, free)				\
