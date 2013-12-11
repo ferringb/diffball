@@ -214,7 +214,8 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 	for (; x < file_count; x++) {
 		get_filepath(data, x, buf);
 		data->files[x]->start = position;
-		if (S_ISREG(data->files[x]->st->st_mode)) {
+		// ignore all secondary hardlinks.
+		if (!data->files[x]->hardlink && S_ISREG(data->files[x]->st->st_mode)) {
 			position += data->files[x]->st->st_size;
 		}
 		data->files[x]->end = position;
@@ -326,6 +327,18 @@ cmpstrcmp(const void *p1, const void *p2)
 	return strcmp(i1->file, i2->file);
 }
 
+static int
+cmp_hardlinks(const void *p1, const void *p2)
+{
+	multifile_file_data *i1 = *((multifile_file_data **)p1);
+	multifile_file_data *i2 = *((multifile_file_data **)p2);
+	#define icmp(x, y) if ((x) < (y)) { return -1; } else if ((x) > (y)) { return 1; }
+	icmp(i1->st->st_dev, i2->st->st_dev);
+	icmp(i1->st->st_ino, i2->st->st_ino);
+	#undef icmp
+	return strcmp(i1->file, i2->file);
+}
+
 int
 copen_multifile_directory(cfile *cfh, const char *src_directory)
 {
@@ -353,6 +366,17 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 	if (multifile_recurse_directory(directory, NULL, &files, &files_count, &files_size)) {
 		free(directory);
 		return 1;
+	}
+	qsort(files, files_count, sizeof(multifile_file_data *), cmp_hardlinks);
+	unsigned long i;
+	for (i=1; i < files_count; i++) {
+		if (files[i -1]->st->st_dev == files[i]->st->st_dev &&
+			files[i -1]->st->st_ino == files[i]->st->st_ino) {
+			files[i]->hardlink = files[i -1]->file;
+			dcprintf("hardlink found: %s to %s\n", files[i]->file, files[i]->hardlink);
+		} else {
+			files[i]->hardlink = NULL;
+		}
 	}
 	qsort(files, files_count, sizeof(multifile_file_data *), cmpstrcmp);
 /*

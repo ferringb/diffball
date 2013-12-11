@@ -186,6 +186,7 @@ typedef struct {
 	struct stat *st;
 	size_t start;
 	size_t end;
+	char *hardlink;
 } multifile_file_data;
 
 #endif
