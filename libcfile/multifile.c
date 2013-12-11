@@ -214,7 +214,9 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 	for (; x < file_count; x++) {
 		get_filepath(data, x, buf);
 		data->files[x]->start = position;
-		position += data->files[x]->st->st_size;
+		if (S_ISREG(data->files[x]->st->st_mode)) {
+			position += data->files[x]->st->st_size;
+		}
 		data->files[x]->end = position;
 	}
 
@@ -277,14 +279,12 @@ multifile_recurse_directory(const char *root, const char *directory, multifile_f
 			eprintf("multifile: Failed lstating %s; errno %i\n", buf, errno);
 			return 1;
 		}
-		if (!S_ISREG(st->st_mode)) {
-			if (S_ISDIR(st->st_mode)){
-				strcat(start, "/");;
-				if(multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
-					return 1;
-				}
+
+		if (S_ISDIR(st->st_mode)){
+			strcat(start, "/");;
+			if(multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
+				return 1;
 			}
-			continue;
 		}
 
 		if (*files_size == *files_count) {
