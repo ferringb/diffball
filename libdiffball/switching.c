@@ -104,11 +104,6 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	}
 	delta_pos += SWITCHING_MAGIC_LEN + SWITCHING_VERSION_LEN;
 	total_add_len=0;
-//	while(DCB_commands_remain(buffer)) {
-//		DCB_get_next_command(buffer, &dc);
-//		if(DC_ADD==dc.type)
-//			total_add_len += dc.data.len;
-//	}
 
 	while((count = DCB_get_next_collapsed_command(buffer, &dcc)) > 0) {
 		if(DC_ADD == dcc.commands[0].type)
@@ -124,15 +119,6 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	delta_pos += 4;
 
 	DCBufferReset(buffer);
-//	while(DCB_commands_remain(buffer)) {
-//		DCB_get_next_command(buffer, &dc);
-//		if(DC_ADD == dc.type) {
-//			if(dc.data.len != copyDCB_add_src(buffer, &dc, out_cfh)) {
-//				return EOF_ERROR;
-//			}
-//			delta_pos += dc.data.len;
-//			}
-//	}
 
 	while((count = DCB_get_next_collapsed_command(buffer, &dcc)) > 0) {
 		if(DC_ADD == dcc.commands[0].type) {
@@ -153,15 +139,10 @@ int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	DCBufferReset(buffer);
 	last_com = DC_COPY;
 	dc_pos=0;
-//	while(DCB_commands_remain(buffer)) {
 
 	commands_processed = 0;
 	count = DCB_get_next_collapsed_command(buffer, &dcc);
 	while(commands_processed < count) {
-//		DCB_get_next_command(buffer, &dc);
-//		if(dc.data.len == 0) {
-//			continue;
-//		}
 		if(DC_ADD == dcc.commands[0].type) {
 			temp_len = dcc.len;
 			if(temp_len >= add_len_start[3]) {
