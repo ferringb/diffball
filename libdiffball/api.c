@@ -63,6 +63,8 @@ simple_difference(cfile *ref_cfh, cfile *ver_cfh, cfile *out_cfh, unsigned int p
 		encode_result = switchingEncodeDCBuffer(&buffer, out_cfh);
 	} else if (BDELTA_FORMAT == patch_id) {
 		encode_result = bdeltaEncodeDCBuffer(&buffer, out_cfh);
+	} else if (TREE_FORMAT == patch_id) {
+		encode_result = treeEncodeDCBuffer(&buffer, out_cfh);
 	} else {
 		encode_result = UNSUPPORTED_OPT;
 	}

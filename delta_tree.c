@@ -104,25 +104,22 @@ int main(int argc, char **argv)
 	}
 	err = 0;
 	src_file = (char *)get_next_arg(argc, argv);
-	if (src_file) {
-		if (copen_multifile_directory(&ref_cfh, src_file)) {
-			v0printf("Walking directory %s failed\n", src_file);
-			exit(EXIT_USAGE);
-		}
-	}
-
-	err = 0;
-	if( ((trg_file=(char *)get_next_arg(argc, argv)) == NULL) ||
-		(err = copen(&ver_cfh, trg_file, NO_COMPRESSOR, CFILE_RONLY)) != 0) {
-		if(trg_file) {
-			if(err == MEM_ERROR) {
-				v0printf("alloc failure for trg_file\n");
-			} else {
-				v0printf("Must specify an existing target file.\n");
-			}
-			exit(EXIT_USAGE);
-		}
+	if (!src_file) {
 		DUMP_USAGE(EXIT_USAGE);
+	}
+	err = copen_multifile_directory(&ref_cfh, src_file);
+	if (err) {
+		v0printf("Walking directory %s failed\n", src_file);
+		exit(EXIT_USAGE);
+	}
+	trg_file = (char *)get_next_arg(argc, argv);
+	if (!trg_file) {
+		DUMP_USAGE(EXIT_USAGE);
+	}
+	err = copen_multifile_directory(&ver_cfh, trg_file);
+	if (err) {
+		v0printf("Walking directory %s failed\n", src_file);
+		exit(EXIT_USAGE);
 	}
 	if(patch_to_stdout != 0) {
 		out_fh = 1;
@@ -139,7 +136,7 @@ int main(int argc, char **argv)
 	}
 
 	if(patch_format==NULL) {
-		patch_id = DEFAULT_PATCH_ID;
+		patch_id = TREE_FORMAT;
 	} else {
 		patch_id = check_for_format(patch_format, strlen(patch_format));
 		if(patch_id==0) {
