@@ -84,8 +84,17 @@ get_filepath(multifile_data *data, unsigned long file_pos, char *buf)
 	strcpy(buf, data->fs[file_pos]->filename);
 }
 
-int
-bsearch_compar(const void *key, const void *array_item)
+void
+multifile_close_active_fd(multifile_data *data)
+{
+	if (data->active_fd != -1) {
+		close(data->active_fd);
+		data->active_fd = -1;
+	}
+}
+
+static int
+bsearch_cmp_offset(const void *key, const void *array_item)
 {
 	size_t offset = *((size_t *)key);
 	multifile_file_data *item = *((multifile_file_data **)array_item);
@@ -97,20 +106,11 @@ bsearch_compar(const void *key, const void *array_item)
 	return 1;
 }
 
-void
-multifile_close_active_fd(multifile_data *data)
-{
-	if (data->active_fd != -1) {
-		close(data->active_fd);
-		data->active_fd = -1;
-	}
-}
-
 int
 set_file_index(multifile_data *data, size_t offset)
 {
 	assert(offset <= data->fs[data->fs_count -1]->end);
-	multifile_file_data **match = (multifile_file_data **)bsearch(&offset, data->fs, data->fs_count, sizeof(multifile_file_data *), bsearch_compar);
+	multifile_file_data **match = (multifile_file_data **)bsearch(&offset, data->fs, data->fs_count, sizeof(multifile_file_data *), bsearch_cmp_offset);
 	if (!match) {
 		if (offset != data->fs[data->fs_count -1]->end) {
 			eprintf("Somehow received NULL from bsearch for multifile: offset %li\n", offset);
@@ -122,6 +122,24 @@ set_file_index(multifile_data *data, size_t offset)
 	data->current_fs_index = match - data->fs;
 	assert (data->current_fs_index < data->fs_count);
 	return 0;
+}
+
+int
+bsearch_cmp_filename(const void *key, const void *array_item)
+{
+	const char *filename = (const char *)key;
+	multifile_file_data *item = *((multifile_file_data **)array_item);
+	return strcmp(filename, item->filename);
+}
+
+multifile_file_data *
+multifile_find_file(const char *filename, multifile_file_data **array, unsigned long fs_count)
+{
+	multifile_file_data **match = (multifile_file_data **)bsearch(filename, array, fs_count, sizeof(multifile_file_data *), bsearch_cmp_filename);
+	if (match) {
+		return match[0];
+	}
+	return NULL;
 }
 
 unsigned int
