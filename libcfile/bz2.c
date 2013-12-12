@@ -73,13 +73,13 @@ cseek_bz2(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offse
 		if(ensure_lseek_position(cfh)) {
 			return (cfh->err = IO_ERROR);
 		}
-		if(cfh->data_fh_offset) {
-			while(cfh->data.offset + cfh->data.end < cfh->data_fh_offset) {
+		if(cfh->data.window_offset) {
+			while(cfh->data.offset + cfh->data.end < cfh->data.window_offset) {
 				if(crefill(cfh)<=0) {
 					return EOF_ERROR;
 				}
 			}
-			cfh->data.offset -= cfh->data_fh_offset;
+			cfh->data.offset -= cfh->data.window_offset;
 		}
 	} else {
 		if(ensure_lseek_position(cfh)) {
@@ -94,7 +94,7 @@ cseek_bz2(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offse
 	cfh->data.pos = data_offset - cfh->data.offset;
 
 	/* note bzip2 doens't use the normal return */
-	return (CSEEK_ABS==offset_type ? data_offset + cfh->data_fh_offset : data_offset);
+	return (CSEEK_ABS==offset_type ? data_offset + cfh->data.window_offset : data_offset);
 }
 
 int
