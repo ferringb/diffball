@@ -58,7 +58,10 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 FORMAT:
   magic
   version
-  4 bytes: # of files.
+  4 bytes: # of src files.
+    filename\0
+    8 bytes size
+  4 bytes: # of generated files.
     filename\0
     8 bytes size
   8 bytes: # length of the delta
