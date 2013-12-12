@@ -53,9 +53,9 @@ crefill_no_comp(cfile *cfh, void *data)
 		return (cfh->err = IO_ERROR);
 	}
 	cfh->data.offset += cfh->data.end;
-	if(cfh->data_total_len != 0) {
+	if(cfh->data.window_len != 0) {
 		x = read(cfh->raw_fh, cfh->data.buff, MIN(cfh->data.size,
-			cfh->data_total_len - cfh->data.offset));
+			cfh->data.window_len - cfh->data.offset));
 	} else {
 		x = read(cfh->raw_fh, cfh->data.buff, cfh->data.size);
 	}
@@ -99,7 +99,7 @@ internal_copen_no_comp(cfile *cfh)
 {
 	dcprintf("copen: opening w/ no_compressor\n");
 	if(cfh->access_flags & CFILE_BUFFER_ALL) {
-		cfh->data.size = cfh->data_total_len;
+		cfh->data.size = cfh->data.window_len;
 	} else {
 		cfh->data.size = CFILE_DEFAULT_BUFFER_SIZE;
 	}

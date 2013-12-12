@@ -46,9 +46,9 @@ cseek_xz(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offset
 		while(!(cfh->state_flags & CFILE_EOF)) {
 			crefill(cfh);
 		}
-		cfh->data_total_len = cfh->data.offset + cfh->data.end;
-		data_offset += cfh->data_total_len;
-		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data_total_len, cfh->data.offset, data_offset);
+		cfh->data.window_len = cfh->data.offset + cfh->data.end;
+		data_offset += cfh->data.window_len;
+		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
 	}
 	if(data_offset < cfh->data.offset ) {
 		/* note this ain't optimal, but the alternative is modifying
@@ -107,7 +107,7 @@ crefill_xz(cfile *cfh, void *data)
 		xzs->next_out = cfh->data.buff;
 		do {
 			if(0 == xzs->avail_in && (cfh->raw.offset +
-				(cfh->raw.end - xzs->avail_in) < cfh->raw_total_len)) {
+				(cfh->raw.end - xzs->avail_in) < cfh->raw.window_len)) {
 				dcprintf("crefill: %u: xzs, refilling raw: ", cfh->cfh_id);
 				if(ensure_lseek_position(cfh)) {
 					v1printf("encountered IO_ERROR in xz crefill: %u\n", __LINE__);
@@ -115,7 +115,7 @@ crefill_xz(cfile *cfh, void *data)
 				}
 				cfh->raw.offset += cfh->raw.end;
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size,
-					cfh->raw_total_len - cfh->raw.offset));
+					cfh->raw.window_len - cfh->raw.offset));
 				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
 				xzs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
@@ -128,8 +128,8 @@ crefill_xz(cfile *cfh, void *data)
 			}
 			if((xz_err == LZMA_STREAM_END)) {
 				dcprintf("encountered stream_end\n");
-				cfh->data_total_len = MAX(xzs->total_out,
-					cfh->data_total_len);
+				cfh->data.window_len = MAX(xzs->total_out,
+					cfh->data.window_len);
 				cfh->state_flags |= CFILE_EOF;
 			}
 		} while((!(cfh->state_flags & CFILE_EOF)) && xzs->avail_out > 0);

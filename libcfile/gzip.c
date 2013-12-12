@@ -44,7 +44,7 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 		return IO_ERROR;
 	}
 	x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size, 
-		cfh->raw_total_len -2));
+		cfh->raw.window_len -2));
 	cfh->raw.end = x;
 
 	if(inflateInit2(zs, -MAX_WBITS) != Z_OK) {
@@ -89,7 +89,7 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 			if(cfh->raw.end == cfh->raw.pos) {
 				cfh->raw.offset += cfh->raw.end;
 				y = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size, 
-					cfh->raw_total_len - cfh->raw.offset));
+					cfh->raw.window_len - cfh->raw.offset));
 				cfh->raw.end = y;
 				cfh->raw.pos = 0;
 			} else {
@@ -141,9 +141,9 @@ cseek_gzip(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offs
 		while(!(cfh->state_flags & CFILE_EOF)) {
 			crefill(cfh);
 		}
-		cfh->data_total_len = cfh->data.offset + cfh->data.end;
-		data_offset += cfh->data_total_len;
-		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data_total_len, cfh->data.offset, data_offset);
+		cfh->data.window_len = cfh->data.offset + cfh->data.end;
+		data_offset += cfh->data.window_len;
+		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
 	}
 
 	if(data_offset < cfh->data.offset ) {
@@ -199,7 +199,7 @@ crefill_gzip(cfile *cfh, void *data)
 		zs->next_out = cfh->data.buff;
 		do {
 			if(0 == zs->avail_in && (cfh->raw.offset +
-				(cfh->raw.end - zs->avail_in) < cfh->raw_total_len)) {
+				(cfh->raw.end - zs->avail_in) < cfh->raw.window_len)) {
 				dcprintf("crefill: %u: zs, refilling raw: ", cfh->cfh_id);
 				if(ensure_lseek_position(cfh)) {
 					v1printf("encountered IO_ERROR in gz crefill: %u\n", __LINE__);
@@ -207,7 +207,7 @@ crefill_gzip(cfile *cfh, void *data)
 				}
 				cfh->raw.offset += cfh->raw.end;
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size,
-					cfh->raw_total_len - cfh->raw.offset));
+					cfh->raw.window_len - cfh->raw.offset));
 				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
 				zs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
@@ -222,8 +222,8 @@ crefill_gzip(cfile *cfh, void *data)
 			if(err==Z_STREAM_END) {
 				dcprintf("encountered stream_end\n");
 				/* this doesn't handle u64 yet, so make it do so at some point*/
-				cfh->data_total_len = MAX(zs->total_out,
-					cfh->data_total_len);
+				cfh->data.window_len = MAX(zs->total_out,
+					cfh->data.window_len);
 				cfh->state_flags |= CFILE_EOF;
 			}
 		} while((!(cfh->state_flags & CFILE_EOF)) && zs->avail_out > 0);
