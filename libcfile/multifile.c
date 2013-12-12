@@ -44,6 +44,7 @@ typedef struct {
 	int flags;
 } multifile_data;
 
+static int multifile_ensure_open_active(cfile *cfh, multifile_data *data, ssize_t data_offset);
 
 static char *
 readlink_dup(char *filepath, struct stat *st)
@@ -111,8 +112,11 @@ set_file_index(multifile_data *data, size_t offset)
 	assert(offset <= data->fs[data->fs_count -1]->end);
 	multifile_file_data **match = (multifile_file_data **)bsearch(&offset, data->fs, data->fs_count, sizeof(multifile_file_data *), bsearch_compar);
 	if (!match) {
-		eprintf("Somehow received NULL from bsearch for multifile: offset %li\n", offset);
-		return 1;
+		if (offset != data->fs[data->fs_count -1]->end) {
+			eprintf("Somehow received NULL from bsearch for multifile: offset %li\n", offset);
+			return 1;
+		}
+		match = data->fs + (data->fs_count - 1);
 	}
 	multifile_close_active_fd(data);
 	data->current_fs_index = match - data->fs;
@@ -146,29 +150,32 @@ cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset,
 	multifile_data *data = (multifile_data *)raw;
 	cfh->data.pos = 0;
 	cfh->data.end = 0;
+
+	int err = multifile_ensure_open_active(cfh, data, data_offset);
+	if (err) {
+		return err;
+	}
+	cfh->data.offset = data_offset;
+	return (CSEEK_ABS==offset_type ? data_offset + cfh->data.window_offset :
+		data_offset);
+}
+
+static int
+multifile_ensure_open_active(cfile *cfh, multifile_data *data, ssize_t data_offset)
+{
+	char buf[PATH_MAX];
+	assert (data_offset >= 0);
+	if (data_offset > cfh->data.window_len) {
+		eprintf("Asked for an offset beyond the end of the window; returning EOF\n");
+		return EOF_ERROR;
+	}
+	data_offset = data_offset + cfh->data.window_offset;
 	if (data_offset >= data->fs[data->current_fs_index]->end || data_offset < data->fs[data->current_fs_index]->start) {
 		// This requires a new file; jump to that file.
 		if (set_file_index(data, data_offset)) {
 			return (cfh->err = IO_ERROR);
 		}
 	}
-	if(multifile_ensure_open_active(data)) {
-		return (cfh->err = IO_ERROR);
-	}
-	cfh->data.offset = data_offset;
-	size_t desired = data_offset - data->fs[data->current_fs_index]->start;
-	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
-		eprintf("Somehow failed to lseek to %lu for %s\n", desired, data->fs[data->current_fs_index]->filename);
-		return (cfh->err = IO_ERROR);
-	}
-	// Check this; CSEEK_ABS behaviour may be retarded.
-	return data_offset;
-}
-
-int
-multifile_ensure_open_active(multifile_data *data)
-{
-	char buf[PATH_MAX];
 	if (data->active_fd == -1) {
 		get_filepath(data, data->current_fs_index, buf);
 		data->active_fd = open(buf, O_NOFOLLOW|O_RDONLY);
@@ -176,6 +183,11 @@ multifile_ensure_open_active(multifile_data *data)
 			eprintf("Failed opening multifile %s; errno %i\n", buf, errno);
 			return 1;
 		}
+	}
+	size_t desired = data_offset - data->fs[data->current_fs_index]->start;
+	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
+		eprintf("Somehow lseek w/in refill failed\n");
+		return (cfh->err = IO_ERROR);
 	}
 	return 0;
 }
@@ -187,40 +199,29 @@ crefill_multifile(cfile *cfh, void *raw)
 	cfh->data.offset += cfh->data.end;
 	cfh->data.end = cfh->data.pos = 0;
 
-	unsigned long current = data->current_fs_index;
+	int err = multifile_ensure_open_active(cfh, data, cfh->data.offset);
+	if (err) {
+		return err;
+	}
 
-	// Seek forward for the next file.
-	// This should be a single step, but zero length files may be in
-	// the list- as such we use a while loop here to skip them.
-	while (cfh->data.offset >= data->fs[current]->end) {
-		if (current + 1 == data->fs_count) {
-			cfh->state_flags |= CFILE_EOF;
-			cfh->data.offset += cfh->data.end;
-			cfh->data.pos = cfh->data.end = 0;
-			return 0;
-		}
-		current++;
+	assert(cfh->data.offset <= cfh->data.window_len);
+
+	// Read either the max data.size, all that is in the file, or the remaining allowed window.
+	size_t desired = MIN(cfh->data.window_len - cfh->data.offset, data->fs[data->current_fs_index]->end - data->fs[data->current_fs_index]->start);
+	desired = MIN(desired, cfh->data.size);
+
+	assert(desired <= cfh->data.window_len);
+	if (desired == 0) {
+		return EOF_ERROR;
 	}
-	if (current != data->current_fs_index) {
-		data->current_fs_index = current;
-		multifile_close_active_fd(data);
-	}
-	if (multifile_ensure_open_active(data)) {
-		return (cfh->err = IO_ERROR);
-	}
-	size_t desired = cfh->data.offset - data->fs[data->current_fs_index]->start;
-	if (desired != lseek(data->active_fd, desired, SEEK_SET)) {
-		eprintf("Somehow lseek w/in refill failed\n");
-		return (cfh->err = IO_ERROR);
-	}
-	ssize_t result = read(data->active_fd, cfh->data.buff,
-		MIN(cfh->data.size, data->fs[data->current_fs_index]->end - cfh->data.offset));
+	ssize_t result = read(data->active_fd, cfh->data.buff, desired);
 	if (result >= 0) {
 		cfh->data.end = result;
 	} else {
 		eprintf("got nonzero read: errno %i for %s\n", errno, data->fs[data->current_fs_index]->filename);
 		return (cfh->err = IO_ERROR);
 	}
+	assert(cfh->data.offset + result <= cfh->data.window_len);
 	dcprintf("crefill_multifile: %u: no_compress, got %lu\n", cfh->cfh_id, cfh->data.end);
 	return 0;
 }
@@ -241,22 +242,18 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 	data->fs_count = fs_count;
 	data->active_fd = -1;
 
-	char buf[PATH_MAX];
 	size_t position = 0;
 	unsigned long x = 0;
-	strcpy(buf, root);
 	for (; x < fs_count; x++) {
-		get_filepath(data, x, buf);
 		data->fs[x]->start = position;
 		// ignore all secondary hardlinks.
-		if (!data->fs[x]->link_target && S_ISREG(data->fs[x]->st->st_mode)) {
+		if (data->fs[x]->link_target == NULL && S_ISREG(data->fs[x]->st->st_mode)) {
 			position += data->fs[x]->st->st_size;
-			data->file_count++;
 		}
 		data->fs[x]->end = position;
 	}
 
-	result = internal_copen(cfh, -1, 0, position, 0, 0, NO_COMPRESSOR, CFILE_RONLY);
+	result = internal_copen(cfh, -1, 0, position, 0, position, NO_COMPRESSOR, CFILE_RONLY);
 	if (result) {
 		goto cleanup;
 	}
@@ -346,6 +343,8 @@ multifile_recurse_directory(const char *root, const char *directory, multifile_f
 			if (!entry->link_target) {
 				return 1;
 			}
+		} else {
+			entry->link_target = NULL;
 		}
 
 		(*files)[*files_count] = entry;
