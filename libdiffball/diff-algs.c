@@ -29,6 +29,8 @@
    Obviously credit for the alg's go to him, although I'm the one who gets the dubious
    credit for bugs in the implementation of said algorithms... */
 
+#define ERETURN(value) { if ((value) != 0) { eprintf("Exiting due to nonzero return: %i\n", (value)); return (value); }; }
+
 signed int
 OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile *vcfh, unsigned char vid)
 {
@@ -40,7 +42,7 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 	int err;
 	err = init_adler32_seed(&ads, rh->seed_len, 1);
 	if(err)
-			return err;
+			ERETURN(err);
 	va = vs = vc = 0;
 	ver_len = cfile_len(vcfh);
 	ver_start = cfile_start_offset(vcfh);
@@ -48,11 +50,11 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 	ref_start = cfile_start_offset(rh->ref_cfh);
 
 	if(0 != cseek(vcfh, 0, CSEEK_FSTART)) {
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 	vcfw = expose_page(vcfh);
 	if(vcfw->end == 0 && vcfw->offset != ver_len)
-		return(IO_ERROR);
+		ERETURN(IO_ERROR);
 	
 	#define end_pos(x)		((x)->offset + (x)->end)
 	while(vcfw != NULL) {
@@ -63,11 +65,11 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 			vcfw = next_page(vcfh);
 			if(vcfw == NULL) {
 				if(vcfh->data.end + vcfh->data.offset != ver_len) {
-					return IO_ERROR;
+					ERETURN(IO_ERROR);
 				}
 				continue;
 				assert((vcfh->state_flags & CFILE_MEM_ALIAS) == 0);
-				return IO_ERROR;
+				ERETURN(IO_ERROR);
 			} else if(vcfw->end == 0) {
 				// cover our asses.
 				vcfw = NULL;
@@ -89,7 +91,7 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 			continue;
 		}
 		if(hash_offset != cseek(rh->ref_cfh, hash_offset, CSEEK_FSTART)) {
-			return IO_ERROR;
+			ERETURN(IO_ERROR);
 		}
 
 		rcfw = expose_page(rh->ref_cfh);
@@ -99,7 +101,7 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 			if(rcfw->pos == rcfw->end) {
 				rcfw = next_page(rh->ref_cfh);
 				if(rcfw == NULL || rcfw->end == 0) {
-					return IO_ERROR;
+					ERETURN(IO_ERROR);
 				}
 			}
 			if(ads.seed_chars[(ads.tail + x) % ads.seed_len] != 
@@ -126,13 +128,13 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 				assert(end_pos(vcfw) > vm - 1);
 				vcfw = prev_page(vcfh);
 				if(vcfw->end == 0)
-					return IO_ERROR;
+					ERETURN(IO_ERROR);
 			}
 			while(rcfw->offset > rm - 1) {
 				assert(end_pos(rcfw) > rm - 1);
 				rcfw = prev_page(rh->ref_cfh);
 				if(rcfw->end == 0) 
-					return IO_ERROR;
+					ERETURN(IO_ERROR);
 			}
 			assert(vm -1 >= vcfw->offset);
 			assert(rm -1 >= rcfw->offset);
@@ -150,23 +152,23 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 		//forward matching
 		//first, reposition.
 		if(vm + len != cseek(vcfh, vm + len, CSEEK_FSTART)) 
-			return IO_ERROR;
+			ERETURN(IO_ERROR);
 		vcfw = expose_page(vcfh);
 		if(vcfw->end == 0 && vcfw->offset != ver_len)
-			return IO_ERROR;
+			ERETURN(IO_ERROR);
 
 		if(rm + len != cseek(rh->ref_cfh, rm + len, CSEEK_FSTART))
-			return IO_ERROR;
+			ERETURN(IO_ERROR);
 		rcfw = expose_page(rh->ref_cfh);
 		if(rcfw->end == 0 && rcfw->offset != ref_len)
-			return IO_ERROR;
+			ERETURN(IO_ERROR);
 
 		while(vm + len < ver_len && rm + len < ref_len) {
 			if(vm + len >= end_pos(vcfw)) {
 				vcfw = next_page(vcfh);
 				if(vcfw->end == 0) {
 					if(vcfw->offset != ver_len)
-						return IO_ERROR;
+						ERETURN(IO_ERROR);
 					break;
 				}
 			}
@@ -177,7 +179,7 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 				rcfw = next_page(rh->ref_cfh);
 				if(rcfw->end == 0) {
 					if(rcfw->offset != ref_len)
-						return IO_ERROR;
+						ERETURN(IO_ERROR);
 					break;
 				}
 			}
@@ -225,7 +227,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 	assert(buff->DCBtype & DCBUFFER_LLMATCHES_TYPE);
 	err = DCB_finalize(buff);
 	if(err)
-		return err;
+		ERETURN(err);
 	if( ((DCB_llm *)buff->DCB)->main_head == NULL) {
 		seed_len = 512;
 	} else {
@@ -264,7 +266,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 				hash_size, sample_rate);
 			err = rh_rbucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if(err)
-				return err;
+				ERETURN(err);
 			DCBufferReset(buff);
 			v1printf("building hash array out of total_gap(%lu)\n",
 				gap_total_len);
@@ -277,7 +279,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			err=RHash_find_matches(&rhash, ref_cfh, 0, cfile_len(ref_cfh));
 			if(err) {
 				eprintf("error detected\n");
-				return err;
+				ERETURN(err);
 			}
 			v1printf("cleansing hash, to speed bsearch's\n");
 			RHash_cleanse(&rhash);
@@ -290,16 +292,16 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 				err=copen_child_cfh(&ver_window, ver_cfh, dc.offset, dc.len + 
 					dc.offset, NO_COMPRESSOR, CFILE_RONLY);
 				if(err)
-					return err;
+					ERETURN(err);
 				err = DCB_llm_init_buff(buff, 128);
 				if(err)
-					return err;
+					ERETURN(err);
 				err = OneHalfPassCorrecting(buff, &rhash, ref_id, &ver_window, ver_id);
 				if(err)
-					return err;
+					ERETURN(err);
 				err = DCB_finalize(buff);
 				if(err)
-					return err;
+					ERETURN(err);
 				cclose(&ver_window);
 			}
 		} else {
@@ -312,21 +314,21 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 				hash_size, sample_rate);
 			err = rh_bucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if(err)
-				return err;
+				ERETURN(err);
 			err = RHash_insert_block(&rhash, ref_cfh, 0L, cfile_len(ref_cfh));
 			if(err)
-				return err;
+				ERETURN(err);
 			print_RefHash_stats(&rhash);
 			v1printf("making initial run...\n");
 			err = DCB_llm_init_buff(buff, 128);
 			if(err)
-				return err;
+				ERETURN(err);
 			err = OneHalfPassCorrecting(buff, &rhash, ref_id, ver_cfh, ver_id);
 			if(err)
-				return err;
+				ERETURN(err);
 			err = DCB_finalize(buff);
 			if(err)
-				return err;
+				ERETURN(err);
 		}
 		RHash_sort(&rhash);
 
