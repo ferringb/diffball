@@ -36,9 +36,6 @@ typedef struct {
 	// The # of files (regardless of type).
 	unsigned long fs_count;
 
-	// # of S_ISREG (literal files) count.
-	unsigned long file_count;
-
 	// An FD to whatever current_fs_index points at, or -1 if no file is open currently.
 	int active_fd;
 
