@@ -58,7 +58,7 @@ copen_dup_cfh(cfile *cfh)
 		return NULL;
 	}
 	if(copen_child_cfh(dup, cfh, cfh->data.window_offset,
-		cfh->data_total_len == 0 ? 0 : cfh->data.window_offset + cfh->data_total_len,
+		cfh->data.window_len == 0 ? 0 : cfh->data.window_offset + cfh->data.window_len,
 		cfh->compressor_type, cfh->access_flags)) {
 		free(dup);
 		return NULL;
@@ -84,7 +84,7 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 			v0printf("unable to open a compressor w/in a compressor, crapping out.\n");
 			return UNSUPPORTED_OPT;
 		}
-		err = internal_copen(cfh, parent->raw_fh, parent->raw.window_offset, parent->raw_total_len,
+		err = internal_copen(cfh, parent->raw_fh, parent->raw.window_offset, parent->raw.window_len,
 			fh_start, fh_end, parent->compressor_type, access_flags);
 	} else {
 		err = internal_copen(cfh, parent->raw_fh, fh_start, fh_end, 0, 0,
@@ -135,7 +135,7 @@ copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compressor_t
 	if(buff != NULL) {
 		free(cfh->data.buff);
 		cfh->data.buff = buff;
-		cfh->data_total_len = cfh->data.end = cfh->data.size = len;
+		cfh->data.window_len = cfh->data.end = cfh->data.size = len;
 	}
 	cfh->lseek_info.parent.last = cfh->cfh_id;
 
@@ -241,31 +241,31 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	switch(cfh->compressor_type) {
 	case NO_COMPRESSOR:
 		cfh->data.window_offset = raw_fh_start;
-		cfh->data_total_len = raw_fh_end - raw_fh_start;
+		cfh->data.window_len = raw_fh_end - raw_fh_start;
 		result = internal_copen_no_comp(cfh);
  		break;
  		
 	case BZIP2_COMPRESSOR:
 		cfh->raw.window_offset = raw_fh_start;
-		cfh->raw_total_len = raw_fh_end - raw_fh_start;
+		cfh->raw.window_len = raw_fh_end - raw_fh_start;
 		cfh->data.window_offset = data_fh_start;
-		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
+		cfh->data.window_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
 		result = internal_copen_bzip2(cfh);
 		break;
 
 	case GZIP_COMPRESSOR:
 		cfh->raw.window_offset = raw_fh_start;
-		cfh->raw_total_len = raw_fh_end - raw_fh_start;
+		cfh->raw.window_len = raw_fh_end - raw_fh_start;
 		cfh->data.window_offset = data_fh_start;
-		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
+		cfh->data.window_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
 		result = internal_copen_gzip(cfh);
 		break;
 
 	case XZ_COMPRESSOR:
 		cfh->raw.window_offset = raw_fh_start;
-		cfh->raw_total_len = raw_fh_end - raw_fh_start;
+		cfh->raw.window_len = raw_fh_end - raw_fh_start;
 		cfh->data.window_offset = data_fh_start;
-		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
+		cfh->data.window_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
 		result = internal_copen_xz(cfh);
 		break;
 	}
@@ -303,7 +303,7 @@ cclose(cfile *cfh)
 	} else {
 		cfh->raw.pos = cfh->raw.end = cfh->raw.size = cfh->raw.offset = \
 			cfh->data.pos = cfh->data.end = cfh->data.size = cfh->data.offset = \
-			cfh->raw_total_len = cfh->data_total_len = 0;
+			cfh->raw.window_len = cfh->data.window_len = 0;
 	}
 	return result;
 }
@@ -368,7 +368,7 @@ cseek(cfile *cfh, ssize_t offset, int offset_type)
 	else if (CSEEK_CUR==offset_type)
 		data_offset = cfh->data.offset + cfh->data.pos + offset;
 	else if (CSEEK_END==offset_type)
-		data_offset = cfh->data_total_len + offset;
+		data_offset = cfh->data.window_len + offset;
 	else if (CSEEK_FSTART==offset_type)
 		data_offset = offset;
 	else
@@ -434,7 +434,7 @@ ctell(cfile *cfh, unsigned int tell_type)
 	else if (CSEEK_FSTART==tell_type)
 		return cfh->data.offset + cfh->data.pos;
 	else if (CSEEK_END==tell_type)
-		return cfh->data_total_len - (cfh->data.offset + cfh->data.pos);
+		return cfh->data.window_len - (cfh->data.offset + cfh->data.pos);
 	return 0;
 }
 
@@ -512,7 +512,7 @@ crefill(cfile *cfh)
 size_t
 cfile_len(cfile *cfh)
 {
-	return cfh->data_total_len;
+	return cfh->data.window_len;
 }
 
 size_t

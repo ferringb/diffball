@@ -112,6 +112,7 @@ typedef struct {
 	size_t write_end;
 	unsigned char *buff;
 	size_t window_offset;
+	size_t window_len;
 } cfile_window;
 
 typedef unsigned short 		CFH_ID;
@@ -132,10 +133,8 @@ typedef struct _cfile {
 		unsigned int *last_ptr;
 	} lseek_info;
 
-	size_t		data_total_len;
 	cfile_window		data;
 
-	size_t		raw_total_len;
 	cfile_window		raw;
 
 	/* io backing */

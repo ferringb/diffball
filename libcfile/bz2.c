@@ -50,9 +50,9 @@ cseek_bz2(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offse
 		while(!(cfh->state_flags & CFILE_EOF)) {
 			crefill(cfh);
 		}
-		cfh->data_total_len = cfh->data.offset + cfh->data.end;
-		data_offset += cfh->data_total_len;
-		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data_total_len, cfh->data.offset, data_offset);
+		cfh->data.window_len = cfh->data.offset + cfh->data.end;
+		data_offset += cfh->data.window_len;
+		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
 	}
 	if(data_offset < cfh->data.offset ) {
 		/* note this ain't optimal, but the alternative is modifying
@@ -115,14 +115,14 @@ crefill_bz2(cfile *cfh, void *data)
 		bzs->next_out = (char *)cfh->data.buff;
 		do {
 			if(0 == bzs->avail_in && (cfh->raw.offset +
-				(cfh->raw.end - bzs->avail_in) < cfh->raw_total_len)) {
+				(cfh->raw.end - bzs->avail_in) < cfh->raw.window_len)) {
 				dcprintf("crefill: %u: bz2, refilling raw: ", cfh->cfh_id);
 				if(ensure_lseek_position(cfh)) {
 					return (cfh->err = IO_ERROR);
 				}
 				cfh->raw.offset += cfh->raw.end;
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size,
-					cfh->raw_total_len - cfh->raw.offset));
+					cfh->raw.window_len - cfh->raw.offset));
 				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
 				bzs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
@@ -139,8 +139,8 @@ crefill_bz2(cfile *cfh, void *data)
 			if(err==BZ_STREAM_END) {
 				dcprintf("encountered stream_end\n");
 				/* this doesn't handle u64 yet, so make it do so at some point*/
-				cfh->data_total_len = MAX(bzs->total_out_lo32,
-					cfh->data_total_len);
+				cfh->data.window_len = MAX(bzs->total_out_lo32,
+					cfh->data.window_len);
 				cfh->state_flags |= CFILE_EOF;
 			}
 		} while((!(cfh->state_flags & CFILE_EOF)) && bzs->avail_out > 0);
