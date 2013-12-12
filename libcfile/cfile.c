@@ -57,8 +57,8 @@ copen_dup_cfh(cfile *cfh)
 	if(dup == NULL) {
 		return NULL;
 	}
-	if(copen_child_cfh(dup, cfh, cfh->data_fh_offset, 
-		cfh->data_total_len == 0 ? 0 : cfh->data_fh_offset + cfh->data_total_len,
+	if(copen_child_cfh(dup, cfh, cfh->data.window_offset,
+		cfh->data_total_len == 0 ? 0 : cfh->data.window_offset + cfh->data_total_len,
 		cfh->compressor_type, cfh->access_flags)) {
 		free(dup);
 		return NULL;
@@ -84,7 +84,7 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 			v0printf("unable to open a compressor w/in a compressor, crapping out.\n");
 			return UNSUPPORTED_OPT;
 		}
-		err = internal_copen(cfh, parent->raw_fh, parent->raw_fh_offset, parent->raw_total_len, 
+		err = internal_copen(cfh, parent->raw_fh, parent->raw.window_offset, parent->raw_total_len,
 			fh_start, fh_end, parent->compressor_type, access_flags);
 	} else {
 		err = internal_copen(cfh, parent->raw_fh, fh_start, fh_end, 0, 0,
@@ -190,7 +190,7 @@ copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end,
 }
 
 int
-internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end, 
+internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	size_t data_fh_start, size_t data_fh_end, unsigned int compressor_type, unsigned int access_flags)
 {
 	signed long ret_val;
@@ -222,7 +222,7 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	} else {
 		cfh->access_flags |= CFILE_SEEKABLE;
 	}
-/*	if(! ((cfh->access_flags & CFILE_WONLY) && 
+/*	if(! ((cfh->access_flags & CFILE_WONLY) &&
 		(compressor_type != NO_COMPRESSOR)) ){
 		cfh->access_flags |= CFILE_SEEKABLE;
 	}
@@ -238,36 +238,36 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	cfh->io.data = NULL;
 	switch(cfh->compressor_type) {
 	case NO_COMPRESSOR:
-		cfh->data_fh_offset = raw_fh_start;
+		cfh->data.window_offset = raw_fh_start;
 		cfh->data_total_len = raw_fh_end - raw_fh_start;
 		result = internal_copen_no_comp(cfh);
  		break;
  		
 	case BZIP2_COMPRESSOR:
-		cfh->raw_fh_offset = raw_fh_start;
+		cfh->raw.window_offset = raw_fh_start;
 		cfh->raw_total_len = raw_fh_end - raw_fh_start;
-		cfh->data_fh_offset = data_fh_start;
+		cfh->data.window_offset = data_fh_start;
 		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
 		result = internal_copen_bzip2(cfh);
 		break;
 
 	case GZIP_COMPRESSOR:
-		cfh->raw_fh_offset = raw_fh_start;
+		cfh->raw.window_offset = raw_fh_start;
 		cfh->raw_total_len = raw_fh_end - raw_fh_start;
-		cfh->data_fh_offset = data_fh_start;
+		cfh->data.window_offset = data_fh_start;
 		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
 		result = internal_copen_gzip(cfh);
 		break;
 
 	case XZ_COMPRESSOR:
-		cfh->raw_fh_offset = raw_fh_start;
+		cfh->raw.window_offset = raw_fh_start;
 		cfh->raw_total_len = raw_fh_end - raw_fh_start;
-		cfh->data_fh_offset = data_fh_start;
+		cfh->data.window_offset = data_fh_start;
 		cfh->data_total_len = (data_fh_end == 0 ? 0 : data_fh_end - data_fh_start);
 		result = internal_copen_xz(cfh);
 		break;
 	}
-	/* no longer in use.  leaving it as a reminder for updating when 
+	/* no longer in use.  leaving it as a reminder for updating when
 		switching over to the full/correct sub-window opening */
 //	cfh->state_flags |= CFILE_SEEK_NEEDED;
 	return result;
@@ -299,8 +299,8 @@ cclose(cfile *cfh)
 	if(cfh->state_flags & CFILE_FREE_AT_CLOSING) {
 		free(cfh);
 	} else {
-		cfh->raw.pos = cfh->raw.end = cfh->raw.size = cfh->raw.offset = 
-			cfh->data.pos = cfh->data.end = cfh->data.size = cfh->data.offset = 
+		cfh->raw.pos = cfh->raw.end = cfh->raw.size = cfh->raw.offset = \
+			cfh->data.pos = cfh->data.end = cfh->data.size = cfh->data.offset = \
 			cfh->raw_total_len = cfh->data_total_len = 0;
 	}
 	return result;
@@ -361,8 +361,8 @@ ssize_t
 cseek(cfile *cfh, ssize_t offset, int offset_type)
 {
 	ssize_t data_offset;
-	if(CSEEK_ABS==offset_type) 
-		data_offset = abs(offset) - cfh->data_fh_offset;
+	if(CSEEK_ABS==offset_type)
+		data_offset = abs(offset) - cfh->data.window_offset;
 	else if (CSEEK_CUR==offset_type)
 		data_offset = cfh->data.offset + cfh->data.pos + offset;
 	else if (CSEEK_END==offset_type)
@@ -382,21 +382,21 @@ cseek(cfile *cfh, ssize_t offset, int offset_type)
 	}
 	/* see if the desired location is w/in the data buff */
 	if(data_offset >= cfh->data.offset &&
-		data_offset <  cfh->data.offset + cfh->data.size && 
+		data_offset <  cfh->data.offset + cfh->data.size &&
 		cfh->data.end > data_offset - cfh->data.offset) {
 
 		dcprintf("cseek: %u: buffered data, repositioning pos\n", cfh->cfh_id);
 		cfh->data.pos = data_offset - cfh->data.offset;
-		return (CSEEK_ABS==offset_type ? data_offset + cfh->data_fh_offset: 
+		return (CSEEK_ABS==offset_type ? data_offset + cfh->data.window_offset:
 			data_offset);
-	} else if((cfh->access_flags &! CFILE_WRITEABLE) && data_offset >= cfh->data.end + cfh->data.offset && 
+	} else if((cfh->access_flags &! CFILE_WRITEABLE) && data_offset >= cfh->data.end + cfh->data.offset &&
 		data_offset < cfh->data.end + cfh->data.size + cfh->data.offset && IS_LAST_LSEEKER(cfh) ) {
 
 		// see if the desired location is the next page (avoid lseek + read, get read instead).
 		crefill(cfh);
 		if(cfh->data.end + cfh->data.offset > data_offset)
 			cfh->data.pos = data_offset - cfh->data.offset;
-		return (CSEEK_ABS==offset_type ? cfh->data.pos + cfh->data.offset + cfh->data_fh_offset:
+		return (CSEEK_ABS==offset_type ? cfh->data.pos + cfh->data.offset + cfh->data.window_offset:
 			cfh->data.pos + cfh->data.offset);
 	}
 
@@ -411,15 +411,15 @@ raw_ensure_position(cfile *cfh)
 {
 	set_last_lseeker(cfh);
 	if(NO_COMPRESSOR == cfh->compressor_type) {
-		return (lseek(cfh->raw_fh, cfh->data.offset + cfh->data_fh_offset +
-			cfh->data.end, SEEK_SET) != 
-			(cfh->data.offset + cfh->data_fh_offset + cfh->data.end));
-	} else if(BZIP2_COMPRESSOR == cfh->compressor_type || 
+		return (lseek(cfh->raw_fh, cfh->data.offset + cfh->data.window_offset +
+			cfh->data.end, SEEK_SET) !=
+			(cfh->data.offset + cfh->data.window_offset + cfh->data.end));
+	} else if(BZIP2_COMPRESSOR == cfh->compressor_type ||
 		GZIP_COMPRESSOR == cfh->compressor_type ||
 		XZ_COMPRESSOR == cfh->compressor_type) {
-		return (lseek(cfh->raw_fh, cfh->raw.offset + cfh->raw_fh_offset + 
-			cfh->raw.end, SEEK_SET) != (cfh->raw.offset + 
-			cfh->raw_fh_offset + cfh->raw.end));
+		return (lseek(cfh->raw_fh, cfh->raw.offset + cfh->raw.window_offset +
+			cfh->raw.end, SEEK_SET) != (cfh->raw.offset +
+			cfh->raw.window_offset + cfh->raw.end));
 	}
 	return IO_ERROR;
 }
@@ -428,7 +428,7 @@ size_t
 ctell(cfile *cfh, unsigned int tell_type)
 {
 	if(CSEEK_ABS==tell_type)
-		return cfh->data_fh_offset + cfh->data.offset + cfh->data.pos;
+		return cfh->data.window_offset + cfh->data.offset + cfh->data.pos;
 	else if (CSEEK_FSTART==tell_type)
 		return cfh->data.offset + cfh->data.pos;
 	else if (CSEEK_END==tell_type)
@@ -465,7 +465,7 @@ cflush(cfile *cfh)
 		case BZIP2_COMPRESSOR:
 			// fairly raw, if working at all //
 			if(cfh->raw.pos == cfh->raw.end) {
-				if(cfh->raw.pos != write(cfh->raw_fh, cfh->raw.buff, 
+				if(cfh->raw.pos != write(cfh->raw_fh, cfh->raw.buff,
 					cfh->raw.size))
 					return IO_ERROR;
 				cfh->raw.offset += cfh->raw.end;
@@ -482,8 +482,8 @@ cflush(cfile *cfh)
 			}
 			break;
 		case GZIP_COMPRESSOR:
-			if(cfh->data.pos != gzwrite(cfh->gz_handle, cfh->data.buff, 
-				cfh->data.pos)) 
+			if(cfh->data.pos != gzwrite(cfh->gz_handle, cfh->data.buff,
+				cfh->data.pos))
 				return IO_ERROR;
 			cfh->data.offset += cfh->data.pos;
 			cfh->data.pos=0;
@@ -516,11 +516,11 @@ cfile_len(cfile *cfh)
 size_t
 cfile_start_offset(cfile *cfh)
 {
-	return cfh->data_fh_offset;
+	return cfh->data.window_offset;
 }
 
 
-/* while I realize this may not *necessarily* belong in cfile, 
+/* while I realize this may not *necessarily* belong in cfile,
    eh, it's going here.
 
    deal with it.  :-) */

@@ -35,7 +35,7 @@ cseek_no_comp(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int o
 			return IO_ERROR;
 		}
 	}
-	return (CSEEK_ABS==offset_type ? data_offset + cfh->data_fh_offset :
+	return (CSEEK_ABS==offset_type ? data_offset + cfh->data.window_offset :
 		data_offset);
 }
 
@@ -73,8 +73,8 @@ cflush_no_comp(cfile *cfh, void *data)
 {
 	// position the sucker, either at write_end, or at write_start (for CFILE_WR)
 	if(cfh->access_flags & CFILE_READABLE) {
-		if(lseek(cfh->raw_fh, cfh->data.offset + cfh->data_fh_offset + cfh->data.write_start, SEEK_SET) !=
-			cfh->data.offset + cfh->data_fh_offset + cfh->data.write_start) {
+		if(lseek(cfh->raw_fh, cfh->data.offset + cfh->data.window_offset + cfh->data.write_start, SEEK_SET) !=
+			cfh->data.offset + cfh->data.window_offset + cfh->data.write_start) {
 			return (cfh->err = IO_ERROR);
 		}
 	} else if(ensure_lseek_position(cfh)) {
