@@ -116,8 +116,8 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 		//back matching
 		vm = vc;
 		rm = hash_offset;
-		assert(vm >= vcfw->offset && vm < end_pos(vcfw));
-		assert(rm >= rcfw->offset && rm < end_pos(rcfw));
+		cseek(rh->ref_cfh, rm, CSEEK_FSTART);
+		cseek(vcfh, vm, CSEEK_FSTART);
 		if (vm == 10336418 && rm == 922885) {
 			printf("yes'm\n");
 		}
