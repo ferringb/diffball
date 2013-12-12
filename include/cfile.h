@@ -119,7 +119,6 @@ typedef signed int			ECFH_ID;
 typedef struct _cfile {
 	CFH_ID				cfh_id;
 	int					raw_fh;
-	size_t		raw_fh_len;
 	unsigned int		compressor_type;
 	unsigned int		access_flags;
 	unsigned long		state_flags;
