@@ -18,6 +18,8 @@
 #include <stdlib.h>
 #include <diffball/defs.h>
 #include <string.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <diffball/dcbuffer.h>
@@ -30,12 +32,20 @@
 // Used only for the temp file machinery; get rid of this at that time.
 #include <unistd.h>
 
+void enforce_no_trailing_slash(char *ptr);
+
+
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
 static int encode_fs_entry(cfile *patchf, multifile_file_data *entry);
 static int consume_command_chain(const char *output_directory, cfile *patchf, unsigned long command_count);
 static int enforce_standard_attributes(const char *path, const struct stat *st);
 static int enforce_directory(const char *path, const struct stat *st);
 static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
+
+// used with fstatat if available
+#ifndef AT_NO_AUTOMOUNT
+#define AT_NO_AUTOMOUNT 0
+#endif
 
 static char *
 concat_path(const char *directory, const char *frag)
@@ -373,10 +383,73 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 }
 
 static int
+enforce_recursive_unlink(DIR *directory)
+{
+	struct dirent *entry;
+	int err = 0;
+	while ((entry = readdir(directory))) {
+		if (0 == strcmp(entry->d_name, ".") || 0 == strcmp(entry->d_name, "..")) {
+			continue;
+		}
+		int is_dir = 0;
+		if (entry->d_type == DT_DIR) {
+			is_dir = 1;
+		} else if (entry->d_type == DT_UNKNOWN) {
+			struct stat st;
+			if (fstatat(dirfd(directory), entry->d_name, &st, AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW)) {
+				closedir(directory);
+				return IO_ERROR;
+			}
+			is_dir = S_ISDIR(st.st_mode);
+		}
+		if (is_dir) {
+			int fd = openat(dirfd(directory), entry->d_name, O_DIRECTORY);
+			if (fd >= 0) {
+				DIR *subdir = fdopendir(fd);
+				if (subdir) {
+					err = enforce_recursive_unlink(subdir);
+					closedir(subdir);
+					if (!err) {
+						err = unlinkat(dirfd(directory), entry->d_name, AT_REMOVEDIR);
+					}
+				} else {
+					close(fd);
+					err = IO_ERROR;
+				}
+			} else {
+				err = IO_ERROR;
+			}
+		} else {
+			err = unlinkat(dirfd(directory), entry->d_name, 0);
+		}
+
+		if (err) {
+			break;
+		}
+	}
+	return err;
+}
+
+static int
 enforce_unlink(const char *path)
 {
 	v3printf("Removing content at %s\n", path);
 	int err = unlink(path);
+	if (-1 == err) {
+		if (ENOENT == errno) {
+			err = 0;
+			errno = 0;
+		} else if (EISDIR == errno) {
+			DIR *directory = opendir(path);
+			if (directory) {
+				err = enforce_recursive_unlink(directory);
+				closedir(directory);
+				if (!err) {
+					err = rmdir(path);
+				}
+			}
+		}
+	}
 	return err;
 }
 
@@ -396,19 +469,26 @@ enforce_directory(const char *path, const struct stat *st)
 {
 	v3printf("Creating directory at %s\n", path);
 	int err = mkdir(path, st->st_mode);
-	if (-1 == err && EEXIST == errno) {
-		struct stat ondisk_st;
-		if (0 != lstat(path, &ondisk_st)) {
-			eprintf("Raced occurred checking %s\n", path);
-			return IO_ERROR;
-		} else if (!S_ISDIR(ondisk_st.st_mode)) {
-			v3printf("Removing blocking content at %s\n", path);
+	if (-1 == err) {
+		if (EEXIST == errno) {
+			struct stat ondisk_st;
+			if (0 != lstat(path, &ondisk_st)) {
+				eprintf("Race occurred checking %s: errno %i\n", path, errno);
+				return IO_ERROR;
+			} else if (!S_ISDIR(ondisk_st.st_mode)) {
+				v3printf("Removing blocking content at %s\n", path);
+				err = unlink(path);
+				if (!err) {
+					err = mkdir(path, st->st_mode);
+				}
+			} else {
+				err = 0;
+			}
+		} else if (ENOTDIR == errno) {
 			err = unlink(path);
 			if (!err) {
 				err = mkdir(path, st->st_mode);
 			}
-		} else {
-			err = 0;
 		}
 	}
 
@@ -455,6 +535,16 @@ enforce_trailing_slash(char **ptr)
 		return 0;
 	}
 	return 0;
+}
+
+void
+enforce_no_trailing_slash(char *ptr)
+{
+	size_t len = strlen(ptr);
+	while (len && ptr[len -1] == '/') {
+		ptr[len -1] = 0;
+		len--;
+	}
 }
 
 static int
@@ -518,6 +608,10 @@ consume_command_chain(const char *target_directory, cfile *patchf, unsigned long
 		case TREE_COMMAND_DIR:
 			v3printf("command %lu: create directory\n", command_count);
 			read_string_or_return(filename);
+			// Strip the trailing slash; if our enforce_directory needs to
+			// resort to lstating, a trailing '/' results in the call incorrectly
+			// failing w/ ENOTDIR .
+			enforce_no_trailing_slash(filename);
 			read_common_block(&st);
 			enforce_or_fail(enforce_directory, &st);
 			break;
