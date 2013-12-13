@@ -194,6 +194,13 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		return IO_ERROR;
 	}
 
+	// Flush the command count.  It's number of ref_count entries + # of unlinks commands.
+	v3printf("Flushing command count %lu\n", ref_count);
+	err = cWriteUBytesLE(patchf, ref_count, 4);
+	if (err) {
+		return err;
+	}
+
 	unsigned long x;
 	for(x=0; x < ref_count; x++) {
 		err = encode_fs_entry(patchf, ref_files[x]);
@@ -336,12 +343,16 @@ treeReconstruct(cfile *patchf, cfile *target_directory)
 	multifile_file_data **src_files = NULL, **ref_files = NULL;
 	unsigned long src_count = 0, ref_count = 0;
 
-	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART))
+	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART)) {
+		eprintf("Failed seeking beyond the format magic\n");
 		return PATCH_TRUNCATED;
-	if(TREE_VERSION_LEN != cread(patchf, buff, TREE_VERSION_LEN))
+	}
+	if(TREE_VERSION_LEN != cread(patchf, buff, TREE_VERSION_LEN)) {
+		eprintf("Failed reading version identifier\n");
 		return PATCH_TRUNCATED;
+	}
 	unsigned int ver = readUBytesLE(buff, TREE_VERSION_LEN);
-	v2printf("ver=%u\n", ver);
+	v2printf("patch format ver=%u\n", ver);
 
 //	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 //	ref_id = src_id;
@@ -355,6 +366,35 @@ treeReconstruct(cfile *patchf, cfile *target_directory)
 	if (err) {
 		return err;
 	}
+
+	if (8 != cread(patchf, buff, 8)) {
+		eprintf("Failed reading delta length\n");
+		return PATCH_TRUNCATED;
+	}
+	unsigned long delta_size = readUBytesLE(buff, 8);
+	size_t delta_start = ctell(patchf, CSEEK_FSTART);
+	if (delta_start + delta_size != cseek(patchf, delta_size, CSEEK_CUR)) {
+		eprintf("Failed seeking past the delta\n");
+		return PATCH_TRUNCATED;
+	}
+
+	assert(TREE_INTERFILE_MAGIC_LEN < sizeof(buff));
+	if (TREE_INTERFILE_MAGIC_LEN != cread(patchf, buff, TREE_INTERFILE_MAGIC_LEN)) {
+		eprintf("Failed reading intrafile magic in patch file at position %zu\n", delta_size + delta_start);
+		return PATCH_TRUNCATED;
+	}
+	if (memcmp(buff, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN) != 0) {
+		eprintf("Failed to verify intrafile magic in patch file at position %zu; likely corrupted\n", delta_size + delta_start);
+		return PATCH_CORRUPT_ERROR;
+	}
+	v3printf("Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
+
+	if (4 != cread(patchf, buff, 4)) {
+		eprintf("Failed reading command count\n");
+		return PATCH_TRUNCATED;
+	}
+	unsigned long command_count = readUBytesLE(buff, 4);
+	v3printf("command stream is %lu commands\n", command_count);
 
 	return 0;
 

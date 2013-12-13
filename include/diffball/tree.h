@@ -67,6 +67,7 @@ FORMAT:
   8 bytes: # length of the delta
   <delta>
   --TREE--
+  4 bytes: # command count
   command-stream
 
 
