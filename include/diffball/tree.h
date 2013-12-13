@@ -92,6 +92,7 @@ single byte command:
    xattrs null delimited
  0x04 == symlink
    filename null delimited
+   symlink target null delimited
    uid
    gid
    mode

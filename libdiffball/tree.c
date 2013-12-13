@@ -133,13 +133,24 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 		}
 		results[x]->end = position + readUBytesLE(buff, 8);
 		position = results[x]->end;
+		results[x]->st = calloc(sizeof(struct stat), 1);
+		if (!results[x]->st) {
+			eprintf("Failed allocating memory\n");
+			err = MEM_ERROR;
+			file_count = x + 1;
+			goto cleanup;
+		}
 		v3printf("adding to %s manifest: %s length %zu\n", manifest_name, results[x]->filename, position - results[x]->start);
 	}
+	return 0;
 
 	cleanup:
 	for (x=0; x < file_count; x++) {
 		if (results[x]->filename) {
 			free(results[x]->filename);
+		}
+		if (results[x]->st) {
+			free(results[x]->st);
 		}
 		free(results[x]);
 	}
@@ -217,15 +228,15 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry)
 {
 	#define write_or_return(value, len) {int err=cWriteUBytesLE(patchf, (value), (len)); if (err) { return err; }; }
 
-#define write_common_block(st) \
-	write_or_return((st)->st_uid, TREE_COMMAND_UID_LEN); \
-	write_or_return((st)->st_gid, TREE_COMMAND_GID_LEN); \
-	write_or_return((st)->st_mode, TREE_COMMAND_MODE_LEN); \
-	write_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
-	write_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
+	#define write_common_block(st) \
+		write_or_return((st)->st_uid, TREE_COMMAND_UID_LEN); \
+		write_or_return((st)->st_gid, TREE_COMMAND_GID_LEN); \
+		write_or_return((st)->st_mode, TREE_COMMAND_MODE_LEN); \
+		write_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
+		write_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
 
 #define write_null_string(value) \
-{ int len=strlen((value)); if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); return IO_ERROR; }; }
+{ int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); return IO_ERROR; }; }
 
 	if (S_ISREG(entry->st->st_mode)) {
 		if (!entry->link_target) {
@@ -250,6 +261,9 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry)
 		v3printf("writing manifest command for symlink %s\n", entry->filename);
 		write_or_return(TREE_COMMAND_SYM, TREE_COMMAND_LEN);
 		write_null_string(entry->filename);
+		assert(entry->link_target);
+		write_null_string(entry->link_target);
+		write_common_block(entry->st);
 
 	} else if (S_ISFIFO(entry->st->st_mode)) {
 		v3printf("writing manifest command for fifo %s\n", entry->filename);
@@ -335,6 +349,94 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	return err;
 }
 
+static int
+consume_command_chain(cfile *patchf, unsigned long command_count)
+{
+	struct stat st;
+	unsigned char *filename = NULL;
+	unsigned char *link_target = NULL;
+	unsigned char buff[8];
+	// This code assumes tree commands are a single byte; assert to catch if that ever changes.
+	assert (TREE_COMMAND_LEN == 1);
+	if(patchf->data.pos == patchf->data.end) {
+		if(crefill(patchf) <= 0) {
+			eprintf("Failed reading command %lu\n", command_count);
+			return PATCH_TRUNCATED;
+		}
+	}
+	#define read_string_or_return(value) \
+		{ (value) = cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); return PATCH_TRUNCATED; }; };
+
+	#define read_or_return(value, len) \
+		{ \
+			if ((len) != cread(patchf, buff, (len))) { eprintf("Failed reading %i bytes\n", (len)); return PATCH_TRUNCATED; }; \
+			(value) = readUBytesLE(buff, (len)); \
+		}
+
+	#define read_common_block(st) \
+		read_or_return((st)->st_uid, TREE_COMMAND_UID_LEN); \
+		read_or_return((st)->st_gid, TREE_COMMAND_GID_LEN); \
+		read_or_return((st)->st_mode, TREE_COMMAND_MODE_LEN); \
+		read_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
+		read_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
+
+
+	unsigned char command_type = patchf->data.buff[patchf->data.pos];
+	patchf->data.pos++;
+	switch (command_type) {
+		case TREE_COMMAND_REG:
+			v3printf("command %lu: regular file\n", command_count);
+			read_common_block(&st);
+			break;
+		case TREE_COMMAND_HARDLINK:
+			v3printf("command %lu: hardlink\n", command_count);
+			read_string_or_return(filename);
+			read_string_or_return(link_target);
+			break;
+		case TREE_COMMAND_DIR:
+			v3printf("command %lu: create directory\n", command_count);
+			read_string_or_return(filename);
+			read_common_block(&st);
+			break;
+		case TREE_COMMAND_SYM:
+			v3printf("command %lu: create symlink\n", command_count);
+			read_string_or_return(filename);
+			read_string_or_return(link_target);
+			read_common_block(&st);
+			break;
+		case TREE_COMMAND_FIFO:
+			v3printf("command %lu: create fifo\n", command_count);
+			read_string_or_return(filename);
+			read_common_block(&st);
+			break;
+		case TREE_COMMAND_DEV:
+			v3printf("command %lu: mknod dev\n", command_count);
+			read_string_or_return(filename);
+			read_common_block(&st);
+			break;
+		case TREE_COMMAND_UNLINK:
+			v3printf("command %lu: unlink\n", command_count);
+			read_string_or_return(filename);
+			break;
+		default:
+			eprintf("command %lu: unknown command: %i\n", command_count, patchf->data.buff[patchf->data.pos]);
+			return PATCH_CORRUPT_ERROR;
+	}
+
+	if (filename) {
+		free(filename);
+	}
+
+	if (link_target) {
+		free(link_target);
+	}
+
+	return 0;
+
+	#undef read_or_return
+	#undef read_string_or_return
+	#undef read_common_block
+}
 
 signed int 
 treeReconstruct(cfile *patchf, cfile *target_directory)
@@ -393,8 +495,15 @@ treeReconstruct(cfile *patchf, cfile *target_directory)
 		eprintf("Failed reading command count\n");
 		return PATCH_TRUNCATED;
 	}
-	unsigned long command_count = readUBytesLE(buff, 4);
+	unsigned long x=0, command_count = readUBytesLE(buff, 4);
 	v3printf("command stream is %lu commands\n", command_count);
+
+	for (x = 0; x < command_count; x++) {
+		err = consume_command_chain(patchf, x);
+		if (err) {
+			return err;
+		}
+	}
 
 	return 0;
 
