@@ -19,8 +19,7 @@
 #include <diffball/defs.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <utime.h>
+#include <sys/time.h>
 #include <diffball/dcbuffer.h>
 #include <diffball/defs.h>
 #include <cfile.h>
@@ -283,7 +282,11 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry)
 		write_null_string(entry->filename);
 		assert(entry->link_target);
 		write_null_string(entry->link_target);
-		write_common_block(entry->st);
+		// Note: no mode...
+		write_or_return(entry->st->st_uid, TREE_COMMAND_UID_LEN);
+		write_or_return(entry->st->st_gid, TREE_COMMAND_GID_LEN);
+		write_or_return(entry->st->st_ctime, TREE_COMMAND_TIME_LEN);
+		write_or_return(entry->st->st_mtime, TREE_COMMAND_TIME_LEN);
 
 	} else if (S_ISFIFO(entry->st->st_mode)) {
 		v3printf("writing manifest command for fifo %s\n", entry->filename);
@@ -415,7 +418,7 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 	}
 
 	if (!err) {
-		err = lchown(path, st->st_uid, st->st_gid);
+		err = enforce_standard_attributes(path, st);
 	}
 	return err;
 }
@@ -506,7 +509,13 @@ consume_command_chain(const char *target_directory, cfile *patchf, unsigned long
 			v3printf("command %lu: create symlink\n", command_count);
 			read_string_or_return(filename);
 			read_string_or_return(link_target);
-			read_common_block(&st);
+
+			// Note- no mode.
+			read_or_return(st.st_uid, TREE_COMMAND_UID_LEN);
+			read_or_return(st.st_gid, TREE_COMMAND_GID_LEN);
+			read_or_return(st.st_ctime, TREE_COMMAND_TIME_LEN);
+			read_or_return(st.st_mtime, TREE_COMMAND_TIME_LEN);
+
 			enforce_or_fail(enforce_symlink, link_target, &st);
 			break;
 		case TREE_COMMAND_FIFO:

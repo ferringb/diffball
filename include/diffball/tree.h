@@ -95,7 +95,6 @@ single byte command:
    symlink target null delimited
    uid
    gid
-   mode
    ctime
    mtime
  0x05 == fifo
