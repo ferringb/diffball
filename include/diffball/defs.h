@@ -55,6 +55,7 @@ typedef signed   long long act_off_s64;
 #ifdef DEV_VERSION
 #include <assert.h>
 #define eprintf(expr...)   abort(); fprintf(stderr, expr)
+#define errno_printf(context) err(2, "%s", context);
 #define v1printf(expr...)  fprintf(stderr,expr)
 #define v2printf(expr...)  if(global_verbosity>0){fprintf(stderr,expr);}
 #define v3printf(expr...)  if(global_verbosity>1){fprintf(stderr,expr);}
@@ -62,6 +63,7 @@ typedef signed   long long act_off_s64;
 #else
 #define assert(expr) ((void)0)
 #define eprintf(expr...)   fprintf(stderr, expr)
+#define errno_printf(context) err(2, "%s", context);
 #define v1printf(expr...)  if(global_verbosity>0){fprintf(stderr,expr);}
 #define v2printf(expr...)  if(global_verbosity>1){fprintf(stderr,expr);}
 #define v3printf(expr...)  if(global_verbosity>2){fprintf(stderr,expr);}
