@@ -158,10 +158,10 @@ main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if((err=copen(&out_cfh, out_name, NO_COMPRESSOR, CFILE_WONLY|CFILE_NEW)) != 0) {
-		v0printf("error opening output file, exitting %i\n", err);
-		exit(EXIT_FAILURE);
-	}
+//	if((err=copen(&out_cfh, out_name, NO_COMPRESSOR, CFILE_WONLY|CFILE_NEW)) != 0) {
+//		v0printf("error opening output file, exitting %i\n", err);
+//		exit(EXIT_FAILURE);
+//	}
 
 	if(patch_format != NULL) {
 		format_id = check_for_format(patch_format, strlen(patch_format));
@@ -172,8 +172,8 @@ main(int argc, char **argv)
 	} else {
 		format_id = 0;
 	}
-	recon_val = simple_reconstruct(&src_cfh, patch_array, patch_count, &out_cfh, format_id, reconst_size);
-	cclose(&out_cfh);
+	recon_val = treeReconstruct(patch_array[0], out_name);
+//	cclose(&out_cfh);
 	if(recon_val != 0) {
 		if (!output_to_stdout) {
 			unlink(out_name);
