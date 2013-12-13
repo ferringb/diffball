@@ -90,6 +90,61 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 			file_count--;
 		}
 	}
+	return 0;
+}
+
+static int
+read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
+{
+	unsigned char buff[16];
+	if (4 != cread(patchf, buff, 4)) {
+		eprintf("Failed reading %s manifest count\n", manifest_name);
+		return PATCH_TRUNCATED;
+	}
+	unsigned long file_count = readUBytesLE(buff, 4);
+	*fs_count = file_count;
+	int err = 0;
+	multifile_file_data **results = calloc(sizeof(multifile_file_data *), file_count);
+	if (!results) {
+		eprintf("Failed allocating internal array for %s file manifest: %lu entries.\n", manifest_name, file_count);
+		return MEM_ERROR;
+	}
+	unsigned long x;
+	size_t position = 0;
+	for (x = 0; x < file_count; x++) {
+		results[x] = calloc(sizeof(multifile_file_data), 1);
+		if (!results[x]) {
+			file_count = x;
+			err = MEM_ERROR;
+			goto cleanup;
+		}
+		results[x]->filename = (char *)cfile_read_null_string(patchf);
+		if (!results[x]->filename) {
+			file_count = x +1;
+			err = MEM_ERROR;
+			goto cleanup;
+		}
+		results[x]->start = position;
+		if (8 != cread(patchf, buff, 8)) {
+			eprintf("Failed reading %s manifest count\n", manifest_name);
+			file_count = x +1;
+			err = PATCH_TRUNCATED;
+			goto cleanup;
+		}
+		results[x]->end = position + readUBytesLE(buff, 8);
+		position = results[x]->end;
+		v3printf("adding to %s manifest: %s length %zu\n", manifest_name, results[x]->filename, position - results[x]->start);
+	}
+
+	cleanup:
+	for (x=0; x < file_count; x++) {
+		if (results[x]->filename) {
+			free(results[x]->filename);
+		}
+		free(results[x]);
+	}
+	free(results);
+	return err;
 }
 
 signed int 
@@ -275,37 +330,32 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 
 
 signed int 
-treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
+treeReconstruct(cfile *patchf, cfile *target_directory)
 {
-	unsigned int int_size;
-	#define BUFF_SIZE 12
-	unsigned int ver;
-	EDCB_SRC_ID ref_id, add_id;
-	unsigned char buff[BUFF_SIZE];
-	off_s64  copy_offset;
-	off_u32  match_orig, matches, add_len, copy_len;
-	off_u32  size1, size2, or_mask=0, neg_mask;
-	off_u64  ver_pos = 0, add_pos;
-	off_u64  processed_size = 0;
-	off_u32  add_start;
+	unsigned char buff[16];
+	multifile_file_data **src_files = NULL, **ref_files = NULL;
+	unsigned long src_count = 0, ref_count = 0;
 
-	dcbuff->ver_size = 0;
-//	assert(DCBUFFER_FULL_TYPE == dcbuff->DCBtype);
-	if(3!=cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART))
-		goto truncated_patch;
-	if(2!=cread(patchf, buff, TREE_VERSION_LEN))
-		goto truncated_patch;
-	ver = readUBytesLE(buff, 2);
+	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART))
+		return PATCH_TRUNCATED;
+	if(TREE_VERSION_LEN != cread(patchf, buff, TREE_VERSION_LEN))
+		return PATCH_TRUNCATED;
+	unsigned int ver = readUBytesLE(buff, TREE_VERSION_LEN);
 	v2printf("ver=%u\n", ver);
 
 //	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 //	ref_id = src_id;
-	dcbuff->ver_size = dcbuff->reconstruct_pos;
-	v2printf("finished reading.  ver_pos=%llu, add_pos=%u\n",
-		(act_off_u64)ver_pos, add_pos);
+	v3printf("Reading src file manifest\n");
+
+	int err = read_file_manifest(patchf, &src_files, &src_count, "source");
+	if (err) {
+		return err;
+	}
+	err = read_file_manifest(patchf, &ref_files, &ref_count, "target");
+	if (err) {
+		return err;
+	}
+
 	return 0;
 
-	truncated_patch:
-	return PATCH_TRUNCATED;
 }
-
