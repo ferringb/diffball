@@ -192,4 +192,5 @@ multifile_file_data *multifile_find_file(const char *filename, multifile_file_da
 int copen_multifile_directory(cfile *cfh, const char *src_directory);
 int copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long file_count);
 
+unsigned char *cfile_read_null_string(cfile *cfh);
 #endif

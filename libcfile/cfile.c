@@ -637,3 +637,38 @@ prev_page(cfile *cfh)
 	}
 	return &cfh->data;
 }
+
+unsigned char *
+cfile_read_null_string(cfile *cfh)
+{
+	unsigned char *result = NULL;
+	size_t len = 0;
+	do {
+		unsigned char *match = memchr(cfh->data.buff + cfh->data.pos, 0, cfh->data.end - cfh->data.pos);
+		if (match) {
+			unsigned char *tmp = realloc(result, len + 1 + (match - cfh->data.buff));
+			if (tmp) {
+				memcpy(tmp + len, cfh->data.buff + cfh->data.pos, (match - cfh->data.buff) - cfh->data.pos + 1);
+				cfh->data.pos = match - cfh->data.buff + 1;
+				return tmp;
+			}
+			if(result) {
+				free(result);
+			}
+			eprintf("Failed allocating memory\n");
+			return NULL;
+		}
+		unsigned char *tmp = realloc(result, len + cfh->data.end - cfh->data.pos);
+		if (!tmp) {
+			if (result) {
+				free(result);
+			}
+			eprintf("failed allocating memory\n");
+			return NULL;
+		}
+		result = tmp;
+		memcpy(result + len, cfh->data.buff + cfh->data.pos, cfh->data.end - cfh->data.pos);
+		len += cfh->data.end - cfh->data.pos;
+	} while (crefill(cfh) > 0);
+	return NULL;
+}
