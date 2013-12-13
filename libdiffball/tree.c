@@ -19,6 +19,8 @@
 #include <diffball/defs.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <utime.h>
 #include <diffball/dcbuffer.h>
 #include <diffball/defs.h>
 #include <cfile.h>
@@ -31,6 +33,24 @@
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
 static int encode_fs_entry(cfile *patchf, multifile_file_data *entry);
+static int consume_command_chain(const char *output_directory, cfile *patchf, unsigned long command_count);
+static int enforce_standard_attributes(const char *path, const struct stat *st);
+static int enforce_directory(const char *path, const struct stat *st);
+static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
+
+static char *
+concat_path(const char *directory, const char *frag)
+{
+	size_t dir_len = strlen(directory);
+	size_t frag_len = strlen(frag);
+	char *p = malloc(dir_len + frag_len + 1);
+	if (p) {
+		memcpy(p, directory, dir_len);
+		memcpy(p + dir_len, frag, frag_len);
+		p[dir_len + frag_len] = 0;
+	}
+	return p;
+}
 
 static int
 cWriteUBytesLE(cfile *cfh, unsigned long value, unsigned int len)
@@ -350,12 +370,84 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 }
 
 static int
-consume_command_chain(cfile *patchf, unsigned long command_count)
+enforce_standard_attributes(const char *path, const struct stat *st)
 {
+	int err = lchown(path, st->st_uid, st->st_gid);
+	if (!err) {
+		struct utimbuf ts = {st->st_ctime, st->st_mtime};
+		err = utime(path, &ts);
+	}
+	return err;
+}
+
+static int
+enforce_directory(const char *path, const struct stat *st)
+{
+	v3printf("Creating directory at %s\n", path);
+	int err = mkdir(path, st->st_mode);
+	if (EEXIST == err) {
+		v3printf("Removing blocking content at %s\n", path);
+		err = unlink(path);
+		if (!err) {
+			err = mkdir(path, st->st_mode);
+		}
+	}
+
+	if (!err) {
+		// Note, this doesn't guarantee mtime if we go screwing around w/in a directory after the command.
+		// Need to track/sort that somehow.
+		err = enforce_standard_attributes(path, st);
+	}
+	return err;
+}
+
+static int
+enforce_symlink(const char *path, const char *link_target, const struct stat *st)
+{
+	v3printf("Creating symlink at %s\n", path);
+	int err = symlink(link_target, path);
+	if (EEXIST == err) {
+		v3printf("Removing blocking content at %s\n", path);
+		err = unlink(path);
+		if (!err) {
+			err = symlink(link_target, path);
+		}
+	}
+
+	if (!err) {
+		err = lchown(path, st->st_uid, st->st_gid);
+	}
+	return err;
+}
+
+static int
+enforce_trailing_slash(char **ptr)
+{
+	size_t len = strlen(*ptr);
+	if (len == 0 || (*ptr)[len -1] != '/') {
+		char *p = realloc(*ptr, len + 2);
+		if (!p) {
+			eprintf("Somehow encountered realloc failure for string of desired size %zi\n", len + 2);
+			return MEM_ERROR;
+		}
+		(*ptr)[len] = '/';
+		(*ptr)[len + 1] = 0;
+		*ptr = p;
+		return 0;
+	}
+	return 0;
+}
+
+static int
+consume_command_chain(const char *target_directory, cfile *patchf, unsigned long command_count)
+{
+	int err = 0;
 	struct stat st;
-	unsigned char *filename = NULL;
-	unsigned char *link_target = NULL;
+	char *filename = NULL;
+	char *abs_filepath = NULL;
+	char *link_target = NULL;
 	unsigned char buff[8];
+
 	// This code assumes tree commands are a single byte; assert to catch if that ever changes.
 	assert (TREE_COMMAND_LEN == 1);
 	if(patchf->data.pos == patchf->data.end) {
@@ -365,7 +457,7 @@ consume_command_chain(cfile *patchf, unsigned long command_count)
 		}
 	}
 	#define read_string_or_return(value) \
-		{ (value) = cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); return PATCH_TRUNCATED; }; };
+		{ (value) = (char *)cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); return PATCH_TRUNCATED; }; };
 
 	#define read_or_return(value, len) \
 		{ \
@@ -379,6 +471,17 @@ consume_command_chain(cfile *patchf, unsigned long command_count)
 		read_or_return((st)->st_mode, TREE_COMMAND_MODE_LEN); \
 		read_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
 		read_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
+
+	#define enforce_or_fail(command, args...) \
+		{ \
+			abs_filepath = concat_path(target_directory, filename); \
+			if (abs_filepath) { \
+				err = command(abs_filepath, args); \
+			} else { \
+				eprintf("Failed allocating filepath.\n"); \
+				err = MEM_ERROR; \
+			} \
+		}
 
 
 	unsigned char command_type = patchf->data.buff[patchf->data.pos];
@@ -397,12 +500,14 @@ consume_command_chain(cfile *patchf, unsigned long command_count)
 			v3printf("command %lu: create directory\n", command_count);
 			read_string_or_return(filename);
 			read_common_block(&st);
+			enforce_or_fail(enforce_directory, &st);
 			break;
 		case TREE_COMMAND_SYM:
 			v3printf("command %lu: create symlink\n", command_count);
 			read_string_or_return(filename);
 			read_string_or_return(link_target);
 			read_common_block(&st);
+			enforce_or_fail(enforce_symlink, link_target, &st);
 			break;
 		case TREE_COMMAND_FIFO:
 			v3printf("command %lu: create fifo\n", command_count);
@@ -423,6 +528,10 @@ consume_command_chain(cfile *patchf, unsigned long command_count)
 			return PATCH_CORRUPT_ERROR;
 	}
 
+	if (abs_filepath) {
+		free(abs_filepath);
+	}
+
 	if (filename) {
 		free(filename);
 	}
@@ -431,7 +540,7 @@ consume_command_chain(cfile *patchf, unsigned long command_count)
 		free(link_target);
 	}
 
-	return 0;
+	return err;
 
 	#undef read_or_return
 	#undef read_string_or_return
@@ -439,9 +548,10 @@ consume_command_chain(cfile *patchf, unsigned long command_count)
 }
 
 signed int 
-treeReconstruct(cfile *patchf, cfile *target_directory)
+treeReconstruct(cfile *patchf, const char *raw_directory)
 {
 	unsigned char buff[16];
+	char *target_directory = NULL;
 	multifile_file_data **src_files = NULL, **ref_files = NULL;
 	unsigned long src_count = 0, ref_count = 0;
 
@@ -469,42 +579,59 @@ treeReconstruct(cfile *patchf, cfile *target_directory)
 		return err;
 	}
 
+	target_directory = strdup(raw_directory);
+	if (!target_directory || enforce_trailing_slash(&target_directory)) {
+		eprintf("allocation errors encountered\n");
+		if (target_directory) {
+			free(target_directory);
+		}
+		return MEM_ERROR;
+	}
+
 	if (8 != cread(patchf, buff, 8)) {
 		eprintf("Failed reading delta length\n");
+		free(target_directory);
 		return PATCH_TRUNCATED;
 	}
+
 	unsigned long delta_size = readUBytesLE(buff, 8);
 	size_t delta_start = ctell(patchf, CSEEK_FSTART);
 	if (delta_start + delta_size != cseek(patchf, delta_size, CSEEK_CUR)) {
 		eprintf("Failed seeking past the delta\n");
+		free(target_directory);
 		return PATCH_TRUNCATED;
 	}
 
 	assert(TREE_INTERFILE_MAGIC_LEN < sizeof(buff));
 	if (TREE_INTERFILE_MAGIC_LEN != cread(patchf, buff, TREE_INTERFILE_MAGIC_LEN)) {
 		eprintf("Failed reading intrafile magic in patch file at position %zu\n", delta_size + delta_start);
+		free(target_directory);
 		return PATCH_TRUNCATED;
 	}
 	if (memcmp(buff, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN) != 0) {
 		eprintf("Failed to verify intrafile magic in patch file at position %zu; likely corrupted\n", delta_size + delta_start);
+		free(target_directory);
 		return PATCH_CORRUPT_ERROR;
 	}
 	v3printf("Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
 
 	if (4 != cread(patchf, buff, 4)) {
 		eprintf("Failed reading command count\n");
+		free(target_directory);
 		return PATCH_TRUNCATED;
 	}
 	unsigned long x=0, command_count = readUBytesLE(buff, 4);
 	v3printf("command stream is %lu commands\n", command_count);
 
 	for (x = 0; x < command_count; x++) {
-		err = consume_command_chain(patchf, x);
+		err = consume_command_chain(target_directory, patchf, x);
 		if (err) {
+			free(target_directory);
 			return err;
 		}
 	}
 
+	free(target_directory);
 	return 0;
 
 }
