@@ -373,6 +373,14 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 }
 
 static int
+enforce_unlink(const char *path)
+{
+	v3printf("Removing content at %s\n", path);
+	int err = unlink(path);
+	return err;
+}
+
+static int
 enforce_standard_attributes(const char *path, const struct stat *st)
 {
 	int err = lchown(path, st->st_uid, st->st_gid);
@@ -388,11 +396,19 @@ enforce_directory(const char *path, const struct stat *st)
 {
 	v3printf("Creating directory at %s\n", path);
 	int err = mkdir(path, st->st_mode);
-	if (EEXIST == err) {
-		v3printf("Removing blocking content at %s\n", path);
-		err = unlink(path);
-		if (!err) {
-			err = mkdir(path, st->st_mode);
+	if (-1 == err && EEXIST == errno) {
+		struct stat ondisk_st;
+		if (0 != lstat(path, &ondisk_st)) {
+			eprintf("Raced occurred checking %s\n", path);
+			return IO_ERROR;
+		} else if (!S_ISDIR(ondisk_st.st_mode)) {
+			v3printf("Removing blocking content at %s\n", path);
+			err = unlink(path);
+			if (!err) {
+				err = mkdir(path, st->st_mode);
+			}
+		} else {
+			err = 0;
 		}
 	}
 
@@ -409,9 +425,9 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 {
 	v3printf("Creating symlink at %s\n", path);
 	int err = symlink(link_target, path);
-	if (EEXIST == err) {
+	if (-1 == err && EEXIST == errno) {
 		v3printf("Removing blocking content at %s\n", path);
-		err = unlink(path);
+		err = enforce_unlink(path);
 		if (!err) {
 			err = symlink(link_target, path);
 		}
@@ -531,6 +547,15 @@ consume_command_chain(const char *target_directory, cfile *patchf, unsigned long
 		case TREE_COMMAND_UNLINK:
 			v3printf("command %lu: unlink\n", command_count);
 			read_string_or_return(filename);
+
+			abs_filepath = concat_path(target_directory, filename);
+			if (abs_filepath) {
+				err = enforce_unlink(abs_filepath);
+			} else {
+				eprintf("Failed allocating filepath.\n");
+				err = MEM_ERROR;
+			}
+
 			break;
 		default:
 			eprintf("command %lu: unknown command: %i\n", command_count, patchf->data.buff[patchf->data.pos]);
@@ -551,6 +576,7 @@ consume_command_chain(const char *target_directory, cfile *patchf, unsigned long
 
 	return err;
 
+	#undef enforce_or_fail
 	#undef read_or_return
 	#undef read_string_or_return
 	#undef read_common_block
