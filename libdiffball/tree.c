@@ -374,8 +374,8 @@ enforce_standard_attributes(const char *path, const struct stat *st)
 {
 	int err = lchown(path, st->st_uid, st->st_gid);
 	if (!err) {
-		struct utimbuf ts = {st->st_ctime, st->st_mtime};
-		err = utime(path, &ts);
+		struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
+		err = lutimes(path, times);
 	}
 	return err;
 }
