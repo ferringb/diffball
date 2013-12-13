@@ -646,9 +646,9 @@ cfile_read_null_string(cfile *cfh)
 	do {
 		unsigned char *match = memchr(cfh->data.buff + cfh->data.pos, 0, cfh->data.end - cfh->data.pos);
 		if (match) {
-			unsigned char *tmp = realloc(result, len + match - cfh->data.buff + 1);
+			unsigned char *tmp = realloc(result, len + 1 + (match - cfh->data.buff));
 			if (tmp) {
-				memcpy(tmp + len, cfh->data.buff + cfh->data.pos, match - cfh->data.buff + 1);
+				memcpy(tmp + len, cfh->data.buff + cfh->data.pos, (match - cfh->data.buff) - cfh->data.pos + 1);
 				cfh->data.pos = match - cfh->data.buff + 1;
 				return tmp;
 			}
