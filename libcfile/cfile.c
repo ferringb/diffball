@@ -237,6 +237,8 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	assert(raw_fh_start <= raw_fh_end);
 	cfh->access_flags = access_flags;
 
+	cfh->state_flags |= CFILE_IS_OPEN;
+
 	if(AUTODETECT_COMPRESSOR == compressor_type) {
 		dcprintf("copen: autodetecting comp_type: ");
 		ret_val = cfile_identify_compressor(fh);
@@ -307,14 +309,14 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	/* no longer in use.  leaving it as a reminder for updating when
 		switching over to the full/correct sub-window opening */
 //	cfh->state_flags |= CFILE_SEEK_NEEDED;
-	cfh->state_flags |= CFILE_IS_OPEN;
+
 	return result;
 }
 
 unsigned int
 cclose(cfile *cfh)
 {
-	if (!cfile_is_open) {
+	if (!cfile_is_open(cfh)) {
 		return 0;
 	}
 
