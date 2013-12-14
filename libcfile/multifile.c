@@ -47,6 +47,24 @@ typedef struct {
 static int multifile_ensure_open_active(cfile *cfh, multifile_data *data, ssize_t data_offset);
 
 static char *
+strdup_ensure_trailing_slash(const char *src_directory)
+{
+	char *directory = NULL;
+	int dir_len = strlen(src_directory);
+	if (src_directory[dir_len] != '/') {
+		directory = malloc(dir_len + 2);
+		if(directory) {
+			memcpy(directory, src_directory, dir_len);
+			directory[dir_len] = '/';
+			dir_len++;
+			directory[dir_len] = 0;
+		}
+		return directory;
+	}
+	return strdup(src_directory);
+}
+
+static char *
 readlink_dup(char *filepath, struct stat *st)
 {
 	char *linkname;
@@ -59,7 +77,7 @@ readlink_dup(char *filepath, struct stat *st)
 
 	linkname = malloc(st->st_size + 1);
 	if (linkname == NULL) {
-		eprintf("Failed allocating memory for symlink target of len %i: %s\n", st->st_size +1, filepath);
+		eprintf("Failed allocating memory for symlink target of len %zu: %s\n", st->st_size +1, filepath);
 		return NULL;
 	}
 
@@ -142,18 +160,29 @@ multifile_find_file(const char *filename, multifile_file_data **array, unsigned 
 	return NULL;
 }
 
+void
+multifile_free_file_data_array(multifile_file_data **array, unsigned long count)
+{
+	while (count > 0) {
+		count--;
+		if (array[count]->filename) {
+			free(array[count]->filename);
+		}
+		if (array[count]->st) {
+			free(array[count]->st);
+		}
+		free(array[count]);
+	}
+}
+
 unsigned int
 cclose_multifile(cfile *cfh, void *raw)
 {
 	multifile_data *data = (multifile_data *)raw;
 	if (data) {
 		multifile_close_active_fd(data);
-		while (data->fs_count > 0){
-			data->fs_count--;
-			free(data->fs[data->fs_count]->filename);
-			free(data->fs[data->fs_count]->st);
-			free(data->fs[data->fs_count]);
-		}
+		multifile_free_file_data_array(data->fs, data->fs_count);
+		data->fs_count = 0;
 		free(data->fs);
 		free(data->root);
 		free(data);
@@ -294,8 +323,13 @@ cflush_multifile(cfile *cfh, void *raw)
 }
 
 int
-copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long fs_count, unsigned int access_flags)
+copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, unsigned long fs_count, unsigned int access_flags)
 {
+	if (cfile_is_open(cfh)) {
+		eprintf("copen_multifile: cfh is already open, failing\n");
+		return UNSUPPORTED_OPT;
+	}
+
 	int result = 0;
 	if ((access_flags & CFILE_WR) == CFILE_WR) {
 		eprintf("multifile doesn't currently support read and write support; only one or other\n");
@@ -310,7 +344,11 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 		result = MEM_ERROR;
 		goto cleanup;
 	}
-	data->root = root;
+	data->root = strdup_ensure_trailing_slash(root);
+	if (!data->root) {
+		eprintf("Memory allocation failed\n");
+		goto cleanup;
+	}
 	data->root_len = strlen(root);
 	data->fs = files;
 	data->fs_count = fs_count;
@@ -343,9 +381,6 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 cleanup:
 	if (data) {
 		cclose_multifile(cfh, data);
-	} else {
-		free(root);
-		free(files);
 	}
 	return result;
 }	
@@ -461,20 +496,9 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 	multifile_file_data **files = NULL;
 	unsigned long files_count = 0;
 	unsigned long files_size = 0;
-	char *directory = NULL;
 
-	int dir_len = strlen(src_directory);
-	if (src_directory[dir_len] != '/') {
-		directory = malloc(dir_len + 2);
-		if(directory) {
-			memcpy(directory, src_directory, dir_len);
-			directory[dir_len] = '/';
-			dir_len++;
-			directory[dir_len] = 0;
-		}
-	} else {
-		directory = strdup(src_directory);
-	}
+	char *directory = strdup_ensure_trailing_slash(src_directory);
+
 	if (!directory) {
 		eprintf("multifile: directory dup mem allocaiton failed\n");
 		return 1;
@@ -493,13 +517,14 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		}
 	}
 	qsort(files, files_count, sizeof(multifile_file_data *), cmpstrcmp);
-/*
-	unsigned long i=0;
-	for (; i < files_count; i++) {
-		printf("%s\n", files[i]);
+
+	int err = copen_multifile(cfh, directory, files, files_count, CFILE_RONLY);
+	free(directory);
+	if (err) {
+		multifile_free_file_data_array(files, files_count);
+		free(files);
 	}
-*/
-	return copen_multifile(cfh, directory, files, files_count, CFILE_RONLY);
+	return err;
 }
 
 int

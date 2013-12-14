@@ -193,5 +193,9 @@ multifile_file_data *multifile_find_file(const char *filename, multifile_file_da
 int copen_multifile_directory(cfile *cfh, const char *src_directory);
 int copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, unsigned long file_count, unsigned int access_flags);
 
+// Given an array, free the data in each item.  Note this doesn't free the array itself- just the contents.
+// freeing the array is left to the caller to sort.
+void multifile_free_file_data_array(multifile_file_data **array, unsigned long count);
+
 unsigned char *cfile_read_null_string(cfile *cfh);
 #endif
