@@ -62,6 +62,12 @@ main(int argc, char **argv)
 	long sample_rate = 0, seed_len = 0, hash_size = 0;
 		
 	cfile ref_full, ref_window, ver_window, ver_full, out_cfh;
+	memset(&ref_full, 0, sizeof(cfile));
+	memset(&ref_window, 0, sizeof(cfile));
+	memset(&ver_window, 0, sizeof(cfile));
+	memset(&ver_full, 0, sizeof(cfile));
+	memset(&out_cfh, 0, sizeof(cfile));
+
 	struct stat ref_stat, ver_stat;
 	RefHash rhash_win;
 	CommandBuffer dcbuff;
