@@ -53,19 +53,16 @@ static char short_opts[] = STD_SHORT_OPTIONS "f:b:";
 int
 main(int argc, char **argv)
 {
-	int out_fh;
-	cfile src_cfh, out_cfh;
-	cfile patch_cfh[256];
-	cfile *patch_array[256];
-	unsigned long x;
+	cfile patch_cfh;
+	memset(&patch_cfh, 0, sizeof(cfile));
 	char  *src_name = NULL;
 	char  *out_name = NULL;
-	unsigned long patch_count;
-	char  **patch_name;
+	char  *patch_name;
 	unsigned long format_id;
 	signed long int recon_val=0;
-//	unsigned int out_compressor = 0;
+
 	unsigned int output_to_stdout = 0;
+
 	char  *patch_format = NULL;
 	int optr = 0, err;
 	unsigned long reconst_size = 0xffff;
@@ -113,55 +110,29 @@ main(int argc, char **argv)
 		}
 	}
 
-	if((src_name=(char *)get_next_arg(argc, argv))==NULL) {
-		if(src_name) {
-			v0printf("Must specify an existing source file!- %s not found\n", src_name);
-			exit(EXIT_USAGE);
-		}
-		DUMP_USAGE(EXIT_USAGE);
-	} else if (optind >= argc) {
-		v0printf("Must specify a patch file!\n");
+	src_name = (char *)get_next_arg(argc, argv);
+	patch_name = (char *)get_next_arg(argc, argv);
+	out_name = (char *)get_next_arg(argc, argv);
+
+	if (!src_name || !patch_name || !out_name) {
+		v0printf("Wrong argument count\n");
 		DUMP_USAGE(EXIT_USAGE);
 	}
-	patch_count = argc - optind;
-	patch_name = optind + argv;
-	if(output_to_stdout) {
-		out_fh = 1;
-		if(patch_count == 0) {
-			v0printf("Must specify an existing patch file!\n");
-			DUMP_USAGE(EXIT_USAGE);
-		}
-	} else {
-		if(patch_count == 1) {
-			v0printf("Must specify a name for the reconstructed file!\n");
-			DUMP_USAGE(EXIT_USAGE);
-		}
-		out_name = patch_name[patch_count - 1];
-		patch_name[patch_count] = NULL;
-		patch_count--;
+
+	struct stat st;
+	if (stat(src_name, &st) || !S_ISDIR(st.st_mode)) {
+		v0printf("source argument must be a directory: %s\n", src_name);
+		exit(EXIT_USAGE);
+	}
+	if (stat(out_name, &st) || !S_ISDIR(st.st_mode)) {
+		v0printf("target %s must exist and be a directory\n", out_name);
+		exit(EXIT_USAGE);
 	}
 
-	/* currently, unwilling to do bufferless for more then one patch.  overlay patches are the main 
-	   concern; it shouldn't be hard completing the support, just no motivation currently :) */
-
-	for(x=0; x < patch_count; x++) {
-		err=copen(&patch_cfh[x], patch_name[x], AUTODETECT_COMPRESSOR, CFILE_RONLY);
-		check_return2(err,"copen of patch")
-		patch_array[x] = &patch_cfh[x];
-	}
+	err=copen(&patch_cfh, patch_name, AUTODETECT_COMPRESSOR, CFILE_RONLY);
+	check_return2(err,"copen of patch")
 
 	v1printf("verbosity level(%u)\n", global_verbosity);
-
-	if((err=copen_multifile_directory(&src_cfh, src_name)) != 0) {
-//	if((err=copen(&src_cfh, src_name, AUTODETECT_COMPRESSOR, CFILE_RONLY)) != 0) {
-		v0printf("error opening source directory '%s': %i\n", src_name, err);
-		exit(EXIT_FAILURE);
-	}
-
-//	if((err=copen(&out_cfh, out_name, NO_COMPRESSOR, CFILE_WONLY|CFILE_NEW)) != 0) {
-//		v0printf("error opening output file, exitting %i\n", err);
-//		exit(EXIT_FAILURE);
-//	}
 
 	if(patch_format != NULL) {
 		format_id = check_for_format(patch_format, strlen(patch_format));
@@ -172,17 +143,16 @@ main(int argc, char **argv)
 	} else {
 		format_id = 0;
 	}
-	recon_val = treeReconstruct(patch_array[0], out_name);
-//	cclose(&out_cfh);
+	recon_val = treeReconstruct(src_name, &patch_cfh, out_name);
+
 	if(recon_val != 0) {
 		if (!output_to_stdout) {
 			unlink(out_name);
 		}
 	}
-	cclose(&src_cfh);
-	for(x=0; x < patch_count; x++) {
-		cclose(&patch_cfh[x]);
-	}
+
+	cclose(&patch_cfh);
+
 	return recon_val;
 }
 
