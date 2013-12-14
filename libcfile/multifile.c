@@ -196,7 +196,26 @@ multifile_ensure_open_active(cfile *cfh, multifile_data *data, ssize_t data_offs
 	}
 	if (data->active_fd == -1) {
 		get_filepath(data, data->current_fs_index, buf);
-		data->active_fd = open(buf, O_NOFOLLOW|O_RDONLY);
+		if (cfh->access_flags & CFILE_WONLY) {
+			// IFF we create the file, then we truncate it to our desired length.  If not, assume it already has had that
+			// operation done to it.
+			data->active_fd = open(buf, O_NOFOLLOW|O_WRONLY);
+			if (-1 == data->active_fd && ENOENT == errno) {
+				v3printf("multifile: creating file %s\n", data->fs[data->current_fs_index]->filename);
+				data->active_fd = open(buf, O_NOFOLLOW|O_WRONLY|O_EXCL|O_CREAT, 0600);
+				if (-1 != data->active_fd) {
+					// Set the file length upon creation.
+					size_t desired = data->fs[data->current_fs_index]->end - data->fs[data->current_fs_index]->start;
+					if (-1 == ftruncate(data->active_fd, desired)) {
+						eprintf("Failed truncating file %s to %zu length\n",
+							data->fs[data->current_fs_index]->filename, desired);
+						return IO_ERROR;
+					}
+				}
+			}
+		} else {
+			data->active_fd = open(buf, O_NOFOLLOW|O_RDONLY);
+		}
 		if (data->active_fd == -1) {
 			eprintf("Failed opening multifile %s; errno %i\n", buf, errno);
 			return 1;
@@ -244,10 +263,47 @@ crefill_multifile(cfile *cfh, void *raw)
 	return 0;
 }
 
+ssize_t
+cflush_multifile(cfile *cfh, void *raw)
+{
+	multifile_data *data = (multifile_data *)raw;
+
+	// Note the seek to offset + write_start; the point there is so that we skip any segment that
+	// the client didn't write to.  That way we're not writing nulls to the FS unless told to do so-
+	// allows for sparse, basically.
+	// Additionally, note that this may cross a file boundary- in which case we have to separate the
+	// writes, working our way till there is no data left to flush.
+
+	while (cfh->data.write_end > cfh->data.write_start) {
+		int err = multifile_ensure_open_active(cfh, data, cfh->data.offset + cfh->data.write_start);
+		if (err) {
+			return err;
+		}
+		size_t desired = MIN(data->fs[data->current_fs_index]->end, cfh->data.write_end + cfh->data.offset + cfh->data.window_offset);
+		desired -= cfh->data.offset + cfh->data.write_start;
+
+		if (desired != write(data->active_fd, cfh->data.buff + cfh->data.write_start, desired)) {
+			eprintf("Failed writing to %s\n", data->fs[data->current_fs_index]->filename);
+			return IO_ERROR;
+		}
+		cfh->data.write_start += desired;
+	}
+	cfh->data.offset += cfh->data.write_end;
+	cfh->data.write_end = cfh->data.write_start = cfh->data.pos = cfh->data.end = 0;
+	return 0;
+}
+
 int
-copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long fs_count)
+copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long fs_count, unsigned int access_flags)
 {
 	int result = 0;
+	if ((access_flags & CFILE_WR) == CFILE_WR) {
+		eprintf("multifile doesn't currently support read and write support; only one or other\n");
+		return UNSUPPORTED_OPT;
+	} else if (!(access_flags & CFILE_WR)) {
+		eprintf("no access mode was given\n");
+		return UNSUPPORTED_OPT;
+	}
 	memset(cfh, 0, sizeof(cfile));
 	multifile_data *data = (multifile_data *)calloc(sizeof(multifile_data), 1);
 	if (!data) {
@@ -271,13 +327,14 @@ copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned lo
 		data->fs[x]->end = position;
 	}
 
-	result = internal_copen(cfh, -1, 0, position, 0, position, NO_COMPRESSOR, CFILE_RONLY);
+	result = internal_copen(cfh, -1, 0, position, 0, position, NO_COMPRESSOR, access_flags);
 	if (result) {
 		goto cleanup;
 	}
 
 	cfh->io.seek = cseek_multifile;
 	cfh->io.refill = crefill_multifile;
+	cfh->io.flush = cflush_multifile;
 	cfh->io.close = cclose_multifile;
 	cfh->io.data = (void *)data;
 	
@@ -442,7 +499,7 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		printf("%s\n", files[i]);
 	}
 */
-	return copen_multifile(cfh, directory, files, files_count);
+	return copen_multifile(cfh, directory, files, files_count, CFILE_RONLY);
 }
 
 int

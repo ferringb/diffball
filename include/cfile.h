@@ -190,7 +190,7 @@ int multifile_expose_content(cfile *cfh, multifile_file_data ***results, unsigne
 multifile_file_data *multifile_find_file(const char *filename, multifile_file_data **array, unsigned long fs_count);
 
 int copen_multifile_directory(cfile *cfh, const char *src_directory);
-int copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long file_count);
+int copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long file_count, unsigned int access_flags);
 
 unsigned char *cfile_read_null_string(cfile *cfh);
 #endif
