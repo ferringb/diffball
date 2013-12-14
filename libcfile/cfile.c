@@ -29,6 +29,16 @@ unsigned int largefile_support = 0;
 largefile_support = 1;
 #endif
 
+static inline int
+error_if_closed(cfile *cfh, const char *operation)
+{
+	if (!cfile_is_open(cfh)) {
+		eprintf("%s: cfile is not open, internal bug\n", operation);
+		return 1;
+	}
+	return 0;
+}
+
 /* quick kludge */
 signed long
 cfile_identify_compressor(int fh)
@@ -52,8 +62,11 @@ cfile_identify_compressor(int fh)
 cfile *
 copen_dup_cfh(cfile *cfh)
 {
+	if (error_if_closed(cfh, "copen_dup_cfh"))
+		return NULL;
+
 	cfile *dup;
-	dup = (cfile *)malloc(sizeof(cfile));
+	dup = (cfile *)calloc(1, sizeof(cfile));
 	if(dup == NULL) {
 		return NULL;
 	}
@@ -71,6 +84,13 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 	size_t fh_end, unsigned int compressor_type, unsigned int 
 	access_flags)
 {
+	if (error_if_closed(parent, "copen_child_cfh")) {
+		return UNSUPPORTED_OPT;
+	} else if (cfile_is_open(cfh)) {
+		eprintf("passed in cfh is already open\n");
+		return UNSUPPORTED_OPT;
+	}
+
 	int err = 0;
 	dcprintf("copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
 	cfh->state_flags = CFILE_CHILD_CFH | (~CFILE_SEEK_IS_COSTLY & parent->access_flags);
@@ -105,6 +125,11 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 int
 copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compressor_type, unsigned int access_flags)
 {
+	if (cfile_is_open(cfh)) {
+		eprintf("passed in cfh is already open\n");
+		return UNSUPPORTED_OPT;
+	}
+
 	int ret;
 	size_t len2;
 	if(buff == NULL) {
@@ -145,6 +170,11 @@ copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compressor_t
 int
 copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags)
 {
+	if (cfile_is_open(cfh)) {
+		eprintf("passed in cfh is already open\n");
+		return UNSUPPORTED_OPT;
+	}
+
 	dcprintf("copen: calling internal_copen\n");
 	struct stat st;
 	int fd, flags;
@@ -182,13 +212,18 @@ int
 copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end,
 	unsigned int compressor_type, unsigned int access_flags)
 {
+	if (cfile_is_open(cfh)) {
+		eprintf("passed in cfh is already open\n");
+		return UNSUPPORTED_OPT;
+	}
+
 	dcprintf("copen: calling internal_copen\n");
 	cfh->state_flags = 0;
 	cfh->lseek_info.parent.last = 0;
 	cfh->lseek_info.parent.handle_count =1;
 	cfh->cfh_id = 1;
 	return internal_copen(cfh, fh, fh_start, fh_end, 0,0,
-	compressor_type, access_flags);
+		compressor_type, access_flags);
 }
 
 int
@@ -201,6 +236,8 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 
 	assert(raw_fh_start <= raw_fh_end);
 	cfh->access_flags = access_flags;
+
+	cfh->state_flags |= CFILE_IS_OPEN;
 
 	if(AUTODETECT_COMPRESSOR == compressor_type) {
 		dcprintf("copen: autodetecting comp_type: ");
@@ -272,12 +309,17 @@ internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	/* no longer in use.  leaving it as a reminder for updating when
 		switching over to the full/correct sub-window opening */
 //	cfh->state_flags |= CFILE_SEEK_NEEDED;
+
 	return result;
 }
 
 unsigned int
 cclose(cfile *cfh)
 {
+	if (!cfile_is_open(cfh)) {
+		return 0;
+	}
+
 	if(cfh->access_flags & CFILE_WONLY) {
 		cflush(cfh);
 	}
@@ -305,12 +347,17 @@ cclose(cfile *cfh)
 			cfh->data.pos = cfh->data.end = cfh->data.size = cfh->data.offset = \
 			cfh->raw.window_len = cfh->data.window_len = 0;
 	}
+	cfh->state_flags &= ~CFILE_IS_OPEN;
 	return result;
 }
 
 ssize_t
 cread(cfile *cfh, void *buff, size_t len)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return UNSUPPORTED_OPT;
+	}
+
 	size_t bytes_wrote=0;
 	size_t x;
 	ssize_t val;
@@ -339,6 +386,10 @@ cread(cfile *cfh, void *buff, size_t len)
 ssize_t
 cwrite(cfile *cfh, void *buff, size_t len)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return UNSUPPORTED_OPT;
+	}
+
 	size_t bytes_wrote=0, x;
 	if(cfh->access_flags & CFILE_RONLY && cfh->data.write_end == 0) {
 
@@ -362,6 +413,10 @@ cwrite(cfile *cfh, void *buff, size_t len)
 ssize_t
 cseek(cfile *cfh, ssize_t offset, int offset_type)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return UNSUPPORTED_OPT;
+	}
+
 	ssize_t data_offset;
 	if(CSEEK_ABS==offset_type)
 		data_offset = abs(offset) - cfh->data.window_offset;
@@ -429,6 +484,10 @@ raw_ensure_position(cfile *cfh)
 size_t
 ctell(cfile *cfh, unsigned int tell_type)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return UNSUPPORTED_OPT;
+	}
+
 	if(CSEEK_ABS==tell_type)
 		return cfh->data.window_offset + cfh->data.offset + cfh->data.pos;
 	else if (CSEEK_FSTART==tell_type)
@@ -441,6 +500,10 @@ ctell(cfile *cfh, unsigned int tell_type)
 ssize_t
 cflush(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return UNSUPPORTED_OPT;
+	}
+
 	/* kind of a hack, I'm afraid. */
 	ssize_t result = 0;
 	if(cfh->data.write_end != 0) {
@@ -498,6 +561,10 @@ cflush(cfile *cfh)
 ssize_t
 crefill(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return UNSUPPORTED_OPT;
+	}
+
 	assert((cfh->state_flags & CFILE_MEM_ALIAS) == 0);
 	assert(cfh->io.refill != NULL);
 
@@ -512,12 +579,20 @@ crefill(cfile *cfh)
 size_t
 cfile_len(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return 0;
+	}
+
 	return cfh->data.window_len;
 }
 
 size_t
 cfile_start_offset(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return 0;
+	}
+
 	return cfh->data.window_offset;
 }
 
@@ -585,6 +660,10 @@ ensure_lseek_position(cfile *cfh)
 cfile_window *
 expose_page(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return NULL;
+	}
+
 	if(cfh->access_flags & CFILE_RONLY) {
 		if(cfh->data.end==0) {
 			assert((cfh->state_flags & CFILE_MEM_ALIAS) == 0);
@@ -597,6 +676,10 @@ expose_page(cfile *cfh)
 cfile_window *
 next_page(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return NULL;
+	}
+
 	if(cfh->access_flags & CFILE_WRITEABLE) {
 			cflush(cfh);
 	}
@@ -613,6 +696,10 @@ next_page(cfile *cfh)
 cfile_window *
 prev_page(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return NULL;
+	}
+
 	ssize_t page_start = cfh->data.offset;
 	/* possibly do an error check or something here */
 	if(cfh->access_flags & CFILE_WRITEABLE) {
@@ -641,6 +728,10 @@ prev_page(cfile *cfh)
 unsigned char *
 cfile_read_null_string(cfile *cfh)
 {
+	if (error_if_closed(cfh, "cread")) {
+		return NULL;
+	}
+
 	unsigned char *result = NULL;
 	size_t len = 0;
 	do {
@@ -671,4 +762,10 @@ cfile_read_null_string(cfile *cfh)
 		len += cfh->data.end - cfh->data.pos;
 	} while (crefill(cfh) > 0);
 	return NULL;
+}
+
+int
+cfile_is_open(cfile *cfh)
+{
+	return (cfh->state_flags & CFILE_IS_OPEN) ? 1 : 0;
 }

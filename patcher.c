@@ -56,6 +56,10 @@ main(int argc, char **argv)
 	int out_fh;
 	cfile src_cfh, out_cfh;
 	cfile patch_cfh[256];
+	memset(&src_cfh, 0, sizeof(cfile));
+	memset(&out_cfh, 0, sizeof(cfile));
+	memset(patch_cfh, 0, sizeof(cfile) * 256);
+
 	cfile *patch_array[256];
 	unsigned long x;
 	char  *src_name = NULL;

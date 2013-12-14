@@ -59,6 +59,8 @@ main(int argc, char **argv)
 	int out_fh;
 	CommandBuffer dcbuff[2];
 	cfile in_cfh[256], out_cfh;
+	memset(in_cfh, 0, sizeof(cfile) * 256);
+	memset(&out_cfh, 0, sizeof(cfile));
 	char **patch_name;
 	int optr, x;
 	unsigned int patch_count;

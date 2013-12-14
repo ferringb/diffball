@@ -54,6 +54,9 @@ char short_opts[] = STD_SHORT_OPTIONS DIFF_SHORT_OPTIONS "f:";
 int main(int argc, char **argv)
 {
 	cfile out_cfh, ref_cfh, ver_cfh;
+	memset(&out_cfh, 0, sizeof(cfile));
+	memset(&ref_cfh, 0, sizeof(cfile));
+	memset(&ver_cfh, 0, sizeof(cfile));
 	int out_fh;
 
 	int optr;

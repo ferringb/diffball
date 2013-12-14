@@ -45,7 +45,7 @@ extern unsigned int cfile_verbosity;
 #define CFILE_MEM_ALIAS					(0x40)
 #define CFILE_CHILD_CFH					(0x80)
 #define CFILE_EOF						(0x100)
-//#define CFILE_DATA_SEEK_NEEDED			(0x200)
+#define CFILE_IS_OPEN					(0x200)
 #define CFILE_FREE_AT_CLOSING			(0x400)
 //#define CFILE_FLAG_BACKWARD_SEEKS		(0x800)
 
@@ -177,6 +177,7 @@ size_t cfile_start_offset(cfile *cfh);
 cfile_window *expose_page(cfile *cfh);
 cfile_window *next_page(cfile *cfh);
 cfile_window *prev_page(cfile *cfh);
+int cfile_is_open(cfile *cfh);
 
 typedef struct {
 	char *filename;
@@ -190,7 +191,7 @@ int multifile_expose_content(cfile *cfh, multifile_file_data ***results, unsigne
 multifile_file_data *multifile_find_file(const char *filename, multifile_file_data **array, unsigned long fs_count);
 
 int copen_multifile_directory(cfile *cfh, const char *src_directory);
-int copen_multifile(cfile *cfh, char *root, multifile_file_data **files, unsigned long file_count, unsigned int access_flags);
+int copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, unsigned long file_count, unsigned int access_flags);
 
 unsigned char *cfile_read_null_string(cfile *cfh);
 #endif

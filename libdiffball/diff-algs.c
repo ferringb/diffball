@@ -218,6 +218,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 	int err;
 	RefHash rhash;
 	cfile ver_window;
+	memset(&ver_window, 0, sizeof(cfile));
 	unsigned long hash_size=0, sample_rate=1;
 	unsigned long int seed_len;
 	unsigned long gap_req;
