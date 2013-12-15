@@ -197,5 +197,8 @@ int copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, u
 // freeing the array is left to the caller to sort.
 void multifile_free_file_data_array(multifile_file_data **array, unsigned long count);
 
+// Ensure the files for the array exist- creating them if necessary and allowed, else erroring.
+int multifile_ensure_files(cfile *cfh, int allow_creation);
+
 unsigned char *cfile_read_null_string(cfile *cfh);
 #endif

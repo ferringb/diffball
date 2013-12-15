@@ -226,22 +226,7 @@ multifile_ensure_open_active(cfile *cfh, multifile_data *data, ssize_t data_offs
 	if (data->active_fd == -1) {
 		get_filepath(data, data->current_fs_index, buf);
 		if (cfh->access_flags & CFILE_WONLY) {
-			// IFF we create the file, then we truncate it to our desired length.  If not, assume it already has had that
-			// operation done to it.
 			data->active_fd = open(buf, O_NOFOLLOW|O_WRONLY);
-			if (-1 == data->active_fd && ENOENT == errno) {
-				v3printf("multifile: creating file %s\n", data->fs[data->current_fs_index]->filename);
-				data->active_fd = open(buf, O_NOFOLLOW|O_WRONLY|O_EXCL|O_CREAT, 0600);
-				if (-1 != data->active_fd) {
-					// Set the file length upon creation.
-					size_t desired = data->fs[data->current_fs_index]->end - data->fs[data->current_fs_index]->start;
-					if (-1 == ftruncate(data->active_fd, desired)) {
-						eprintf("Failed truncating file %s to %zu length\n",
-							data->fs[data->current_fs_index]->filename, desired);
-						return IO_ERROR;
-					}
-				}
-			}
 		} else {
 			data->active_fd = open(buf, O_NOFOLLOW|O_RDONLY);
 		}
@@ -349,7 +334,7 @@ copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, unsig
 		eprintf("Memory allocation failed\n");
 		goto cleanup;
 	}
-	data->root_len = strlen(root);
+	data->root_len = strlen(data->root);
 	data->fs = files;
 	data->fs_count = fs_count;
 	data->active_fd = -1;
@@ -534,4 +519,55 @@ multifile_expose_content(cfile *cfh, multifile_file_data ***results, unsigned lo
 	*results = data->fs;
 	*fs_count = data->fs_count;
 	return 0;
+}
+
+int
+multifile_ensure_files(cfile *cfh, int allow_creation)
+{
+	char buff[PATH_MAX];
+	if (!cfile_is_open(cfh)) {
+		eprintf("cfile is not open\n");
+		return UNSUPPORTED_OPT;
+	}
+
+	multifile_data *data = (multifile_data *)cfh->io.data;
+
+	int flags = O_NOFOLLOW;
+	if (cfh->access_flags & CFILE_WONLY) {
+		flags |= O_CREAT|O_WRONLY;
+	} else {
+		flags |= O_RDONLY;
+	}
+
+	unsigned long x;
+	int err = 0;
+	for (x = 0; !err && x < data->fs_count; x++) {
+		get_filepath(data, x, buff);
+		size_t desired = data->fs[x]->end - data->fs[x]->start;
+		int fd = open(buff, flags, 0600);
+		if (-1 == fd) {
+			eprintf("Failed opening %s: errno %i\n", buff, errno);
+			err = IO_ERROR;
+			continue;
+		}
+		if (cfh->access_flags & CFILE_WONLY) {
+			if (-1 == ftruncate(fd, desired)) {
+				eprintf("Failed truncating file %s to %zu length\n", buff, desired);
+				err = IO_ERROR;
+			}
+		} else {
+			struct stat st;
+			if (!fstat(fd, &st)) {
+				if (st.st_size != desired) {
+					eprintf("file %s is size %zu, expected %zu\n", buff, st.st_size, desired);
+					err = IO_ERROR;
+				}
+			} else {
+				eprintf("Failed fstating %s: errno %i\n", buff, errno);
+				err = IO_ERROR;
+			}
+		}
+		close(fd);
+	}
+	return err;
 }
