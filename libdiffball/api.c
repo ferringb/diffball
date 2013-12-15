@@ -211,7 +211,7 @@ simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_count,
 		if(recon_val) {
 			v1printf("error detected while processing patch- quitting\n");
 			DCBufferFree(&dcbuff[x % 2]);
-			check_return_ret(recon_val, 1, "reconstruct result");
+			check_return_ret(recon_val, 1, "reconstruct result ");
 		}
 		v1printf("versions size is %llu\n", (act_off_u64)dcbuff[x % 2].ver_size);
 	}
