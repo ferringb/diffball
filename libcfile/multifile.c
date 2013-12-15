@@ -281,18 +281,26 @@ ssize_t
 cflush_multifile(cfile *cfh, void *raw)
 {
 	multifile_data *data = (multifile_data *)raw;
+
 	// Note the seek to offset + write_start; the point there is so that we skip any segment that
 	// the client didn't write to.  That way we're not writing nulls to the FS unless told to do so-
 	// allows for sparse, basically.
-	int err = multifile_ensure_open_active(cfh, data, cfh->data.offset + cfh->data.write_start);
-	if (err) {
-		return err;
-	}
+	// Additionally, note that this may cross a file boundary- in which case we have to separate the
+	// writes, working our way till there is no data left to flush.
 
-	size_t desired = cfh->data.write_end - cfh->data.write_start;
-	if (desired != write(data->active_fd, cfh->data.buff + cfh->data.write_start, desired)) {
-		eprintf("Failed writing to %s\n", data->fs[data->current_fs_index]->filename);
-		return IO_ERROR;
+	while (cfh->data.write_end > cfh->data.write_start) {
+		int err = multifile_ensure_open_active(cfh, data, cfh->data.offset + cfh->data.write_start);
+		if (err) {
+			return err;
+		}
+		size_t desired = MIN(data->fs[data->current_fs_index]->end, cfh->data.write_end + cfh->data.offset + cfh->data.window_offset);
+		desired -= cfh->data.offset + cfh->data.write_start;
+
+		if (desired != write(data->active_fd, cfh->data.buff + cfh->data.write_start, desired)) {
+			eprintf("Failed writing to %s\n", data->fs[data->current_fs_index]->filename);
+			return IO_ERROR;
+		}
+		cfh->data.write_start += desired;
 	}
 	cfh->data.offset += cfh->data.write_end;
 	cfh->data.write_end = cfh->data.write_start = cfh->data.pos = cfh->data.end = 0;
