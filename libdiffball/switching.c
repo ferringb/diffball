@@ -320,7 +320,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 	v2printf("add data block size(%u), starting commands at pos(%u)\n", com_start,
 		(off_u32)ctell(patchf, CSEEK_ABS));
 
-	while(cread(patchf, buff, 1)==1 && end_of_patch==0) {
+	while(end_of_patch == 0 && cread(patchf, buff, 1)==1) {
 		v2printf("processing(%u) at pos(%u): ", buff[0], (off_u32)ctell(patchf, CSEEK_ABS) -1);
 		if(last_com != DC_ADD) {
 			lb = (buff[0] >> 6) & 0x3;
