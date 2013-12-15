@@ -125,12 +125,14 @@ typedef struct _cfile {
 	unsigned int		access_flags;
 	unsigned long		state_flags;
 	int					err;
+
+	/* Note: this pretty much attrocious.  Needs sanitizing... */
 	union {
 		struct {
 			unsigned int		last;
 			unsigned int		handle_count;
 		} parent;
-		unsigned int *last_ptr;
+		cfile_ptr	parent_ptr;
 	} lseek_info;
 
 	cfile_window		data;
