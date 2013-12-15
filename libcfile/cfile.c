@@ -91,6 +91,13 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 		return UNSUPPORTED_OPT;
 	}
 
+/*
+	if(CFH_IS_CHILD(parent)) {
+		eprintf("Opening a window into a window'd cfh isn't supported\n");
+		return UNSUPPORTED_OPT;
+	}
+*/
+
 	int err = 0;
 	dcprintf("copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
 	cfh->state_flags = CFILE_CHILD_CFH | (~CFILE_SEEK_IS_COSTLY & parent->access_flags);
