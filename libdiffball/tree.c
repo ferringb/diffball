@@ -864,6 +864,9 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
+	// Flush the output handle; ensure all content is on disk.
+	err = cflush(&trg_cfh);
+
 	assert(TREE_INTERFILE_MAGIC_LEN < sizeof(buff));
 	if (TREE_INTERFILE_MAGIC_LEN != cread(patchf, buff, TREE_INTERFILE_MAGIC_LEN)) {
 		eprintf("Failed reading intrafile magic in patch file at position %zu\n", delta_size + delta_start);
