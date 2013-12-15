@@ -28,6 +28,8 @@
 #include <diffball/bit-functions.h>
 #include <diffball/tree.h>
 #include <diffball/switching.h>
+#include <diffball/formats.h>
+#include <diffball/api.h>
 
 // Used only for the temp file machinery; get rid of this at that time.
 #include <unistd.h>
@@ -744,6 +746,25 @@ build_and_swap_tmpspace_array(char ***final_paths_ptr, multifile_file_data **ref
 	return 0;
 }
 
+static int
+rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cfh, size_t delta_start, size_t delta_length)
+{
+	cfile deltaf;
+	memset(&deltaf, 0, sizeof(cfile));
+	int err = copen_child_cfh(&deltaf, containing_patchf, delta_start, delta_start + delta_length, containing_patchf->compressor_type, CFILE_RONLY);
+	if (err) {
+		eprintf("Failed opening cfile for the embedded delta: window was %zu to %zu\n", delta_start, delta_start + delta_length);
+		return err;
+	}
+
+	cfile *delta_array[1] = {&deltaf};
+	err = simple_reconstruct(src_cfh, delta_array, 1, out_cfh, SWITCHING_FORMAT, 0xffff);
+	cclose(&deltaf);
+	if (!err) {
+		cseek(containing_patchf, delta_start + delta_length, CSEEK_FSTART);
+	}
+	return err;
+}
 
 signed int 
 treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_directory, const char *tmp_directory)
@@ -837,11 +858,14 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 
 	unsigned long delta_size = readUBytesLE(buff, 8);
 	size_t delta_start = ctell(patchf, CSEEK_FSTART);
-	if (delta_start + delta_size != cseek(patchf, delta_size, CSEEK_CUR)) {
-		eprintf("Failed seeking past the delta\n");
-		err = PATCH_TRUNCATED;
+	err = rebuild_files_from_delta(&src_cfh, patchf, &trg_cfh, delta_start, delta_size);
+	if (err) {
+		eprintf("Failed regenerating new files from the delta: err %i\n", err);
 		goto cleanup;
 	}
+
+	// Flush the output handle; ensure all content is on disk.
+	err = cflush(&trg_cfh);
 
 	assert(TREE_INTERFILE_MAGIC_LEN < sizeof(buff));
 	if (TREE_INTERFILE_MAGIC_LEN != cread(patchf, buff, TREE_INTERFILE_MAGIC_LEN)) {
