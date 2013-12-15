@@ -143,7 +143,7 @@ main(int argc, char **argv)
 	} else {
 		format_id = 0;
 	}
-	recon_val = treeReconstruct(src_name, &patch_cfh, out_name);
+	recon_val = treeReconstruct(src_name, &patch_cfh, out_name, NULL);
 
 	if(recon_val != 0) {
 		if (!output_to_stdout) {
