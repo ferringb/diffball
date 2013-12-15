@@ -316,6 +316,10 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 	add_off = SWITCHING_MAGIC_LEN + SWITCHING_VERSION_LEN + 4;
 	last_com=DC_COPY;
 	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
+	if (add_id < 0) {
+		eprintf("Internal error: failed registering the patch into the command buffer: %i\n", add_id);
+		return add_id;
+	}
 	ref_id = src_id;
 	v2printf("add data block size(%u), starting commands at pos(%u)\n", com_start,
 		(off_u32)ctell(patchf, CSEEK_ABS));
