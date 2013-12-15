@@ -91,13 +91,21 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 		return UNSUPPORTED_OPT;
 	}
 
+	if(CFH_IS_CHILD(parent)) {
+		cfh->lseek_info.parent_ptr = parent->lseek_info.parent_ptr;
+		// Update the request range to fit into the parents range.
+		fh_start += cfh->lseek_info.parent_ptr->data.window_offset;
+		fh_end += cfh->lseek_info.parent_ptr->data.window_offset;
+	} else {
+		cfh->lseek_info.parent_ptr = parent;
+	}
+
 	int err = 0;
 	dcprintf("copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
 	cfh->state_flags = CFILE_CHILD_CFH | (~CFILE_SEEK_IS_COSTLY & parent->access_flags);
-	cfh->lseek_info.last_ptr = &parent->lseek_info.parent.last;
-	parent->lseek_info.parent.handle_count++;
-	dcprintf("setting child id=%u\n", parent->lseek_info.parent.handle_count);
-	cfh->cfh_id = parent->lseek_info.parent.handle_count;
+	cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count++;
+	dcprintf("setting child id=%u\n", cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count);
+	cfh->cfh_id = cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count;
 	if(parent->compressor_type != NO_COMPRESSOR) {
 		if(compressor_type != NO_COMPRESSOR) {
 			/* cfile doesn't handle this. deal. */
@@ -629,12 +637,14 @@ flag_lseek_needed(cfile *cfh)
 {
 	if(CFH_IS_CHILD(cfh)) {
 		// if we last lseeked, reset it.
-		if(*(cfh->lseek_info.last_ptr) == cfh->cfh_id)
-			*(cfh->lseek_info.last_ptr) = 0;
+		if (cfh->lseek_info.parent_ptr->lseek_info.parent.last == cfh->cfh_id) {
+			cfh->lseek_info.parent_ptr->lseek_info.parent.last = 0;
+		}
 	} else {
 		// same deal here.
-		if(cfh->lseek_info.parent.last == cfh->cfh_id)
+		if(cfh->lseek_info.parent.last == cfh->cfh_id) {
 			cfh->lseek_info.parent.last = 0;
+		}
 	}
 		
 }
@@ -643,7 +653,7 @@ inline void
 set_last_lseeker(cfile *cfh)
 {
 	if(CFH_IS_CHILD(cfh)) {
-		*(cfh->lseek_info.last_ptr) = cfh->cfh_id;
+		cfh->lseek_info.parent_ptr->lseek_info.parent.last = cfh->cfh_id;
 	} else {
 		cfh->lseek_info.parent.last = cfh->cfh_id;
 	}
