@@ -138,6 +138,7 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 		eprintf("Failed allocating internal array for %s file manifest: %lu entries.\n", manifest_name, file_count);
 		return MEM_ERROR;
 	}
+	*fs = results;
 	unsigned long x;
 	size_t position = 0;
 	for (x = 0; x < file_count; x++) {
@@ -160,8 +161,6 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 			err = PATCH_TRUNCATED;
 			goto cleanup;
 		}
-		results[x]->end = position + readUBytesLE(buff, 8);
-		position = results[x]->end;
 		results[x]->st = calloc(sizeof(struct stat), 1);
 		if (!results[x]->st) {
 			eprintf("Failed allocating memory\n");
@@ -169,6 +168,9 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 			file_count = x + 1;
 			goto cleanup;
 		}
+		results[x]->st->st_size = readUBytesLE(buff, 8);
+		results[x]->st->st_mode = S_IFREG | 0600;
+		position = results[x]->end = position + results[x]->st->st_size;
 		v3printf("adding to %s manifest: %s length %zu\n", manifest_name, results[x]->filename, position - results[x]->start);
 	}
 	return 0;
@@ -324,6 +326,7 @@ static int
 flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 {
 	cfile deltaf;
+	memset(&deltaf, 0, sizeof(cfile));
 	char tmpname[] = "/tmp/differ.XXXXXX";
 	unsigned char buff[16];
 	int tmp_fd = mkstemp(tmpname);
@@ -676,13 +679,87 @@ consume_command_chain(const char *target_directory, cfile *patchf, unsigned long
 	#undef read_common_block
 }
 
-signed int 
-treeReconstruct(cfile *patchf, const char *raw_directory)
+static char *
+make_tempdir(const char *tmp_directory)
 {
+	if (NULL == tmp_directory) {
+		tmp_directory = getenv("TMPDIR");
+		if (!tmp_directory) {
+			tmp_directory = "/tmp";
+		}
+	}
+	const size_t tmp_len = strlen(tmp_directory);
+
+	const char template_frag[] = "delta-XXXXXX";
+	const size_t template_frag_len = strlen(template_frag);
+
+	char *template = malloc(tmp_len + 3 + template_frag_len);
+	if (!template) {
+		return NULL;
+	}
+	memcpy(template, tmp_directory, tmp_len);
+	template[strlen(tmp_directory)] = '/';
+	memcpy(template + tmp_len + 1, template_frag, template_frag_len);
+	template[tmp_len + template_frag_len + 1] = 0;
+	char *result = mkdtemp(template);
+	if (!result) {
+		free(template);
+	}
+	// Tweak the results, enforcing a trailing '/';
+	template[tmp_len + template_frag_len + 1] = '/';
+	template[tmp_len + template_frag_len + 2] = 0;
+	return template;
+}
+
+static int
+build_and_swap_tmpspace_array(char ***final_paths_ptr, multifile_file_data **ref_files, unsigned long ref_count)
+{
+	char **final_paths = (char **)calloc(sizeof(char *), ref_count);
+	if (!final_paths) {
+		return 1;
+	}
+	*final_paths_ptr = final_paths;
+
+	// Swap in the tmp pathways, building an array we use for moving files
+	// as we encounter the command in the stream.
+	size_t chars_needed = 1;
+	unsigned long x;
+	for (x = ref_count; x > 0; x /= 10) {
+		chars_needed++;
+	}
+
+	char buf[chars_needed];
+
+	for (x = 0; x < ref_count; x++) {
+		int len = snprintf(buf, chars_needed, "%lu", x);
+		assert (len <= chars_needed);
+		char *p = strdup(buf);
+		if (!p) {
+			return 1;
+		}
+
+		final_paths[x] = ref_files[x]->filename;
+		ref_files[x]->filename = p;
+	}
+	return 0;
+}
+
+
+signed int 
+treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_directory, const char *tmp_directory)
+{
+	cfile src_cfh, trg_cfh;
+	memset(&src_cfh, 0, sizeof(cfile));
+	memset(&trg_cfh, 0, sizeof(cfile));
+	int err = 0;
+
 	unsigned char buff[16];
 	char *target_directory = NULL;
 	multifile_file_data **src_files = NULL, **ref_files = NULL;
 	unsigned long src_count = 0, ref_count = 0;
+	unsigned long x;
+	char **final_paths = NULL;
+	char *tmpspace = NULL;
 
 	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART)) {
 		eprintf("Failed seeking beyond the format magic\n");
@@ -699,68 +776,139 @@ treeReconstruct(cfile *patchf, const char *raw_directory)
 //	ref_id = src_id;
 	v3printf("Reading src file manifest\n");
 
-	int err = read_file_manifest(patchf, &src_files, &src_count, "source");
+	err = read_file_manifest(patchf, &src_files, &src_count, "source");
 	if (err) {
 		return err;
 	}
+
+	err = copen_multifile(&src_cfh, src_directory, src_files, src_count, CFILE_RONLY);
+	if (err) {
+		eprintf("Failed open source directory %s: err %i\n", src_directory, err);
+		goto cleanup;
+	}
+
+	err = multifile_ensure_files(&src_cfh, 0);
+	if (err) {
+		goto cleanup;
+	}
+
 	err = read_file_manifest(patchf, &ref_files, &ref_count, "target");
 	if (err) {
-		return err;
+		goto cleanup;
 	}
 
 	target_directory = strdup(raw_directory);
 	if (!target_directory || enforce_trailing_slash(&target_directory)) {
 		eprintf("allocation errors encountered\n");
-		if (target_directory) {
-			free(target_directory);
-		}
-		return MEM_ERROR;
+		err = MEM_ERROR;
+		goto cleanup;
+	}
+
+	tmpspace = make_tempdir(tmp_directory);
+	if (!tmpspace) {
+		eprintf("Failed creating tmpdir for reconstructed files\n");
+		goto cleanup;
+	}
+
+	v3printf("Creating temp file array, and on disk files\n");
+	if (build_and_swap_tmpspace_array(&final_paths, ref_files, ref_count)) {
+		eprintf("Failed allocating tmpspace array\n");
+		goto cleanup;
+	}
+
+	err = copen_multifile(&trg_cfh, tmpspace, ref_files, ref_count, CFILE_WONLY);
+	if (err) {
+		eprintf("Failed opening temp space directory %s: err %i\n", tmpspace, err);
+		goto cleanup;
+	}
+
+	// Create our files now.
+	err = multifile_ensure_files(&trg_cfh, 1);
+	if (err) {
+		eprintf("Failed creating temporary files for reconstruction\n");
+		goto cleanup;
 	}
 
 	if (8 != cread(patchf, buff, 8)) {
 		eprintf("Failed reading delta length\n");
-		free(target_directory);
-		return PATCH_TRUNCATED;
+		err = PATCH_TRUNCATED;
+		goto cleanup;
 	}
 
 	unsigned long delta_size = readUBytesLE(buff, 8);
 	size_t delta_start = ctell(patchf, CSEEK_FSTART);
 	if (delta_start + delta_size != cseek(patchf, delta_size, CSEEK_CUR)) {
 		eprintf("Failed seeking past the delta\n");
-		free(target_directory);
-		return PATCH_TRUNCATED;
+		err = PATCH_TRUNCATED;
+		goto cleanup;
 	}
 
 	assert(TREE_INTERFILE_MAGIC_LEN < sizeof(buff));
 	if (TREE_INTERFILE_MAGIC_LEN != cread(patchf, buff, TREE_INTERFILE_MAGIC_LEN)) {
 		eprintf("Failed reading intrafile magic in patch file at position %zu\n", delta_size + delta_start);
-		free(target_directory);
-		return PATCH_TRUNCATED;
+		err = PATCH_TRUNCATED;
+		goto cleanup;
 	}
 	if (memcmp(buff, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN) != 0) {
 		eprintf("Failed to verify intrafile magic in patch file at position %zu; likely corrupted\n", delta_size + delta_start);
-		free(target_directory);
-		return PATCH_CORRUPT_ERROR;
+		err = PATCH_CORRUPT_ERROR;
+		goto cleanup;
 	}
 	v3printf("Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
 
 	if (4 != cread(patchf, buff, 4)) {
 		eprintf("Failed reading command count\n");
-		free(target_directory);
-		return PATCH_TRUNCATED;
+		err = PATCH_TRUNCATED;
+		goto cleanup;
 	}
-	unsigned long x=0, command_count = readUBytesLE(buff, 4);
+	unsigned long command_count = readUBytesLE(buff, 4);
 	v3printf("command stream is %lu commands\n", command_count);
 
 	for (x = 0; x < command_count; x++) {
 		err = consume_command_chain(target_directory, patchf, x);
 		if (err) {
-			free(target_directory);
-			return err;
+			goto cleanup;
 		}
 	}
 
-	free(target_directory);
-	return 0;
+	v1printf("Reconstruction completed successfully\n");
+	err = 0;
 
+	cleanup:
+	if (target_directory) {
+		free(target_directory);
+	}
+
+	if (final_paths) {
+		for (x=0; x < ref_count; x++) {
+			if (final_paths[x]) {
+				free(final_paths[x]);
+			}
+		}
+		free(final_paths);
+	}
+
+	if (tmpspace) {
+		err = enforce_unlink(tmpspace);
+		if (err) {
+			eprintf("Failed cleaning up temp directory %s\n", tmpspace);
+		}
+		free(tmpspace);
+	}
+
+	if (cfile_is_open(&src_cfh)) {
+		cclose(&src_cfh);
+	} else if (src_files) {
+		multifile_free_file_data_array(src_files, src_count);
+		free(src_files);
+	}
+
+	if (cfile_is_open(&trg_cfh)) {
+		cclose(&trg_cfh);
+	} else if (ref_files) {
+		multifile_free_file_data_array(ref_files, ref_count);
+		free(ref_files);
+	}
+
+	return err;
 }

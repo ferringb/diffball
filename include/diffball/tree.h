@@ -117,4 +117,7 @@ single byte command:
 
 */
 
+
+signed int treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_directory, const char *tmp_directory);
+
 #endif
