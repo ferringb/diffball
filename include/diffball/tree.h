@@ -40,6 +40,7 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 #define TREE_COMMAND_UID_LEN		4
 #define TREE_COMMAND_GID_LEN		4
 #define TREE_COMMAND_MODE_LEN		2
+#define TREE_COMMAND_DEV_LEN		4
 // Note; this doesn't play nice with high precission FS's; the second granualarity is
 // right, but the NS precision won't be.
 #define TREE_COMMAND_TIME_LEN		4
@@ -50,8 +51,9 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 #define TREE_COMMAND_DIR		0x02
 #define TREE_COMMAND_SYM		0x03
 #define TREE_COMMAND_FIFO		0x04
-#define TREE_COMMAND_DEV		0x05
-#define TREE_COMMAND_UNLINK		0x06
+#define TREE_COMMAND_CHR		0x05
+#define TREE_COMMAND_BLK		0x06
+#define TREE_COMMAND_UNLINK		0x07
 
 /* TREE NOTES
 
@@ -106,13 +108,21 @@ single byte command:
    UID/GID/MODE index
    ctime
    mtime
- 0x06 == mknod
+ 0x06 == chr device
    filename null delimited
    UID/GID/MODE index
-   dev
    ctime
    mtime
- 0x07 == delete
+   4 bytes major
+   4 bytes minor
+ 0x07 == blk device
+   filename null delimited
+   UID/GID/MODE index
+   ctime
+   mtime
+   4 bytes major
+   4 bytes minor
+ 0x08 == delete
    filename null delimited
 
 */

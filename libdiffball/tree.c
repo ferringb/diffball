@@ -585,9 +585,13 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 
 	} else if (S_ISCHR(entry->st->st_mode) || S_ISBLK(entry->st->st_mode)) {
 		v3printf("writing manifest command for dev %s\n", entry->filename);
-		write_or_return(TREE_COMMAND_DEV, TREE_COMMAND_LEN);
+		write_or_return(
+			(S_ISCHR(entry->st->st_mode) ? TREE_COMMAND_CHR : TREE_COMMAND_BLK),
+			TREE_COMMAND_LEN);
 		write_null_string(entry->filename);
 		write_common_block(entry->st);
+		write_or_return(major(entry->st->st_dev), TREE_COMMAND_DEV_LEN);
+		write_or_return(minor(entry->st->st_dev), TREE_COMMAND_DEV_LEN);
 
 	} else {
 		v0printf("Somehow encountered an unknown fs entry: %s: %i\n", entry->filename, entry->st->st_mode);
@@ -839,8 +843,27 @@ enforce_hardlink(const char *path, const char *link_target)
 		errno = 0;
 		err = enforce_unlink(path);
 		if (!err) {
-			int err = link(path, link_target);
+			err = link(path, link_target);
 		}
+	}
+	return err;
+}
+
+static int
+enforce_mknod(const char *path, int is_chr, unsigned long major, unsigned long minor, const struct stat *st)
+{
+	dev_t dev = makedev(major, minor);
+	mode_t mode = st->st_mode | (is_chr? S_IFCHR : S_IFBLK);
+	int err = mknod(path, mode, dev);
+	if (-1 == err && EEXIST == errno) {
+		errno = 0;
+		err = enforce_unlink(path);
+		if (!err) {
+			err = mknod(path, mode, dev);
+		}
+	}
+	if (!err) {
+		err = enforce_standard_attributes(path, st, 0);
 	}
 	return err;
 }
@@ -926,6 +949,9 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 
 	unsigned char command_type = patchf->data.buff[patchf->data.pos];
 	patchf->data.pos++;
+
+	int is_chr = 0;
+
 	switch (command_type) {
 		case TREE_COMMAND_REG:
 			v3printf("command %lu: regular file\n", command_count);
@@ -990,10 +1016,18 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			read_common_block(st);
 			break;
 
-		case TREE_COMMAND_DEV:
-			v3printf("command %lu: mknod dev\n", command_count);
+		case TREE_COMMAND_CHR:
+			is_chr = 1;
+			// intentional fall through.
+
+		case TREE_COMMAND_BLK:
+			v3printf("command %lu: mknod dev, is_chr? == %i\n", command_count, is_chr);
 			read_string_or_return(filename);
 			read_common_block(st);
+			unsigned long major = 0, minor = 0;
+			read_or_return(major, TREE_COMMAND_DEV_LEN);
+			read_or_return(minor, TREE_COMMAND_DEV_LEN);
+			enforce_or_fail(enforce_mknod, is_chr, major, minor, &st);
 			break;
 
 		case TREE_COMMAND_UNLINK:
