@@ -558,7 +558,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 			// xattrs
 			return 0;
 		}
-		v3printf("writing manifest command for hardlink %s\n", entry->filename);
+		v3printf("writing manifest command for hardlink %s -> %s\n", entry->filename, entry->link_target);
 		write_or_return(TREE_COMMAND_HARDLINK, TREE_COMMAND_LEN);
 		write_null_string(entry->filename);
 		write_null_string(entry->link_target);
@@ -570,7 +570,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 		write_common_block(entry->st);
 
 	} else if (S_ISLNK(entry->st->st_mode)) {
-		v3printf("writing manifest command for symlink %s\n", entry->filename);
+		v3printf("writing manifest command for symlink %s -> %s\n", entry->filename, entry->link_target);
 		write_or_return(TREE_COMMAND_SYM, TREE_COMMAND_LEN);
 		write_null_string(entry->filename);
 		assert(entry->link_target);
@@ -834,7 +834,7 @@ enforce_file_move(const char *trg, const char *src, const struct stat *st)
 static int
 enforce_hardlink(const char *path, const char *link_target)
 {
-	int err = link(path, link_target);
+	int err = link(link_target, path);
 	if (-1 == err && EEXIST == errno) {
 		errno = 0;
 		err = enforce_unlink(path);
