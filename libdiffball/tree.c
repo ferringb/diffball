@@ -39,10 +39,13 @@ void enforce_no_trailing_slash(char *ptr);
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
 static int encode_fs_entry(cfile *patchf, multifile_file_data *entry);
-static int consume_command_chain(const char *output_directory, cfile *patchf, unsigned long command_count);
 static int enforce_standard_attributes(const char *path, const struct stat *st);
 static int enforce_directory(const char *path, const struct stat *st);
 static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
+
+static int consume_command_chain(const char *target_directory, const char *tmpspace, cfile *patchf,
+	multifile_file_data **ref_files, char **final_paths, unsigned long ref_count, unsigned long *ref_pos,
+	unsigned long command_count);
 
 // used with fstatat if available
 #ifndef AT_NO_AUTOMOUNT
@@ -525,6 +528,18 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 }
 
 static int
+enforce_file_move(const char *src, const char *trg, const struct stat *st)
+{
+	v3printf("Transferring reconstructed file %s to %s\n", src, trg);
+	int err = rename(src, trg);
+	if (!err) {
+		err = enforce_standard_attributes(trg, st);
+	}
+	return err;
+}
+
+
+static int
 enforce_trailing_slash(char **ptr)
 {
 	size_t len = strlen(*ptr);
@@ -553,7 +568,9 @@ enforce_no_trailing_slash(char *ptr)
 }
 
 static int
-consume_command_chain(const char *target_directory, cfile *patchf, unsigned long command_count)
+consume_command_chain(const char *target_directory, const char *tmpspace, cfile *patchf,
+    multifile_file_data **ref_files, char **final_paths, unsigned long ref_count, unsigned long *ref_pos,
+    unsigned long command_count)
 {
 	int err = 0;
 	struct stat st;
@@ -603,7 +620,20 @@ consume_command_chain(const char *target_directory, cfile *patchf, unsigned long
 	switch (command_type) {
 		case TREE_COMMAND_REG:
 			v3printf("command %lu: regular file\n", command_count);
+			if ((*ref_pos) == ref_count) {
+				eprintf("Encountered a file command, but no more recontruction targets were defined by this patch.  Likely corruption or internal bug\n");
+				return PATCH_CORRUPT_ERROR;
+			}
 			read_common_block(&st);
+			char *src = concat_path(tmpspace, ref_files[*ref_pos]->filename);
+			abs_filepath = concat_path(target_directory, final_paths[*ref_pos]);
+			if (src && abs_filepath) {
+				err = enforce_file_move(src, abs_filepath, &st);
+			}
+			if (src) {
+				free(src);
+			}
+			(*ref_pos)++;
 			break;
 		case TREE_COMMAND_HARDLINK:
 			v3printf("command %lu: hardlink\n", command_count);
@@ -888,8 +918,9 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	unsigned long command_count = readUBytesLE(buff, 4);
 	v3printf("command stream is %lu commands\n", command_count);
 
+	unsigned long file_pos = 0;
 	for (x = 0; x < command_count; x++) {
-		err = consume_command_chain(target_directory, patchf, x);
+		err = consume_command_chain(target_directory, tmpspace, patchf, ref_files, final_paths, ref_count, &file_pos, x);
 		if (err) {
 			goto cleanup;
 		}
