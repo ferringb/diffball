@@ -1024,10 +1024,29 @@ static int
 rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cfh, size_t delta_start, size_t delta_length)
 {
 	cfile deltaf;
+	unsigned char *buff = NULL;
 	memset(&deltaf, 0, sizeof(cfile));
-	int err = copen_child_cfh(&deltaf, containing_patchf, delta_start, delta_start + delta_length, containing_patchf->compressor_type, CFILE_RONLY);
+	int err;
+	if (containing_patchf->compressor_type != NO_COMPRESSOR) {
+		v1printf("libcfile doesn't support windowing through compression; pulling the delta into memory: %zi bytes\n", delta_length);
+		buff = malloc(delta_length);
+		if (!buff) {
+			eprintf("Couldn't allocate necessary memory to pull the patch into memory\n");
+			return MEM_ERROR;
+		}
+		if (delta_length != cread(containing_patchf, buff, delta_length)) {
+			eprintf("Failed reading the patch into memory; truncated or corrupted?\n");
+			return PATCH_TRUNCATED;
+		}
+		err = copen_mem(&deltaf, buff, delta_length, NO_COMPRESSOR, CFILE_RONLY);
+	} else {
+		err = copen_child_cfh(&deltaf, containing_patchf, delta_start, delta_start + delta_length, NO_COMPRESSOR, CFILE_RONLY);
+	}
 	if (err) {
 		eprintf("Failed opening cfile for the embedded delta: window was %zu to %zu\n", delta_start, delta_start + delta_length);
+		if (buff) {
+			free(buff);
+		}
 		return err;
 	}
 
@@ -1036,6 +1055,9 @@ rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cf
 	cclose(&deltaf);
 	if (!err) {
 		cseek(containing_patchf, delta_start + delta_length, CSEEK_FSTART);
+	}
+	if (buff) {
+		free(buff);
 	}
 	return err;
 }
