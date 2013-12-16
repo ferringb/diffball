@@ -138,7 +138,7 @@ search_ugm_table(ugm_table *table, uid_t uid, gid_t gid, mode_t mode)
 	ugm_tuple key;
 	key.uid = uid;
 	key.gid = gid;
-	key.mode = mode;
+	key.mode = (07777 & mode);
 	return bsearch(&key, table->array, table->count, sizeof(ugm_tuple), cmp_ugm_tuple);
 }
 
@@ -195,7 +195,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 		}
 		table->array[table->count].uid = fs[x]->st->st_uid;
 		table->array[table->count].gid = fs[x]->st->st_gid;
-		table->array[table->count].mode = fs[x]->st->st_mode;
+		table->array[table->count].mode = (07777 & fs[x]->st->st_mode);
 		table->count++;
 		qsort(table->array, table->count, sizeof(ugm_tuple), cmp_ugm_tuple);
 	}
@@ -266,7 +266,8 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 		}
 		table->array[x].uid = readUBytesLE(buff, TREE_COMMAND_UID_LEN);
 		table->array[x].gid = readUBytesLE(buff + TREE_COMMAND_UID_LEN, TREE_COMMAND_GID_LEN);
-		table->array[x].mode = readUBytesLE(buff + TREE_COMMAND_UID_LEN + TREE_COMMAND_GID_LEN, TREE_COMMAND_MODE_LEN);
+		// Limit the mask to protect against any old screwups.
+		table->array[x].mode = (07777 & readUBytesLE(buff + TREE_COMMAND_UID_LEN + TREE_COMMAND_GID_LEN, TREE_COMMAND_MODE_LEN));
 		table->array[x].index = 0;
 	}
 
