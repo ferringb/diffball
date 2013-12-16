@@ -39,7 +39,7 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 // don't wind up having OS sizes encoded into the cross OS patches.
 #define TREE_COMMAND_UID_LEN		4
 #define TREE_COMMAND_GID_LEN		4
-#define TREE_COMMAND_MODE_LEN		3
+#define TREE_COMMAND_MODE_LEN		2
 // Note; this doesn't play nice with high precission FS's; the second granualarity is
 // right, but the NS precision won't be.
 #define TREE_COMMAND_TIME_LEN		4
