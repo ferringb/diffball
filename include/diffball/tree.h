@@ -55,6 +55,11 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 
 /* TREE NOTES
 
+This could benefit from some optimization; in examining some cases,
+~44%  was the data *prior* to the delta.
+~47.8% was the delta
+~8.9% was the command stream
+
 FORMAT:
   magic
   version
