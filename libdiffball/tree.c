@@ -528,7 +528,7 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 }
 
 static int
-enforce_file_move(const char *src, const char *trg, const struct stat *st)
+enforce_file_move(const char *trg, const char *src, const struct stat *st)
 {
 	v3printf("Transferring reconstructed file %s to %s\n", src, trg);
 	int err = rename(src, trg);
@@ -639,34 +639,33 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			}
 			read_common_block(&st);
 			char *src = concat_path(tmpspace, ref_files[*ref_pos]->filename);
-			abs_filepath = concat_path(target_directory, final_paths[*ref_pos]);
-			if (src && abs_filepath) {
-				err = enforce_file_move(src, abs_filepath, &st);
+			if (src) {
+				enforce_or_fail(enforce_file_move, src, &st);
+				free(src);
 			} else {
-				eprintf("Memory allocation error\n");
+				eprintf("Failed allocating memory for link target\n");
 				err = MEM_ERROR;
 			}
-			if (src) {
-				free(src);
-			}
+
 			(*ref_pos)++;
 			break;
+
 		case TREE_COMMAND_HARDLINK:
 			v3printf("command %lu: hardlink\n", command_count);
 			read_string_or_return(filename);
 			read_string_or_return(link_target);
 			char *abs_link_target = concat_path(target_directory, link_target);
-			abs_filepath = concat_path(target_directory, filename);
-			if (abs_link_target && abs_filepath) {
-				err = enforce_hardlink(abs_filepath, abs_link_target);
+
+			if (abs_link_target) {
+				enforce_or_fail(enforce_hardlink, abs_link_target);
+				free(abs_link_target);
 			} else {
-				eprintf("Memory allocation error\n");
+				eprintf("Failed allocating memory for link target\n");
 				err = MEM_ERROR;
 			}
-			if (abs_link_target) {
-				free(abs_link_target);
-			}
+
 			break;
+
 		case TREE_COMMAND_DIR:
 			v3printf("command %lu: create directory\n", command_count);
 			read_string_or_return(filename);
@@ -677,6 +676,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			read_common_block(&st);
 			enforce_or_fail(enforce_directory, &st);
 			break;
+
 		case TREE_COMMAND_SYM:
 			v3printf("command %lu: create symlink\n", command_count);
 			read_string_or_return(filename);
@@ -690,16 +690,19 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 
 			enforce_or_fail(enforce_symlink, link_target, &st);
 			break;
+
 		case TREE_COMMAND_FIFO:
 			v3printf("command %lu: create fifo\n", command_count);
 			read_string_or_return(filename);
 			read_common_block(&st);
 			break;
+
 		case TREE_COMMAND_DEV:
 			v3printf("command %lu: mknod dev\n", command_count);
 			read_string_or_return(filename);
 			read_common_block(&st);
 			break;
+
 		case TREE_COMMAND_UNLINK:
 			v3printf("command %lu: unlink\n", command_count);
 			read_string_or_return(filename);
@@ -713,6 +716,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			}
 
 			break;
+
 		default:
 			eprintf("command %lu: unknown command: %i\n", command_count, patchf->data.buff[patchf->data.pos]);
 			return PATCH_CORRUPT_ERROR;
