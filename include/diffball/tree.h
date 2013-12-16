@@ -53,7 +53,8 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 #define TREE_COMMAND_FIFO		0x04
 #define TREE_COMMAND_CHR		0x05
 #define TREE_COMMAND_BLK		0x06
-#define TREE_COMMAND_UNLINK		0x07
+#define TREE_COMMAND_SOCKET		0x07
+#define TREE_COMMAND_UNLINK		0x08
 
 /* TREE NOTES
 
@@ -83,45 +84,50 @@ FORMAT:
 
 
 single byte command:
- 0x01 == delta
+ 0x00 == regenerated file
    UID/GID/MODE index
    ctime
    mtime
    xattrs null delimited
- 0x02 == hardlink
+ 0x01 == hardlink
    filename null delimited
    null delimited hardlink source
- 0x03 == directory
+ 0x02 == directory
    filename null delimited
    UID/GID/MODE index
    ctime
    mtime
    xattrs null delimited
- 0x04 == symlink
+ 0x03 == symlink
    filename null delimited
    symlink target null delimited
    UID/GID/MODE index
    ctime
    mtime
- 0x05 == fifo
+ 0x04 == fifo
    filename null delimited
    UID/GID/MODE index
    ctime
    mtime
- 0x06 == chr device
-   filename null delimited
-   UID/GID/MODE index
-   ctime
-   mtime
-   4 bytes major
-   4 bytes minor
- 0x07 == blk device
+ 0x05 == chr device
    filename null delimited
    UID/GID/MODE index
    ctime
    mtime
    4 bytes major
    4 bytes minor
+ 0x06 == blk device
+   filename null delimited
+   UID/GID/MODE index
+   ctime
+   mtime
+   4 bytes major
+   4 bytes minor
+ 0x07 == socket
+   filename null delimited
+   UID/GID/MODE index
+   ctime
+   mtime
  0x08 == delete
    filename null delimited
 
