@@ -39,7 +39,7 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 // don't wind up having OS sizes encoded into the cross OS patches.
 #define TREE_COMMAND_UID_LEN		4
 #define TREE_COMMAND_GID_LEN		4
-#define TREE_COMMAND_MODE_LEN		4
+#define TREE_COMMAND_MODE_LEN		2
 // Note; this doesn't play nice with high precission FS's; the second granualarity is
 // right, but the NS precision won't be.
 #define TREE_COMMAND_TIME_LEN		4
@@ -67,15 +67,17 @@ FORMAT:
   8 bytes: # length of the delta
   <delta>
   --TREE--
+  4 bytes: # of UID/GID/MODE tuple entries in the table; position is the index.
+    4 bytes: uid
+    4 bytes: gid
+    3 bytes: mode
   4 bytes: # command count
   command-stream
 
 
 single byte command:
  0x01 == delta
-   uid
-   gid
-   mode
+   UID/GID/MODE index
    ctime
    mtime
    xattrs null delimited
@@ -84,31 +86,24 @@ single byte command:
    null delimited hardlink source
  0x03 == directory
    filename null delimited
-   uid
-   gid
-   mode
+   UID/GID/MODE index
    ctime
    mtime
    xattrs null delimited
  0x04 == symlink
    filename null delimited
    symlink target null delimited
-   uid
-   gid
+   UID/GID/MODE index
    ctime
    mtime
  0x05 == fifo
    filename null delimited
-   uid
-   gid
-   mode
+   UID/GID/MODE index
    ctime
    mtime
  0x06 == mknod
    filename null delimited
-   uid
-   gid
-   mode
+   UID/GID/MODE index
    dev
    ctime
    mtime

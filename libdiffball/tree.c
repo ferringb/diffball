@@ -34,23 +34,43 @@
 // Used only for the temp file machinery; get rid of this at that time.
 #include <unistd.h>
 
+
+typedef struct {
+	uid_t uid;
+	gid_t gid;
+	mode_t mode;
+	// The index to write/read for this particular pairing.  This is tracked w/ the intent
+	// to allow the most common uid/gid/mode to be recorded as a \0 in the delta- which
+	// will likely be able to be RLE'd alongside matching size attributes.
+	unsigned long index;
+} ugm_tuple;
+
+typedef struct {
+	ugm_tuple *array;
+	unsigned long count;
+	unsigned int byte_size;
+} ugm_table;
+
+
 void enforce_no_trailing_slash(char *ptr);
 
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
-static int encode_fs_entry(cfile *patchf, multifile_file_data *entry);
-static int enforce_standard_attributes(const char *path, const struct stat *st);
+static int encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table);
+static int enforce_standard_attributes(const char *path, const struct stat *st, int including_mode, int is_directory);
 static int enforce_directory(const char *path, const struct stat *st);
 static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
 
 static int consume_command_chain(const char *target_directory, const char *tmpspace, cfile *patchf,
 	multifile_file_data **ref_files, char **final_paths, unsigned long ref_count, unsigned long *ref_pos,
+	ugm_table *table,
 	unsigned long command_count);
 
 // used with fstatat if available
 #ifndef AT_NO_AUTOMOUNT
 #define AT_NO_AUTOMOUNT 0
 #endif
+
 
 static char *
 concat_path(const char *directory, const char *frag)
@@ -89,6 +109,171 @@ check_tree_magic(cfile *patchf)
 		return 0;
 	}
 	return 2;
+}
+
+static int
+cmp_ugm_tuple(const void *item1, const void *item2)
+{
+	ugm_tuple *desired = (ugm_tuple *)item1;
+	ugm_tuple *item = (ugm_tuple *)item2;
+
+	int result = desired->uid - item->uid;
+	if (result)
+		return result;
+	result = desired->gid - item->gid;
+	if (result)
+		return result;
+	return desired->mode - item->mode;
+}
+
+static int
+cmp_ugm_index(const void *item1, const void *item2)
+{
+	return ((ugm_tuple *)item1)->index - ((ugm_tuple *)item2)->index;
+}
+
+static inline ugm_tuple *
+search_ugm_table(ugm_table *table, uid_t uid, gid_t gid, mode_t mode)
+{
+	ugm_tuple key;
+	key.uid = uid;
+	key.gid = gid;
+	key.mode = (07777 & mode);
+	return bsearch(&key, table->array, table->count, sizeof(ugm_tuple), cmp_ugm_tuple);
+}
+
+static inline void
+free_ugm_table(ugm_table *table)
+{
+	if (table->array) {
+		free(table->array);
+	}
+	free(table);
+}
+
+static int
+compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned long fs_count, ugm_table **resultant_table)
+{
+	unsigned long table_size = 32;
+
+	ugm_table *table = calloc(1, sizeof(ugm_table));
+	if (table) {
+		table->array = calloc(table_size, sizeof(ugm_tuple));
+	}
+	if (!table || !table->array) {
+		if (table) {
+			free_ugm_table(table);
+		}
+		eprintf("Failed allocating UGM table\n");
+		return MEM_ERROR;
+	}
+
+	// Note; we use the index field as a temporary histo count as we're building the table.
+	// After we've finished the walk, we convert that down into a proper index, making the
+	// resultant table searchable by uid/gid/mode pairing.
+
+	unsigned long x;
+	for (x = 0; x < fs_count; x++) {
+		ugm_tuple *match = search_ugm_table(table, fs[x]->st->st_uid, fs[x]->st->st_gid, fs[x]->st->st_mode);
+		if (match) {
+			match->index++;
+			continue;
+		}
+
+		// Insert the new item, then sort.
+		if (table->count == table_size) {
+			ugm_tuple *tmp_array = realloc(table->array, sizeof(ugm_tuple) * table_size * 2);
+			if (!tmp_array) {
+				free_ugm_table(table);
+				eprintf("Allocation failed\n");
+				return MEM_ERROR;
+			}
+
+			table->array = tmp_array;
+			memset(table->array + table_size, 0, sizeof(ugm_tuple) * table_size);
+			table_size *= 2;
+		}
+		table->array[table->count].uid = fs[x]->st->st_uid;
+		table->array[table->count].gid = fs[x]->st->st_gid;
+		table->array[table->count].mode = (07777 & fs[x]->st->st_mode);
+		table->count++;
+		qsort(table->array, table->count, sizeof(ugm_tuple), cmp_ugm_tuple);
+	}
+
+	table->byte_size = unsignedBytesNeeded(table->count ? table->count -1 : 0);
+
+	if (cWriteUBytesLE(patchf, table->count, 4)) {
+		eprintf("Failed writing the uid/gid/mode table; out of space?\n");
+		free_ugm_table(table);
+		return IO_ERROR;
+	}
+
+	// Sort by greatest count first, resetting the index, and flushing while we're at it.
+	// Mark the index, then return.
+	qsort(table->array, table->count, sizeof(ugm_tuple), cmp_ugm_index);
+	for (x = 0; x < table->count; x++) {
+		table->array[x].index = x;
+		if (cWriteUBytesLE(patchf, table->array[x].uid, TREE_COMMAND_UID_LEN) ||
+			cWriteUBytesLE(patchf, table->array[x].uid, TREE_COMMAND_GID_LEN) ||
+			cWriteUBytesLE(patchf, table->array[x].mode, TREE_COMMAND_MODE_LEN)) {
+			eprintf("Failed writing the uid/gid/mode table; out of space?\n");
+			free_ugm_table(table);
+			return IO_ERROR;
+		}
+		v3printf("UGM table %lu: uid(%i), gid(%i), mode(%i)\n", x, table->array[x].uid, table->array[x].gid, table->array[x].mode);
+	}
+
+	qsort(table->array, table->count, sizeof(ugm_tuple), cmp_ugm_tuple);
+
+	*resultant_table = table;
+
+	return 0;
+}
+
+static int
+consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
+{
+	unsigned char buff[TREE_COMMAND_UID_LEN + TREE_COMMAND_GID_LEN + TREE_COMMAND_MODE_LEN];
+
+	ugm_table *table = calloc(1, sizeof(ugm_table));
+	if (!table) {
+		eprintf("Failed allocating ugm table\n");
+		return MEM_ERROR;
+	}
+
+	if (4 != cread(patchf, buff, 4)) {
+		eprintf("Failed reading ugm table header\n");
+		free(table);
+		return PATCH_TRUNCATED;
+	}
+	table->count = readUBytesLE(buff, 4);
+
+	v3printf("Reading %lu entries in the UID/GID/Mode table\n", table->count);
+
+	table->array = calloc(table->count, sizeof(ugm_tuple));
+	if (!table->array) {
+		free(table);
+		eprintf("Failed allocating ugm table\n");
+		return MEM_ERROR;
+	}
+
+	unsigned long x;
+	for (x = 0; x < table->count; x++) {
+		if (sizeof(buff) != cread(patchf, buff, sizeof(buff))) {
+			eprintf("Failed reading ugm table at index %lu\n", x);
+			free_ugm_table(table);
+			return PATCH_TRUNCATED;
+		}
+		table->array[x].uid = readUBytesLE(buff, TREE_COMMAND_UID_LEN);
+		table->array[x].gid = readUBytesLE(buff + TREE_COMMAND_UID_LEN, TREE_COMMAND_GID_LEN);
+		// Limit the mask to protect against any old screwups.
+		table->array[x].mode = (07777 & readUBytesLE(buff + TREE_COMMAND_UID_LEN + TREE_COMMAND_GID_LEN, TREE_COMMAND_MODE_LEN));
+		table->array[x].index = 0;
+	}
+
+	table->byte_size = unsignedBytesNeeded(table->count ? table->count -1 : 0);
+	*resultant_table = table;
+	return 0;
 }
 
 static int
@@ -198,6 +383,7 @@ signed int
 treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 {
 	int err;
+	ugm_table *ugm_table = NULL;
 	cwrite(patchf, TREE_MAGIC, TREE_MAGIC_LEN);
 	cWriteUBytesLE(patchf, TREE_VERSION, TREE_VERSION_LEN);
 
@@ -241,33 +427,43 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		return IO_ERROR;
 	}
 
+	// Compute and flush the UGM table.
+	err = compute_and_flush_ugm_table(patchf, ref_files, ref_count, &ugm_table);
+	if (err) {
+		return err;
+	}
+
 	// Flush the command count.  It's number of ref_count entries + # of unlinks commands.
 	v3printf("Flushing command count %lu\n", ref_count);
 	err = cWriteUBytesLE(patchf, ref_count, 4);
 	if (err) {
+		free_ugm_table(ugm_table);
 		return err;
 	}
 
 	unsigned long x;
 	for(x=0; x < ref_count; x++) {
-		err = encode_fs_entry(patchf, ref_files[x]);
+		err = encode_fs_entry(patchf, ref_files[x], ugm_table);
 		if (err) {
+			free_ugm_table(ugm_table);
 			return err;
 		}
 	}
 
+	free_ugm_table(ugm_table);
 	return 0;
 }
 
 static int
-encode_fs_entry(cfile *patchf, multifile_file_data *entry)
+encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 {
 	#define write_or_return(value, len) {int err=cWriteUBytesLE(patchf, (value), (len)); if (err) { return err; }; }
 
 	#define write_common_block(st) \
-		write_or_return((st)->st_uid, TREE_COMMAND_UID_LEN); \
-		write_or_return((st)->st_gid, TREE_COMMAND_GID_LEN); \
-		write_or_return((st)->st_mode, TREE_COMMAND_MODE_LEN); \
+		{ ugm_tuple *match = search_ugm_table(table, (st)->st_uid, (st)->st_gid, (st)->st_mode); \
+		  assert(match); \
+		  write_or_return(match->index, table->byte_size); \
+		} \
 		write_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
 		write_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
 
@@ -299,11 +495,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry)
 		write_null_string(entry->filename);
 		assert(entry->link_target);
 		write_null_string(entry->link_target);
-		// Note: no mode...
-		write_or_return(entry->st->st_uid, TREE_COMMAND_UID_LEN);
-		write_or_return(entry->st->st_gid, TREE_COMMAND_GID_LEN);
-		write_or_return(entry->st->st_ctime, TREE_COMMAND_TIME_LEN);
-		write_or_return(entry->st->st_mtime, TREE_COMMAND_TIME_LEN);
+		write_common_block(entry->st);
 
 	} else if (S_ISFIFO(entry->st->st_mode)) {
 		v3printf("writing manifest command for fifo %s\n", entry->filename);
@@ -462,13 +654,26 @@ enforce_unlink(const char *path)
 }
 
 static int
-enforce_standard_attributes(const char *path, const struct stat *st)
+enforce_standard_attributes(const char *path, const struct stat *st, int including_mode, int is_directory)
 {
-	int err = lchown(path, st->st_uid, st->st_gid);
-	if (!err) {
-		struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
-		err = lutimes(path, times);
+	int fd = open(path, O_RDONLY | (is_directory ? O_DIRECTORY : 0));
+	if (-1 == fd) {
+		eprintf("Failed opening expected pathway %s\n", path);
+		return IO_ERROR;
 	}
+	int err = 0;
+	if (including_mode) {
+		err = fchmod(fd, st->st_mode);
+	}
+
+	if (!err) {
+		err = lchown(path, st->st_uid, st->st_gid);
+		if (!err) {
+			struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
+			err = lutimes(path, times);
+		}
+	}
+	close(fd);
 	return err;
 }
 
@@ -503,7 +708,7 @@ enforce_directory(const char *path, const struct stat *st)
 	if (!err) {
 		// Note, this doesn't guarantee mtime if we go screwing around w/in a directory after the command.
 		// Need to track/sort that somehow.
-		err = enforce_standard_attributes(path, st);
+		err = enforce_standard_attributes(path, st, 1, 1);
 	}
 	return err;
 }
@@ -522,7 +727,7 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 	}
 
 	if (!err) {
-		err = enforce_standard_attributes(path, st);
+		err = enforce_standard_attributes(path, st, 0, 0);
 	}
 	return err;
 }
@@ -533,7 +738,7 @@ enforce_file_move(const char *trg, const char *src, const struct stat *st)
 	v3printf("Transferring reconstructed file %s to %s\n", src, trg);
 	int err = rename(src, trg);
 	if (!err) {
-		err = enforce_standard_attributes(trg, st);
+		err = enforce_standard_attributes(trg, st, 1, 0);
 	}
 	return err;
 }
@@ -583,6 +788,7 @@ enforce_no_trailing_slash(char *ptr)
 static int
 consume_command_chain(const char *target_directory, const char *tmpspace, cfile *patchf,
     multifile_file_data **ref_files, char **final_paths, unsigned long ref_count, unsigned long *ref_pos,
+    ugm_table *table,
     unsigned long command_count)
 {
 	int err = 0;
@@ -590,6 +796,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 	char *filename = NULL;
 	char *abs_filepath = NULL;
 	char *link_target = NULL;
+	unsigned long ugm_index;
 	unsigned char buff[8];
 
 	// This code assumes tree commands are a single byte; assert to catch if that ever changes.
@@ -610,11 +817,12 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		}
 
 	#define read_common_block(st) \
-		read_or_return((st)->st_uid, TREE_COMMAND_UID_LEN); \
-		read_or_return((st)->st_gid, TREE_COMMAND_GID_LEN); \
-		read_or_return((st)->st_mode, TREE_COMMAND_MODE_LEN); \
-		read_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
-		read_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
+		read_or_return(ugm_index, table->byte_size); \
+		(st).st_uid = table->array[ugm_index].uid; \
+		(st).st_gid = table->array[ugm_index].gid; \
+		(st).st_mode = table->array[ugm_index].mode; \
+		read_or_return((st).st_ctime, TREE_COMMAND_TIME_LEN); \
+		read_or_return((st).st_mtime, TREE_COMMAND_TIME_LEN);
 
 	#define enforce_or_fail(command, args...) \
 		{ \
@@ -637,14 +845,17 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 				eprintf("Encountered a file command, but no more recontruction targets were defined by this patch.  Likely corruption or internal bug\n");
 				return PATCH_CORRUPT_ERROR;
 			}
-			read_common_block(&st);
+			read_common_block(st);
 			char *src = concat_path(tmpspace, ref_files[*ref_pos]->filename);
-			if (src) {
-				enforce_or_fail(enforce_file_move, src, &st);
-				free(src);
+			char *abs_filepath = concat_path(target_directory, final_paths[*ref_pos]);
+			if (src && abs_filepath) {
+				err = enforce_file_move(abs_filepath, src, &st);
 			} else {
-				eprintf("Failed allocating memory for link target\n");
+				eprintf("Failed allocating memory for link target and filepath\n");
 				err = MEM_ERROR;
+			}
+			if (src) {
+				free(src);
 			}
 
 			(*ref_pos)++;
@@ -671,7 +882,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			// resort to lstating, a trailing '/' results in the call incorrectly
 			// failing w/ ENOTDIR .
 			enforce_no_trailing_slash(filename);
-			read_common_block(&st);
+			read_common_block(st);
 			enforce_or_fail(enforce_directory, &st);
 			break;
 
@@ -680,11 +891,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			read_string_or_return(filename);
 			read_string_or_return(link_target);
 
-			// Note- no mode.
-			read_or_return(st.st_uid, TREE_COMMAND_UID_LEN);
-			read_or_return(st.st_gid, TREE_COMMAND_GID_LEN);
-			read_or_return(st.st_ctime, TREE_COMMAND_TIME_LEN);
-			read_or_return(st.st_mtime, TREE_COMMAND_TIME_LEN);
+			read_common_block(st);
 
 			enforce_or_fail(enforce_symlink, link_target, &st);
 			break;
@@ -692,13 +899,13 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		case TREE_COMMAND_FIFO:
 			v3printf("command %lu: create fifo\n", command_count);
 			read_string_or_return(filename);
-			read_common_block(&st);
+			read_common_block(st);
 			break;
 
 		case TREE_COMMAND_DEV:
 			v3printf("command %lu: mknod dev\n", command_count);
 			read_string_or_return(filename);
-			read_common_block(&st);
+			read_common_block(st);
 			break;
 
 		case TREE_COMMAND_UNLINK:
@@ -840,6 +1047,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	unsigned long x;
 	char **final_paths = NULL;
 	char *tmpspace = NULL;
+	ugm_table *table = NULL;
 	mode_t original_umask = umask(0000);
 
 	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART)) {
@@ -941,6 +1149,13 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		err = PATCH_CORRUPT_ERROR;
 		goto cleanup;
 	}
+	v3printf("Loading UID/GID/Mode table at %zu\n", ctell(patchf, CSEEK_FSTART));
+
+	err = consume_ugm_table(patchf, &table);
+	if (err) {
+		goto cleanup;
+	}
+
 	v3printf("Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
 
 	if (4 != cread(patchf, buff, 4)) {
@@ -953,7 +1168,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 
 	unsigned long file_pos = 0;
 	for (x = 0; x < command_count; x++) {
-		err = consume_command_chain(target_directory, tmpspace, patchf, ref_files, final_paths, ref_count, &file_pos, x);
+		err = consume_command_chain(target_directory, tmpspace, patchf, ref_files, final_paths, ref_count, &file_pos, table, x);
 		if (err) {
 			goto cleanup;
 		}
