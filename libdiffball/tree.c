@@ -57,6 +57,10 @@ void enforce_no_trailing_slash(char *ptr);
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
 static int encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table);
+static int encode_unlink(cfile *patchf, multifile_file_data *entry);
+static signed long
+generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_pos, unsigned long src_count, multifile_file_data *ref_entry,
+				 int dry_run);
 static int enforce_standard_attributes(const char *path, const struct stat *st, int is_directory);
 static int enforce_directory(const char *path, const struct stat *st);
 static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
@@ -433,25 +437,101 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		return err;
 	}
 
+	unsigned long command_count = ref_count;
+	unsigned long ref_pos, src_pos;
+	signed long unlink_result;
+	for(ref_pos = 0, src_pos = 0; ref_pos < ref_count; ref_pos++) {
+		unlink_result = generate_unlinks(patchf, src_files, &src_pos, src_count, ref_files[ref_pos], 1);
+		if (unlink_result < 0) {
+			eprintf("Failed identification of unlinks\n");
+			free_ugm_table(ugm_table);
+			return unlink_result;
+		}
+		command_count += unlink_result;
+	}
+	unlink_result = generate_unlinks(patchf, src_files, &src_pos, src_count, NULL, 1);
+	if (unlink_result < 0) {
+		eprintf("Failed tail end of identification of unlinks\n");
+		free_ugm_table(ugm_table);
+		return unlink_result;
+	} else {
+		command_count += unlink_result;
+	}
+
 	// Flush the command count.  It's number of ref_count entries + # of unlinks commands.
-	v3printf("Flushing command count %lu\n", ref_count);
-	err = cWriteUBytesLE(patchf, ref_count, 4);
+	v3printf("Flushing command count %lu\n", command_count);
+	err = cWriteUBytesLE(patchf, command_count, 4);
 	if (err) {
 		free_ugm_table(ugm_table);
 		return err;
 	}
 
-	unsigned long x;
-	for(x=0; x < ref_count; x++) {
-		err = encode_fs_entry(patchf, ref_files[x], ugm_table);
+	for(ref_pos = 0, src_pos = 0; ref_pos < ref_count; ref_pos++) {
+		unlink_result = generate_unlinks(patchf, src_files, &src_pos, src_count, ref_files[ref_pos], 0);
+		if (unlink_result >= 0) {
+			err = encode_fs_entry(patchf, ref_files[ref_pos], ugm_table);
+		} else {
+			err = unlink_result;
+		}
 		if (err) {
 			free_ugm_table(ugm_table);
 			return err;
 		}
 	}
 
+	// Flush all remaining unlinks; anything remaining in the src must be wiped since it's
+	// not in the ref.
+	unlink_result = generate_unlinks(patchf, src_files, &src_pos, src_count, NULL, 0);
+	if (unlink_result < 0) {
+		err = unlink_result;
+	}
 	free_ugm_table(ugm_table);
-	return 0;
+	return err;
+}
+
+static signed long
+generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_pos, unsigned long src_count, multifile_file_data *ref_entry, int dry_run)
+{
+	unsigned long unlink_count = 0;
+	while (*src_pos < src_count) {
+		if (ref_entry) {
+			int result = strcmp(src[*src_pos]->filename, ref_entry->filename);
+			if (result > 0) {
+				// Our src file is still greater than ref; no deletes doable until the ref is further along.
+				return unlink_count;
+			} else if (result == 0) {
+				// Our src file is the ref file.  advance, but ignore it.
+				(*src_pos)++;
+				return unlink_count;
+			}
+		}
+		if (!dry_run) {
+			int err = encode_unlink(patchf, src[*src_pos]);
+			if (err) {
+				return IO_ERROR;
+			}
+		}
+		(*src_pos)++;
+		unlink_count++;
+	}
+	return unlink_count;
+}
+
+static int
+encode_unlink(cfile *patchf, multifile_file_data *entry)
+{
+	v3printf("Writing unlink command for %s\n", entry->filename);
+	int err = cWriteUBytesLE(patchf, TREE_COMMAND_UNLINK, TREE_COMMAND_LEN);
+	if (!err) {
+		int len = strlen(entry->filename) + 1;
+		if (len != cwrite(patchf, entry->filename, len)) {
+			err = IO_ERROR;
+		}
+	}
+	if (err) {
+		eprintf("Failed writing unlink command for %s to the patch\n", entry->filename);
+	}
+	return err;
 }
 
 static int
@@ -927,7 +1007,6 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 				eprintf("Failed allocating filepath.\n");
 				err = MEM_ERROR;
 			}
-
 			break;
 
 		default:
