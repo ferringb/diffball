@@ -212,7 +212,7 @@ multifile_ensure_open_active(cfile *cfh, multifile_data *data, ssize_t data_offs
 {
 	char buf[PATH_MAX];
 	assert (data_offset >= 0);
-	if (data_offset > cfh->data.window_len) {
+	if (data_offset > cfh->data.window_len || data->fs_count == 0) {
 		eprintf("Asked for an offset beyond the end of the window; returning EOF\n");
 		return EOF_ERROR;
 	}
