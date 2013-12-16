@@ -57,7 +57,7 @@ void enforce_no_trailing_slash(char *ptr);
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
 static int encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table);
-static int enforce_standard_attributes(const char *path, const struct stat *st, int including_mode, int is_directory);
+static int enforce_standard_attributes(const char *path, const struct stat *st, int is_directory);
 static int enforce_directory(const char *path, const struct stat *st);
 static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
 
@@ -654,24 +654,28 @@ enforce_unlink(const char *path)
 }
 
 static int
-enforce_standard_attributes(const char *path, const struct stat *st, int including_mode, int is_directory)
+enforce_standard_attributes(const char *path, const struct stat *st, int is_directory)
 {
-	int fd = open(path, O_RDONLY | (is_directory ? O_DIRECTORY : 0));
+	int fd = open(path, O_RDONLY | (is_directory ? O_DIRECTORY : 0) | O_NOFOLLOW);
 	if (-1 == fd) {
 		eprintf("Failed opening expected pathway %s\n", path);
 		return IO_ERROR;
 	}
-	int err = 0;
-	if (including_mode) {
-		err = fchmod(fd, st->st_mode);
-	}
+	int err = fchmod(fd, st->st_mode);
 
 	if (!err) {
-		err = lchown(path, st->st_uid, st->st_gid);
+		err = fchown(fd, st->st_uid, st->st_gid);
 		if (!err) {
 			struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
-			err = lutimes(path, times);
+			err = futimes(fd, times);
+			if (err) {
+				eprintf("failed enforcing utime on %s: errno %i\n", path, errno);
+			}
+		} else {
+			eprintf("Failed enforcing lchown on %s: errno %i\n", path, errno);
 		}
+	} else {
+		eprintf("Failed enforcing permissions on %s: errno %i\n", path, errno);
 	}
 	close(fd);
 	return err;
@@ -708,7 +712,7 @@ enforce_directory(const char *path, const struct stat *st)
 	if (!err) {
 		// Note, this doesn't guarantee mtime if we go screwing around w/in a directory after the command.
 		// Need to track/sort that somehow.
-		err = enforce_standard_attributes(path, st, 1, 1);
+		err = enforce_standard_attributes(path, st, 1);
 	}
 	return err;
 }
@@ -727,7 +731,11 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 	}
 
 	if (!err) {
-		err = enforce_standard_attributes(path, st, 0, 0);
+		err = lchown(path, st->st_uid, st->st_gid);
+		if (!err) {
+			struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
+			err = lutimes(path, times);
+		}
 	}
 	return err;
 }
@@ -738,7 +746,7 @@ enforce_file_move(const char *trg, const char *src, const struct stat *st)
 	v3printf("Transferring reconstructed file %s to %s\n", src, trg);
 	int err = rename(src, trg);
 	if (!err) {
-		err = enforce_standard_attributes(trg, st, 1, 0);
+		err = enforce_standard_attributes(trg, st, 0);
 	}
 	return err;
 }
