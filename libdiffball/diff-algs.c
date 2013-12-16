@@ -29,7 +29,7 @@
    Obviously credit for the alg's go to him, although I'm the one who gets the dubious
    credit for bugs in the implementation of said algorithms... */
 
-#define ERETURN(value) { if ((value) != 0) { eprintf("Exiting due to nonzero return: %i\n", (value)); return (value); }; }
+#define ERETURN(value) { if ((value) != 0) { eprintf("%s:%i Exiting due to nonzero return: %i\n", __FILE__, __LINE__, (value)); }; return (value); }
 
 signed int
 OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile *vcfh, unsigned char vid)
