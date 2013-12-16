@@ -538,6 +538,19 @@ enforce_file_move(const char *src, const char *trg, const struct stat *st)
 	return err;
 }
 
+static int
+enforce_hardlink(const char *path, const char *link_target)
+{
+	int err = link(path, link_target);
+	if (-1 == err && EEXIST == errno) {
+		errno = 0;
+		err = enforce_unlink(path);
+		if (!err) {
+			int err = link(path, link_target);
+		}
+	}
+	return err;
+}
 
 static int
 enforce_trailing_slash(char **ptr)
@@ -629,6 +642,9 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			abs_filepath = concat_path(target_directory, final_paths[*ref_pos]);
 			if (src && abs_filepath) {
 				err = enforce_file_move(src, abs_filepath, &st);
+			} else {
+				eprintf("Memory allocation error\n");
+				err = MEM_ERROR;
 			}
 			if (src) {
 				free(src);
@@ -639,6 +655,17 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			v3printf("command %lu: hardlink\n", command_count);
 			read_string_or_return(filename);
 			read_string_or_return(link_target);
+			char *abs_link_target = concat_path(target_directory, link_target);
+			abs_filepath = concat_path(target_directory, filename);
+			if (abs_link_target && abs_filepath) {
+				err = enforce_hardlink(abs_filepath, abs_link_target);
+			} else {
+				eprintf("Memory allocation error\n");
+				err = MEM_ERROR;
+			}
+			if (abs_link_target) {
+				free(abs_link_target);
+			}
 			break;
 		case TREE_COMMAND_DIR:
 			v3printf("command %lu: create directory\n", command_count);
