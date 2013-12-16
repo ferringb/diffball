@@ -61,7 +61,8 @@ static int encode_unlink(cfile *patchf, multifile_file_data *entry);
 static signed long
 generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_pos, unsigned long src_count, multifile_file_data *ref_entry,
 				 int dry_run);
-static int enforce_standard_attributes(const char *path, const struct stat *st, int is_directory);
+static int enforce_standard_attributes(const char *path, const struct stat *st, mode_t extra_flags);
+static int enforce_standard_attributes_via_path(const char *path, const struct stat *st, int skip_mode);
 static int enforce_directory(const char *path, const struct stat *st);
 static int enforce_symlink(const char *path, const char *link_target, const struct stat *st);
 
@@ -593,6 +594,12 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 		write_or_return(major(entry->st->st_dev), TREE_COMMAND_DEV_LEN);
 		write_or_return(minor(entry->st->st_dev), TREE_COMMAND_DEV_LEN);
 
+	} else if (S_ISSOCK(entry->st->st_mode)) {
+		v3printf("writing manifest command for socket %s\n", entry->filename);
+		write_or_return(TREE_COMMAND_SOCKET, TREE_COMMAND_LEN);
+		write_null_string(entry->filename);
+		write_common_block(entry->st);
+
 	} else {
 		v0printf("Somehow encountered an unknown fs entry: %s: %i\n", entry->filename, entry->st->st_mode);
 		return DATA_ERROR;
@@ -738,9 +745,9 @@ enforce_unlink(const char *path)
 }
 
 static int
-enforce_standard_attributes(const char *path, const struct stat *st, int is_directory)
+enforce_standard_attributes(const char *path, const struct stat *st, mode_t extra_flags)
 {
-	int fd = open(path, O_RDONLY | (is_directory ? O_DIRECTORY : 0) | O_NOFOLLOW);
+	int fd = open(path, O_RDONLY | O_NOFOLLOW | extra_flags);
 	if (-1 == fd) {
 		eprintf("Failed opening expected pathway %s\n", path);
 		return IO_ERROR;
@@ -753,15 +760,41 @@ enforce_standard_attributes(const char *path, const struct stat *st, int is_dire
 			struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
 			err = futimes(fd, times);
 			if (err) {
-				eprintf("failed enforcing utime on %s: errno %i\n", path, errno);
+				eprintf("Failed futimes for %s: errno %i\n", path, errno);
 			}
 		} else {
-			eprintf("Failed enforcing lchown on %s: errno %i\n", path, errno);
+			eprintf("Failed fchown'ing for %s: errno %i\n", path, errno);
 		}
 	} else {
-		eprintf("Failed enforcing permissions on %s: errno %i\n", path, errno);
+		eprintf("Failed fchmod'ing permissions for %s: errno %i\n", path, errno);
 	}
 	close(fd);
+	return err;
+}
+
+static int
+enforce_standard_attributes_via_path(const char *path, const struct stat *st, int skip_mode)
+{
+	v3printf("Enforcing permissions on %s via path\n", path);
+	int err = 0;
+	if (!skip_mode) {
+		err = chmod(path, st->st_mode);
+		if (err) {
+			eprintf("Chmod of %s failed: errno=%i\n", path, errno);
+		}
+	}
+	if (!err) {
+		err = lchown(path, st->st_uid, st->st_gid);
+		if (!err) {
+			struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
+			err = lutimes(path, times);
+			if (err) {
+				eprintf("lutimes of %s failed: errno=%i\n", path, errno);
+			}
+		} else {
+			eprintf("lchown of %s failed: errno=%i\n", path, errno);
+		}
+	}
 	return err;
 }
 
@@ -796,7 +829,7 @@ enforce_directory(const char *path, const struct stat *st)
 	if (!err) {
 		// Note, this doesn't guarantee mtime if we go screwing around w/in a directory after the command.
 		// Need to track/sort that somehow.
-		err = enforce_standard_attributes(path, st, 1);
+		err = enforce_standard_attributes(path, st, O_DIRECTORY);
 	}
 	return err;
 }
@@ -815,11 +848,7 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 	}
 
 	if (!err) {
-		err = lchown(path, st->st_uid, st->st_gid);
-		if (!err) {
-			struct timeval times[2] = {{st->st_ctime, 0}, {st->st_mtime, 0}};
-			err = lutimes(path, times);
-		}
+		err = enforce_standard_attributes_via_path(path, st, 1);
 	}
 	return err;
 }
@@ -850,10 +879,11 @@ enforce_hardlink(const char *path, const char *link_target)
 }
 
 static int
-enforce_mknod(const char *path, int is_chr, unsigned long major, unsigned long minor, const struct stat *st)
+enforce_mknod(const char *path, mode_t type, unsigned long major, unsigned long minor, const struct stat *st)
 {
+	v3printf("Mknod type %i for %s\n", type, path);
 	dev_t dev = makedev(major, minor);
-	mode_t mode = st->st_mode | (is_chr? S_IFCHR : S_IFBLK);
+	mode_t mode = st->st_mode | type;
 	int err = mknod(path, mode, dev);
 	if (-1 == err && EEXIST == errno) {
 		errno = 0;
@@ -863,7 +893,7 @@ enforce_mknod(const char *path, int is_chr, unsigned long major, unsigned long m
 		}
 	}
 	if (!err) {
-		err = enforce_standard_attributes(path, st, 0);
+		err = enforce_standard_attributes_via_path(path, st, 0);
 	}
 	return err;
 }
@@ -1004,9 +1034,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			v3printf("command %lu: create symlink\n", command_count);
 			read_string_or_return(filename);
 			read_string_or_return(link_target);
-
 			read_common_block(st);
-
 			enforce_or_fail(enforce_symlink, link_target, &st);
 			break;
 
@@ -1014,6 +1042,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			v3printf("command %lu: create fifo\n", command_count);
 			read_string_or_return(filename);
 			read_common_block(st);
+			enforce_or_fail(enforce_mknod, S_IFIFO, 0, 0, &st);
 			break;
 
 		case TREE_COMMAND_CHR:
@@ -1027,7 +1056,14 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			unsigned long major = 0, minor = 0;
 			read_or_return(major, TREE_COMMAND_DEV_LEN);
 			read_or_return(minor, TREE_COMMAND_DEV_LEN);
-			enforce_or_fail(enforce_mknod, is_chr, major, minor, &st);
+			enforce_or_fail(enforce_mknod, is_chr ? S_IFCHR : S_IFBLK, major, minor, &st);
+			break;
+
+		case TREE_COMMAND_SOCKET:
+			v3printf("command %lu: socket\n", command_count);
+			read_string_or_return(filename);
+			read_common_block(st);
+			enforce_or_fail(enforce_mknod, S_IFSOCK, 0, 0, &st);
 			break;
 
 		case TREE_COMMAND_UNLINK:
