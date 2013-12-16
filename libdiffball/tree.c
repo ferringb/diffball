@@ -840,13 +840,16 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	unsigned long x;
 	char **final_paths = NULL;
 	char *tmpspace = NULL;
+	mode_t original_umask = umask(0000);
 
 	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART)) {
 		eprintf("Failed seeking beyond the format magic\n");
+		umask(original_umask);
 		return PATCH_TRUNCATED;
 	}
 	if(TREE_VERSION_LEN != cread(patchf, buff, TREE_VERSION_LEN)) {
 		eprintf("Failed reading version identifier\n");
+		umask(original_umask);
 		return PATCH_TRUNCATED;
 	}
 	unsigned int ver = readUBytesLE(buff, TREE_VERSION_LEN);
@@ -858,6 +861,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 
 	err = read_file_manifest(patchf, &src_files, &src_count, "source");
 	if (err) {
+		umask(original_umask);
 		return err;
 	}
 
@@ -993,6 +997,6 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		multifile_free_file_data_array(ref_files, ref_count);
 		free(ref_files);
 	}
-
+	umask(original_umask);
 	return err;
 }
