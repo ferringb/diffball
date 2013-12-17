@@ -34,6 +34,7 @@ static struct option long_opts[] = {
 	STD_LONG_OPTIONS,
 	FORMAT_LONG_OPTION("patch-format", 'f'),
 	FORMAT_LONG_OPTION("max-buffer", 'b'),
+	FORMAT_LONG_OPTION("tmp-dir", 't'),
 	END_LONG_OPTS
 };
 
@@ -41,13 +42,14 @@ static struct usage_options help_opts[] = {
 	STD_HELP_OPTIONS,
 	FORMAT_HELP_OPTION("patch-format", 'f', "Override patch auto-identification"),
 	FORMAT_HELP_OPTION("max-buffer", 'b', "Override the default 128KB buffer max"),
+	FORMAT_HELP_OPTION("tmp-dir", 't', "Override the environmental TMPDIR for any temp usage"),
 	USAGE_FLUFF("Normal usage is patcher src-file patch(s) reconstructed-file\n"
 	"if you need to override the auto-identification (eg, you hit a bug), use -f.  Note this settings\n"
 	"affects -all- used patches, so it's use should be limited to applying a single patch"),
 	END_HELP_OPTS
 };
 
-static char short_opts[] = STD_SHORT_OPTIONS "f:b:";
+static char short_opts[] = STD_SHORT_OPTIONS "f:b:t:";
 
 
 int
@@ -101,6 +103,12 @@ main(int argc, char **argv)
 				v0printf("requested buffer size %lu isn't sane.  Must be greater then 0, and less then %lu\n", 
 					 reconst_size,  0x4000000L);
 				exit(EXIT_USAGE);
+			}
+			break;
+		case 't':
+			if(setenv("TMPDIR", optarg, 1)) {
+				v0printf("Failed setting TMPDIR to %s; does it contain a '='?\n", optarg);
+				exit(1);
 			}
 			break;
 		default:
