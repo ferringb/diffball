@@ -66,7 +66,7 @@ copen_dup_cfh(cfile *cfh)
 		return NULL;
 
 	cfile *dup;
-	dup = (cfile *)malloc(sizeof(cfile));
+	dup = (cfile *)calloc(1, sizeof(cfile));
 	if(dup == NULL) {
 		return NULL;
 	}
