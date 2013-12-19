@@ -33,12 +33,17 @@ unsigned int global_verbosity=0;
 
 char  *patch_format;
 
+#define SRC_EXCLUDE_FILE 254
+#define TRG_EXCLUDE_FILE 255
+
 struct option long_opts[] = {
 	STD_LONG_OPTIONS,
 	DIFF_LONG_OPTIONS,
 	FORMAT_LONG_OPTION("patch-format", 'f'),
 	FORMAT_LONG_OPTION("source-exclude", 'S'),
+	{"source-exclude-file", 1, 0, SRC_EXCLUDE_FILE},
 	FORMAT_LONG_OPTION("target-exclude", 'T'),
+	{"target-exclude-file", 1, 0, TRG_EXCLUDE_FILE},
 	END_LONG_OPTS
 };
 
@@ -47,7 +52,9 @@ struct usage_options help_opts[] = {
 	DIFF_HELP_OPTIONS,
 	FORMAT_HELP_OPTION("patch-format", 'f', "format to output the patch in"),
 	FORMAT_HELP_OPTION("source-exclude", 'S', "a file glob used to filter what source files are considered; this option is cumulative.  This uses fnmatch FNM_PATHNAME logic."),
+	FORMAT_HELP_OPTION("source-exclude-file", SRC_EXCLUDE_FILE, "read source-exclude patterns from the given file."),
 	FORMAT_HELP_OPTION("target-exclude", 'T', "a file glob used to filter what target files are considered; this option is cumulative.  This uses fnmatch FNM_PATHNAME logic."),
+	FORMAT_HELP_OPTION("target-exclude-file", TRG_EXCLUDE_FILE, "read target-exclude patterns from the given file."),
 	USAGE_FLUFF("differ expects 3 args- source, target, name for the patch\n"
 	"if output to stdout is enabled, only 2 args required- source, target\n"
 	"Example usage: differ older-version newerer-version upgrade-patch"),
@@ -97,6 +104,28 @@ exclude_list_add(struct exclude_list *l, const char *pattern)
 		return 1;
 	}
 	l->count++;
+	return 0;
+}
+
+static int
+exclude_list_add_from_file(struct exclude_list *l, const char *filepath)
+{
+	cfile cfh;
+	memset(&cfh, 0, sizeof(cfile));
+	int err = copen(&cfh, filepath, NO_COMPRESSOR, CFILE_RONLY);
+	if (err) {
+		v0printf("Failed opening excludes file %s\n", filepath);
+		return 1;
+	}
+	unsigned char *result = cfile_read_string_delim(&cfh, '\n', 1);
+	while (result) {
+		err = exclude_list_add(l, (const char *)result);
+		free(result);
+		if (err) {
+			return 1;
+		}
+		result = cfile_read_string_delim(&cfh, '\n', 1);
+	}
 	return 0;
 }
 
@@ -176,6 +205,16 @@ int main(int argc, char **argv)
 			break;
 		case 'T':
 			if (exclude_list_add(&trg_excludes, optarg)) {
+				exit(1);
+			}
+			break;
+		case SRC_EXCLUDE_FILE:
+			if (exclude_list_add_from_file(&src_excludes, optarg)) {
+				exit(1);
+			}
+			break;
+		case TRG_EXCLUDE_FILE:
+			if (exclude_list_add_from_file(&trg_excludes, optarg)) {
 				exit(1);
 			}
 			break;
