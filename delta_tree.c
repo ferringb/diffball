@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <cfile.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include "string-misc.h"
 #include <diffball/formats.h>
 #include <diffball/defs.h>
@@ -36,6 +37,8 @@ struct option long_opts[] = {
 	STD_LONG_OPTIONS,
 	DIFF_LONG_OPTIONS,
 	FORMAT_LONG_OPTION("patch-format", 'f'),
+	FORMAT_LONG_OPTION("source-exclude", 'S'),
+	FORMAT_LONG_OPTION("target-exclude", 'T'),
 	END_LONG_OPTS
 };
 
@@ -43,13 +46,77 @@ struct usage_options help_opts[] = {
 	STD_HELP_OPTIONS,
 	DIFF_HELP_OPTIONS,
 	FORMAT_HELP_OPTION("patch-format", 'f', "format to output the patch in"),
+	FORMAT_HELP_OPTION("source-exclude", 'S', "a file glob used to filter what source files are considered; this option is cumulative.  This uses fnmatch FNM_PATHNAME logic."),
+	FORMAT_HELP_OPTION("target-exclude", 'T', "a file glob used to filter what target files are considered; this option is cumulative.  This uses fnmatch FNM_PATHNAME logic."),
 	USAGE_FLUFF("differ expects 3 args- source, target, name for the patch\n"
 	"if output to stdout is enabled, only 2 args required- source, target\n"
 	"Example usage: differ older-version newerer-version upgrade-patch"),
 	END_HELP_OPTS
 };
 
-char short_opts[] = STD_SHORT_OPTIONS DIFF_SHORT_OPTIONS "f:";
+char short_opts[] = STD_SHORT_OPTIONS DIFF_SHORT_OPTIONS "f:T:S:";
+
+struct exclude_list {
+	char **array;
+	unsigned long count;
+	unsigned long size;
+	int is_src;
+};
+
+static void
+exclude_list_free(struct exclude_list *l)
+{
+	unsigned long x;
+	for (x = 0; x < l->count; x++) {
+		free(l->array[x]);
+	}
+	if (l->array) {
+		free(l->array);
+	}
+	l->array = NULL;
+	l->size = l->count = 0;
+}
+
+static int
+exclude_list_add(struct exclude_list *l, const char *pattern)
+{
+	if (l->count == l->size) {
+		unsigned long new_size = l->size ? l->size * 2 : 16;
+		char **tmp = realloc(l->array, new_size * sizeof(char *));
+		if (!tmp) {
+			v0printf("Failed allocating exclude array\n");
+			return 1;
+		}
+		l->array = tmp;
+		memset(l->array + l->size, 0, new_size - l->size);
+		l->size = new_size;
+	}
+	l->array[l->count] = strdup(pattern);
+	if (!l->array[l->count]) {
+		v0printf("Failed allocating exclude array\n");
+		return 1;
+	}
+	l->count++;
+	return 0;
+}
+
+static int
+exclude_filter(void *data, const char *filepath, struct stat *st)
+{
+	struct exclude_list *excludes = (struct exclude_list *)data;
+	unsigned long x;
+	for (x = 0; x < excludes->count; x++) {
+		int result = fnmatch(excludes->array[x], filepath, 0);
+		if (result == 0) {
+			v1printf("Filtering file %s from the %s directory\n", filepath, excludes->is_src ? "source" : "target");
+			return 1;
+		} else if (result != FNM_NOMATCH) {
+			v0printf("Failed invocation of fnmatch for %s; returned %i, bailing\n", filepath, result);
+			return -1;
+		}
+	}
+	return 0;
+}
 
 int main(int argc, char **argv)
 {
@@ -66,6 +133,7 @@ int main(int argc, char **argv)
 	char  *patch_name = NULL;
 	unsigned long patch_id = 0;
 	signed long encode_result=0;
+	struct exclude_list src_excludes = {NULL, 0, 0, 1}, trg_excludes = {NULL, 0, 0, 0};
 	int err;
 	unsigned long sample_rate=0;
 	unsigned long seed_len = 0;
@@ -101,6 +169,16 @@ int main(int argc, char **argv)
 			patch_to_stdout = 1;		break;
 		case 'f':
 			patch_format = optarg;		break;
+		case 'S':
+			if (exclude_list_add(&src_excludes, optarg)) {
+				exit(1);
+			}
+			break;
+		case 'T':
+			if (exclude_list_add(&trg_excludes, optarg)) {
+				exit(1);
+			}
+			break;
 		default:
 			v0printf("invalid arg- %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
@@ -111,7 +189,8 @@ int main(int argc, char **argv)
 	if (!src_file) {
 		DUMP_USAGE(EXIT_USAGE);
 	}
-	err = copen_multifile_directory(&ref_cfh, src_file);
+	err = copen_multifile_directory(&ref_cfh, src_file,
+		(src_excludes.count ? exclude_filter : NULL), (src_excludes.count ? &src_excludes : 0));
 	if (err) {
 		v0printf("Walking directory %s failed\n", src_file);
 		exit(EXIT_USAGE);
@@ -120,7 +199,8 @@ int main(int argc, char **argv)
 	if (!trg_file) {
 		DUMP_USAGE(EXIT_USAGE);
 	}
-	err = copen_multifile_directory(&ver_cfh, trg_file);
+	err = copen_multifile_directory(&ver_cfh, trg_file,
+		(trg_excludes.count ? exclude_filter : NULL), (trg_excludes.count ? &trg_excludes : 0));
 	if (err) {
 		v0printf("Walking directory %s failed\n", src_file);
 		exit(EXIT_USAGE);
@@ -175,6 +255,8 @@ int main(int argc, char **argv)
 	v1printf("closing version file\n");
 	cclose(&ver_cfh);
 	close(out_fh);
+	exclude_list_free(&src_excludes);
+	exclude_list_free(&trg_excludes);
 	check_return2(encode_result, "encoding result was nonzero")
 	return 0;
 }

@@ -192,7 +192,10 @@ typedef struct {
 int multifile_expose_content(cfile *cfh, multifile_file_data ***results, unsigned long *file_count);
 multifile_file_data *multifile_find_file(const char *filename, multifile_file_data **array, unsigned long fs_count);
 
-int copen_multifile_directory(cfile *cfh, const char *src_directory);
+typedef int (*copen_io_func)(cfile_ptr);
+
+typedef int (*multifile_directory_filter)(void *data, const char *filepath, struct stat *st);
+int copen_multifile_directory(cfile *cfh, const char *src_directory, multifile_directory_filter filter_func, void *filter_data);
 int copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, unsigned long file_count, unsigned int access_flags);
 
 // Given an array, free the data in each item.  Note this doesn't free the array itself- just the contents.

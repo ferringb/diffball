@@ -10,7 +10,7 @@ int
 main(int argc, char **argv)
 {
 	cfile mcfh, cfh;
-	assert(copen_multifile_directory(&mcfh, "/home/ferringb/ecessa/releases/8.4.25") == 0);
+	assert(copen_multifile_directory(&mcfh, "/home/ferringb/ecessa/releases/8.4.25", NULL, NULL) == 0);
 	assert(copen(&cfh, "/home/ferringb/ecessa/releases/8.4.25.full", NO_COMPRESSOR, CFILE_RONLY) == 0);
 	assert(cfile_len(&mcfh) == cfile_len(&cfh));
 	printf("mcfh=%lu, cfh=%lu\n", cfile_len(&mcfh), cfile_len(&cfh));
