@@ -371,7 +371,9 @@ cleanup:
 }	
 
 int
-multifile_recurse_directory(const char *root, const char *directory, multifile_file_data **files[], unsigned long *files_count, unsigned long *files_size)
+multifile_recurse_directory(const char *root, const char *directory,
+	multifile_file_data **files[], unsigned long *files_count, unsigned long *files_size,
+    multifile_directory_filter filter_func, void *filter_data)
 {
 	DIR *the_dir;
 	struct dirent *entry;
@@ -408,9 +410,20 @@ multifile_recurse_directory(const char *root, const char *directory, multifile_f
 			return 1;
 		}
 
+		if (filter_func) {
+			int result = filter_func(filter_data, directory_start -1 , st);
+			if (result == -1) {
+				eprintf("multifile: error code from the filter function for %s: %i\n", directory_start, result);
+				return 1;
+			} else if (result == 1) {
+				v1printf("multifile: filtering %s\n", directory_start);
+				free(st);
+				continue;
+			}
+		}
 		if (S_ISDIR(st->st_mode)){
 			strcat(start, "/");;
-			if(multifile_recurse_directory(root, directory_start, files, files_count, files_size)) {
+			if(multifile_recurse_directory(root, directory_start, files, files_count, files_size, filter_func, filter_data)) {
 				return 1;
 			}
 		}
@@ -476,7 +489,7 @@ cmp_hardlinks(const void *p1, const void *p2)
 }
 
 int
-copen_multifile_directory(cfile *cfh, const char *src_directory)
+copen_multifile_directory(cfile *cfh, const char *src_directory, multifile_directory_filter filter_func, void *filter_data)
 {
 	multifile_file_data **files = NULL;
 	unsigned long files_count = 0;
@@ -488,7 +501,7 @@ copen_multifile_directory(cfile *cfh, const char *src_directory)
 		eprintf("multifile: directory dup mem allocaiton failed\n");
 		return 1;
 	}
-	if (multifile_recurse_directory(directory, NULL, &files, &files_count, &files_size)) {
+	if (multifile_recurse_directory(directory, NULL, &files, &files_count, &files_size, filter_func, filter_data)) {
 		free(directory);
 		return 1;
 	}
