@@ -56,6 +56,7 @@ int
 main(int argc, char **argv)
 {
 	cfile patch_cfh;
+	memset(&patch_cfh, 0, sizeof(cfile));
 	char  *src_name = NULL;
 	char  *out_name = NULL;
 	char  *patch_name;
