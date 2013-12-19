@@ -67,7 +67,10 @@ main(int argc, char **argv)
 	char  *patch_format = NULL;
 	int optr = 0, err;
 	unsigned long reconst_size = 0xffff;
-	
+
+	// Force stderr to be unbuffered for error reporting reasons.
+	setbuf(stderr, NULL);
+
 	#define DUMP_USAGE(exit_code) \
 		print_usage("patcher", "src_file patch(es) [trg_file|or to stdout]", help_opts, exit_code);
 
