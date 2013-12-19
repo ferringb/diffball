@@ -868,6 +868,7 @@ enforce_file_move(const char *trg, const char *src, const struct stat *st)
 static int
 enforce_hardlink(const char *path, const char *link_target)
 {
+	v3printf("Enforcing hardlink of %s -> %s\n", path, link_target);
 	int err = link(link_target, path);
 	if (-1 == err && EEXIST == errno) {
 		errno = 0;
