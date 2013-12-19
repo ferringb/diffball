@@ -51,9 +51,9 @@ struct usage_options help_opts[] = {
 	STD_HELP_OPTIONS,
 	DIFF_HELP_OPTIONS,
 	FORMAT_HELP_OPTION("patch-format", 'f', "format to output the patch in"),
-	FORMAT_HELP_OPTION("source-exclude", 'S', "a file glob used to filter what source files are considered; this option is cumulative.  This uses fnmatch FNM_PATHNAME logic."),
+	FORMAT_HELP_OPTION("source-exclude", 'S', "a file glob used to filter what source files are considered; this option is cumulative."),
 	FORMAT_HELP_OPTION("source-exclude-file", SRC_EXCLUDE_FILE, "read source-exclude patterns from the given file."),
-	FORMAT_HELP_OPTION("target-exclude", 'T', "a file glob used to filter what target files are considered; this option is cumulative.  This uses fnmatch FNM_PATHNAME logic."),
+	FORMAT_HELP_OPTION("target-exclude", 'T', "a file glob used to filter what target files are considered; this option is cumulative."),
 	FORMAT_HELP_OPTION("target-exclude-file", TRG_EXCLUDE_FILE, "read target-exclude patterns from the given file."),
 	USAGE_FLUFF("differ expects 3 args- source, target, name for the patch\n"
 	"if output to stdout is enabled, only 2 args required- source, target\n"
@@ -133,9 +133,23 @@ static int
 exclude_filter(void *data, const char *filepath, struct stat *st)
 {
 	struct exclude_list *excludes = (struct exclude_list *)data;
+	const char *basename = NULL;
 	unsigned long x;
 	for (x = 0; x < excludes->count; x++) {
-		int result = fnmatch(excludes->array[x], filepath, 0);
+		int result;
+		if (excludes->array[x][0] != '/') {
+			// Relative path.
+			if (!basename) {
+				basename = filepath + 1;
+				const char *tmp = NULL;
+				while ((tmp = strchr(basename, '/'))) {
+					basename = tmp + 1;
+				}
+			}
+			result = fnmatch(excludes->array[x], basename, 0);
+		} else {
+			result = fnmatch(excludes->array[x], filepath, 0);
+		}
 		if (result == 0) {
 			v1printf("Filtering file %s from the %s directory\n", filepath, excludes->is_src ? "source" : "target");
 			return 1;
