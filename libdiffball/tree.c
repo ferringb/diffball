@@ -1262,8 +1262,10 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
+	v3printf("Starting verification of src manifest\n");
 	err = multifile_ensure_files(&src_cfh, 0);
 	if (err) {
+
 		goto cleanup;
 	}
 
