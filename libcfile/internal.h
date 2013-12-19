@@ -29,11 +29,10 @@
 
 #ifdef DEV_VERSION
 #include <assert.h>
-#define eprintf(expr...)   abort(); fprintf(stderr, expr);
 #else
 #define assert(expr) ((void)0)
-#define eprintf(expr...)   fprintf(stderr, expr);
 #endif
+#define eprintf(expr...)   fprintf(stderr, expr);
 
 #define v1printf(expr...)  if(cfile_verbosity>0){fprintf(stderr,expr);}
 #define v2printf(expr...)  if(cfile_verbosity>1){fprintf(stderr,expr);}
