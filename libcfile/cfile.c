@@ -573,7 +573,9 @@ crefill(cfile *cfh)
 		return UNSUPPORTED_OPT;
 	}
 
-	assert((cfh->state_flags & CFILE_MEM_ALIAS) == 0);
+    if (cfh->state_flags & CFILE_MEM_ALIAS) {
+    	return 0;
+    }
 	assert(cfh->io.refill != NULL);
 
 #ifdef DEBUG_CFILE
