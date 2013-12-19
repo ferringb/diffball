@@ -49,7 +49,7 @@ static struct usage_options help_opts[] = {
 	END_HELP_OPTS
 };
 
-static char short_opts[] = STD_SHORT_OPTIONS "f:b:";
+static char short_opts[] = STD_SHORT_OPTIONS "f:b:t:";
 
 
 int
