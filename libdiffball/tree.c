@@ -1264,7 +1264,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	}
 
 	v3printf("Starting verification of src manifest\n");
-	err = multifile_ensure_files(&src_cfh, 0);
+	err = multifile_ensure_files(&src_cfh, 0, 1);
 	if (err) {
 
 		goto cleanup;
@@ -1301,7 +1301,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	}
 
 	// Create our files now.
-	err = multifile_ensure_files(&trg_cfh, 1);
+	err = multifile_ensure_files(&trg_cfh, 1, 0);
 	if (err) {
 		eprintf("Failed creating temporary files for reconstruction\n");
 		goto cleanup;

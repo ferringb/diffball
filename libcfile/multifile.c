@@ -535,7 +535,7 @@ multifile_expose_content(cfile *cfh, multifile_file_data ***results, unsigned lo
 }
 
 int
-multifile_ensure_files(cfile *cfh, int allow_creation)
+multifile_ensure_files(cfile *cfh, int allow_creation, int report_all_failures)
 {
 	char buff[PATH_MAX];
 	if (!cfile_is_open(cfh)) {
@@ -554,7 +554,7 @@ multifile_ensure_files(cfile *cfh, int allow_creation)
 
 	unsigned long x;
 	int err = 0;
-	for (x = 0; !err && x < data->fs_count; x++) {
+	for (x = 0; (report_all_failures || !err) && x < data->fs_count; x++) {
 		get_filepath(data, x, buff);
 		size_t desired = data->fs[x]->end - data->fs[x]->start;
 		int fd = open(buff, flags, 0600);
