@@ -320,6 +320,7 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 static int
 read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
 {
+    v3printf("Reading %s file manifest\n", manifest_name);
 	unsigned char buff[16];
 	if (4 != cread(patchf, buff, 4)) {
 		eprintf("Failed reading %s manifest count\n", manifest_name);
