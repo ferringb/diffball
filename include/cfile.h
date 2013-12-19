@@ -203,7 +203,10 @@ int copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, u
 void multifile_free_file_data_array(multifile_file_data **array, unsigned long count);
 
 // Ensure the files for the array exist- creating them if necessary and allowed, else erroring.
-int multifile_ensure_files(cfile *cfh, int allow_creation);
+// If report_all_failures is nonzero, then this code will continue through the full list, exiting
+// with 1 if any failed (rather than stopping at the first).  report_all_failures should not be
+// nonzero if allow_creation is nonzero; kind of pointless in that case.
+int multifile_ensure_files(cfile *cfh, int allow_creation, int report_all_failures);
 
 unsigned char *cfile_read_null_string(cfile *cfh);
 unsigned char *cfile_read_string_delim(cfile *cfh, char delim, int eof_is_delim);
