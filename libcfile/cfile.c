@@ -738,41 +738,65 @@ prev_page(cfile *cfh)
 unsigned char *
 cfile_read_null_string(cfile *cfh)
 {
+	return cfile_read_string_delim(cfh, 0, 0);
+}
+
+unsigned char *
+cfile_read_string_delim(cfile *cfh, char delim, int eof_is_delim)
+{
 	if (error_if_closed(cfh, "cread")) {
 		return NULL;
 	}
 
-	unsigned char *result = NULL;
+	unsigned char *result = NULL, *tmp = NULL;
 	size_t len = 0;
 	do {
-		unsigned char *match = memchr(cfh->data.buff + cfh->data.pos, 0, cfh->data.end - cfh->data.pos);
-		if (match) {
-			unsigned char *tmp = realloc(result, len + 1 + (match - cfh->data.buff));
-			if (tmp) {
-				memcpy(tmp + len, cfh->data.buff + cfh->data.pos, (match - cfh->data.buff) - cfh->data.pos + 1);
-				cfh->data.pos = match - cfh->data.buff + 1;
-				return tmp;
+		if (cfh->data.end != cfh->data.pos) {
+			unsigned char *match = memchr(cfh->data.buff + cfh->data.pos, delim, cfh->data.end - cfh->data.pos);
+			if (match) {
+				unsigned char *tmp = realloc(result, len + 1 + (match - cfh->data.buff));
+				if (tmp) {
+					memcpy(tmp + len, cfh->data.buff + cfh->data.pos, (match - cfh->data.buff) - cfh->data.pos + 1);
+					tmp[len + (match - cfh->data.buff) - cfh->data.pos] = 0;
+					cfh->data.pos = match - cfh->data.buff + 1;
+					return tmp;
+				}
+				if(result) {
+					free(result);
+				}
+				eprintf("Failed allocating memory\n");
+				return NULL;
 			}
-			if(result) {
-				free(result);
+			tmp = realloc(result, len + cfh->data.end - cfh->data.pos);
+			if (!tmp) {
+				if (result) {
+					free(result);
+				}
+				eprintf("failed allocating memory\n");
+				return NULL;
 			}
-			eprintf("Failed allocating memory\n");
-			return NULL;
+			result = tmp;
+			memcpy(result + len, cfh->data.buff + cfh->data.pos, cfh->data.end - cfh->data.pos);
+			len += cfh->data.end - cfh->data.pos;
 		}
-		unsigned char *tmp = realloc(result, len + cfh->data.end - cfh->data.pos);
-		if (!tmp) {
-			if (result) {
-				free(result);
-			}
-			eprintf("failed allocating memory\n");
-			return NULL;
-		}
-		result = tmp;
-		memcpy(result + len, cfh->data.buff + cfh->data.pos, cfh->data.end - cfh->data.pos);
-		len += cfh->data.end - cfh->data.pos;
 	} while (crefill(cfh) > 0);
-	return NULL;
+
+	if (!eof_is_delim || !result) {
+		if (result) {
+			free(result);
+		}
+		return NULL;
+	}
+	tmp = realloc(result, len + 1);
+	if (!tmp) {
+		eprintf("allocation error\n");
+		free(result);
+		return NULL;
+	}
+	tmp[len] = 0;
+	return tmp;
 }
+
 
 int
 cfile_is_open(cfile *cfh)

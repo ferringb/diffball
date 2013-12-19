@@ -206,4 +206,5 @@ void multifile_free_file_data_array(multifile_file_data **array, unsigned long c
 int multifile_ensure_files(cfile *cfh, int allow_creation);
 
 unsigned char *cfile_read_null_string(cfile *cfh);
+unsigned char *cfile_read_string_delim(cfile *cfh, char delim, int eof_is_delim);
 #endif
