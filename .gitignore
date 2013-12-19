@@ -27,3 +27,5 @@ Makefile.in
 /config.h
 /diffball
 /differ
+/delta_tree
+/delta_patcher
