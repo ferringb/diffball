@@ -53,7 +53,7 @@ typedef struct {
 
 
 void enforce_no_trailing_slash(char *ptr);
-
+#define ERETURN(value) { if ((value) != 0) { eprintf("%s:%i Exiting due to nonzero return: %i\n", __FILE__, __LINE__, (int)(value)); }; return (value) ; };
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
 static int encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table);
@@ -98,7 +98,7 @@ cWriteUBytesLE(cfile *cfh, unsigned long value, unsigned int len)
 	writeUBytesLE(buff, value, len);
 	if (len != cwrite(cfh, buff, len)) {
 		v0printf("Failed writing %i bytes\n", len);
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 	return 0;
 }
@@ -170,7 +170,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 			free_ugm_table(table);
 		}
 		eprintf("Failed allocating UGM table\n");
-		return MEM_ERROR;
+		ERETURN(MEM_ERROR);
 	}
 
 	// Note; we use the index field as a temporary histo count as we're building the table.
@@ -191,7 +191,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 			if (!tmp_array) {
 				free_ugm_table(table);
 				eprintf("Allocation failed\n");
-				return MEM_ERROR;
+				ERETURN(MEM_ERROR);
 			}
 
 			table->array = tmp_array;
@@ -210,7 +210,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 	if (cWriteUBytesLE(patchf, table->count, 4)) {
 		eprintf("Failed writing the uid/gid/mode table; out of space?\n");
 		free_ugm_table(table);
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 
 	// Sort by greatest count first, resetting the index, and flushing while we're at it.
@@ -223,7 +223,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 			cWriteUBytesLE(patchf, table->array[x].mode, TREE_COMMAND_MODE_LEN)) {
 			eprintf("Failed writing the uid/gid/mode table; out of space?\n");
 			free_ugm_table(table);
-			return IO_ERROR;
+			ERETURN(IO_ERROR);
 		}
 		v3printf("UGM table %lu: uid(%i), gid(%i), mode(%i)\n", x, table->array[x].uid, table->array[x].gid, table->array[x].mode);
 	}
@@ -243,13 +243,13 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 	ugm_table *table = calloc(1, sizeof(ugm_table));
 	if (!table) {
 		eprintf("Failed allocating ugm table\n");
-		return MEM_ERROR;
+		ERETURN(MEM_ERROR);
 	}
 
 	if (4 != cread(patchf, buff, 4)) {
 		eprintf("Failed reading ugm table header\n");
 		free(table);
-		return PATCH_TRUNCATED;
+		ERETURN(PATCH_TRUNCATED);
 	}
 	table->count = readUBytesLE(buff, 4);
 
@@ -259,7 +259,7 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 	if (!table->array) {
 		free(table);
 		eprintf("Failed allocating ugm table\n");
-		return MEM_ERROR;
+		ERETURN(MEM_ERROR);
 	}
 
 	unsigned long x;
@@ -267,7 +267,7 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 		if (sizeof(buff) != cread(patchf, buff, sizeof(buff))) {
 			eprintf("Failed reading ugm table at index %lu\n", x);
 			free_ugm_table(table);
-			return PATCH_TRUNCATED;
+			ERETURN(PATCH_TRUNCATED);
 		}
 		table->array[x].uid = readUBytesLE(buff, TREE_COMMAND_UID_LEN);
 		table->array[x].gid = readUBytesLE(buff + TREE_COMMAND_UID_LEN, TREE_COMMAND_GID_LEN);
@@ -305,11 +305,11 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 			size_t len = strlen(fs[x]->filename) + 1;
 			if (len != cwrite(patchf, fs[x]->filename, len)) {
 				v0printf("Failed writing %s file manifest\n", manifest_name);
-				return IO_ERROR;
+				ERETURN(IO_ERROR);
 			}
 			err = cWriteUBytesLE(patchf, fs[x]->st->st_size, 8);
 			if (err) {
-				return err;
+				ERETURN(err);
 			}
 			file_count--;
 		}
@@ -323,7 +323,7 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 	unsigned char buff[16];
 	if (4 != cread(patchf, buff, 4)) {
 		eprintf("Failed reading %s manifest count\n", manifest_name);
-		return PATCH_TRUNCATED;
+		ERETURN(PATCH_TRUNCATED);
 	}
 	unsigned long file_count = readUBytesLE(buff, 4);
 	*fs_count = file_count;
@@ -331,7 +331,7 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 	multifile_file_data **results = calloc(sizeof(multifile_file_data *), file_count);
 	if (!results) {
 		eprintf("Failed allocating internal array for %s file manifest: %lu entries.\n", manifest_name, file_count);
-		return MEM_ERROR;
+		ERETURN(MEM_ERROR);
 	}
 	*fs = results;
 	unsigned long x;
@@ -381,7 +381,7 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 		free(results[x]);
 	}
 	free(results);
-	return err;
+	ERETURN(err);
 }
 
 signed int 
@@ -398,24 +398,24 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	cfile *ref_cfh = DCB_EXPOSE_ADD_CFH(dcbuff);
 	if (multifile_expose_content(src_cfh, &src_files, &src_count)) {
 		v0printf("Failed accessing multifile content for src\n");
-		return DATA_ERROR;
+		ERETURN(DATA_ERROR);
 	}
 	if (multifile_expose_content(ref_cfh, &ref_files, &ref_count)) {
 		v0printf("Failed accessing multifile content for ref\n");
-		return DATA_ERROR;
+		ERETURN(DATA_ERROR);
 	}
 
 	// Dump the list of source files needed, then dump the list of files generated by this patch.
 	err = flush_file_manifest(patchf, src_files, src_count, "source");
 	if (err) {
 		eprintf("Failed flushing ref files content\n");
-		return err;
+		ERETURN(err);
 	}
 
 	err = flush_file_manifest(patchf, ref_files, ref_count, "target");
 	if (err) {
 		eprintf("Failed flushing ref files content\n");
-		return err;
+		ERETURN(err);
 	}
 
 	v3printf("Flushed delta manifest; writing the delta now\n");
@@ -423,19 +423,19 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 
 	err = flush_file_content_delta(dcbuff, patchf);
 	if (err) {
-		return err;
+		ERETURN(err);
 	}
 
 	v3printf("Flushed the file content delta.  Writing magic, magic then command stream\n");
 	if (TREE_INTERFILE_MAGIC_LEN != cwrite(patchf, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN)) {
 		v0printf("Failed flushing interfile magic\n");
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 
 	// Compute and flush the UGM table.
 	err = compute_and_flush_ugm_table(patchf, ref_files, ref_count, &ugm_table);
 	if (err) {
-		return err;
+		ERETURN(err);
 	}
 
 	unsigned long command_count = ref_count;
@@ -446,7 +446,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		if (unlink_result < 0) {
 			eprintf("Failed identification of unlinks\n");
 			free_ugm_table(ugm_table);
-			return unlink_result;
+			ERETURN(unlink_result);
 		}
 		command_count += unlink_result;
 	}
@@ -454,7 +454,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	if (unlink_result < 0) {
 		eprintf("Failed tail end of identification of unlinks\n");
 		free_ugm_table(ugm_table);
-		return unlink_result;
+		ERETURN(unlink_result);
 	} else {
 		command_count += unlink_result;
 	}
@@ -464,7 +464,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	err = cWriteUBytesLE(patchf, command_count, 4);
 	if (err) {
 		free_ugm_table(ugm_table);
-		return err;
+		ERETURN(err);
 	}
 
 	for(ref_pos = 0, src_pos = 0; ref_pos < ref_count; ref_pos++) {
@@ -476,7 +476,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		}
 		if (err) {
 			free_ugm_table(ugm_table);
-			return err;
+			ERETURN(err);
 		}
 	}
 
@@ -487,7 +487,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		err = unlink_result;
 	}
 	free_ugm_table(ugm_table);
-	return err;
+	ERETURN(err);
 }
 
 static signed long
@@ -509,7 +509,7 @@ generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_po
 		if (!dry_run) {
 			int err = encode_unlink(patchf, src[*src_pos]);
 			if (err) {
-				return IO_ERROR;
+				ERETURN(IO_ERROR);
 			}
 		}
 		(*src_pos)++;
@@ -532,13 +532,13 @@ encode_unlink(cfile *patchf, multifile_file_data *entry)
 	if (err) {
 		eprintf("Failed writing unlink command for %s to the patch\n", entry->filename);
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
 encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 {
-	#define write_or_return(value, len) {int err=cWriteUBytesLE(patchf, (value), (len)); if (err) { return err; }; }
+	#define write_or_return(value, len) {int err=cWriteUBytesLE(patchf, (value), (len)); if (err) { ERETURN(err); }; }
 
 	#define write_common_block(st) \
 		{ ugm_tuple *match = search_ugm_table(table, (st)->st_uid, (st)->st_gid, (st)->st_mode); \
@@ -549,7 +549,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 		write_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
 
 #define write_null_string(value) \
-{ int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); return IO_ERROR; }; }
+{ int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); ERETURN(IO_ERROR); }; }
 
 	if (S_ISREG(entry->st->st_mode)) {
 		if (!entry->link_target) {
@@ -602,7 +602,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table)
 
 	} else {
 		v0printf("Somehow encountered an unknown fs entry: %s: %i\n", entry->filename, entry->st->st_mode);
-		return DATA_ERROR;
+		ERETURN(DATA_ERROR);
 	}
 	return 0;
 
@@ -620,14 +620,14 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	int tmp_fd = mkstemp(tmpname);
 	if (tmp_fd < 0) {
 		v0printf("Failed getting a temp file\n");
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 
 	int err = copen_dup_fd(&deltaf, tmp_fd, 0, 0, NO_COMPRESSOR, CFILE_WONLY);
 	if (err) {
 		v0printf("Failed opening cfile handle to the tmpfile\n");
 		close(tmp_fd);
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 
 	v3printf("Invoking switching format to encode the delta\n");
@@ -670,7 +670,7 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	ERR_FD:
 		unlink(tmpname);
 		close(tmp_fd);
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -689,7 +689,7 @@ enforce_recursive_unlink(DIR *directory)
 			struct stat st;
 			if (fstatat(dirfd(directory), entry->d_name, &st, AT_NO_AUTOMOUNT|AT_SYMLINK_NOFOLLOW)) {
 				closedir(directory);
-				return IO_ERROR;
+				ERETURN(IO_ERROR);
 			}
 			is_dir = S_ISDIR(st.st_mode);
 		}
@@ -718,7 +718,7 @@ enforce_recursive_unlink(DIR *directory)
 			break;
 		}
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -741,7 +741,7 @@ enforce_unlink(const char *path)
 			}
 		}
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -750,7 +750,7 @@ enforce_standard_attributes(const char *path, const struct stat *st, mode_t extr
 	int fd = open(path, O_RDONLY | O_NOFOLLOW | extra_flags);
 	if (-1 == fd) {
 		eprintf("Failed opening expected pathway %s\n", path);
-		return IO_ERROR;
+		ERETURN(IO_ERROR);
 	}
 	int err = fchmod(fd, st->st_mode);
 
@@ -769,7 +769,7 @@ enforce_standard_attributes(const char *path, const struct stat *st, mode_t extr
 		eprintf("Failed fchmod'ing permissions for %s: errno %i\n", path, errno);
 	}
 	close(fd);
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -795,7 +795,7 @@ enforce_standard_attributes_via_path(const char *path, const struct stat *st, in
 			eprintf("lchown of %s failed: errno=%i\n", path, errno);
 		}
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -808,7 +808,7 @@ enforce_directory(const char *path, const struct stat *st)
 			struct stat ondisk_st;
 			if (0 != lstat(path, &ondisk_st)) {
 				eprintf("Race occurred checking %s: errno %i\n", path, errno);
-				return IO_ERROR;
+				ERETURN(IO_ERROR);
 			} else if (!S_ISDIR(ondisk_st.st_mode)) {
 				v3printf("Removing blocking content at %s\n", path);
 				err = unlink(path);
@@ -831,7 +831,7 @@ enforce_directory(const char *path, const struct stat *st)
 		// Need to track/sort that somehow.
 		err = enforce_standard_attributes(path, st, O_DIRECTORY);
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -850,7 +850,7 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 	if (!err) {
 		err = enforce_standard_attributes_via_path(path, st, 1);
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -861,7 +861,7 @@ enforce_file_move(const char *trg, const char *src, const struct stat *st)
 	if (!err) {
 		err = enforce_standard_attributes(trg, st, 0);
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -875,7 +875,7 @@ enforce_hardlink(const char *path, const char *link_target)
 			err = link(path, link_target);
 		}
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -895,7 +895,7 @@ enforce_mknod(const char *path, mode_t type, unsigned long major, unsigned long 
 	if (!err) {
 		err = enforce_standard_attributes_via_path(path, st, 0);
 	}
-	return err;
+	ERETURN(err);
 }
 
 static int
@@ -906,7 +906,7 @@ enforce_trailing_slash(char **ptr)
 		char *p = realloc(*ptr, len + 2);
 		if (!p) {
 			eprintf("Somehow encountered realloc failure for string of desired size %zi\n", len + 2);
-			return MEM_ERROR;
+			ERETURN(MEM_ERROR);
 		}
 		(*ptr)[len] = '/';
 		(*ptr)[len + 1] = 0;
@@ -945,15 +945,15 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 	if(patchf->data.pos == patchf->data.end) {
 		if(crefill(patchf) <= 0) {
 			eprintf("Failed reading command %lu\n", command_count);
-			return PATCH_TRUNCATED;
+			ERETURN(PATCH_TRUNCATED);
 		}
 	}
 	#define read_string_or_return(value) \
-		{ (value) = (char *)cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); return PATCH_TRUNCATED; }; };
+		{ (value) = (char *)cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); ERETURN(PATCH_TRUNCATED); }; };
 
 	#define read_or_return(value, len) \
 		{ \
-			if ((len) != cread(patchf, buff, (len))) { eprintf("Failed reading %i bytes\n", (len)); return PATCH_TRUNCATED; }; \
+			if ((len) != cread(patchf, buff, (len))) { eprintf("Failed reading %i bytes\n", (len)); ERETURN(PATCH_TRUNCATED); }; \
 			(value) = readUBytesLE(buff, (len)); \
 		}
 
@@ -987,7 +987,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			v3printf("command %lu: regular file\n", command_count);
 			if ((*ref_pos) == ref_count) {
 				eprintf("Encountered a file command, but no more recontruction targets were defined by this patch.  Likely corruption or internal bug\n");
-				return PATCH_CORRUPT_ERROR;
+				ERETURN(PATCH_CORRUPT_ERROR);
 			}
 			read_common_block(st);
 			char *src = concat_path(tmpspace, ref_files[*ref_pos]->filename);
@@ -1081,7 +1081,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 
 		default:
 			eprintf("command %lu: unknown command: %i\n", command_count, patchf->data.buff[patchf->data.pos]);
-			return PATCH_CORRUPT_ERROR;
+			ERETURN(PATCH_CORRUPT_ERROR);
 	}
 
 	if (abs_filepath) {
@@ -1096,7 +1096,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		free(link_target);
 	}
 
-	return err;
+	ERETURN(err);
 
 	#undef enforce_or_fail
 	#undef read_or_return
@@ -1120,6 +1120,7 @@ make_tempdir(const char *tmp_directory)
 
 	char *template = malloc(tmp_len + 3 + template_frag_len);
 	if (!template) {
+		eprintf("Failed allocating memory for a temp dir\n");
 		return NULL;
 	}
 	memcpy(template, tmp_directory, tmp_len);
@@ -1141,7 +1142,8 @@ build_and_swap_tmpspace_array(char ***final_paths_ptr, multifile_file_data **ref
 {
 	char **final_paths = (char **)calloc(sizeof(char *), ref_count);
 	if (!final_paths) {
-		return 1;
+		eprintf("Failed allocating memory for tmp paths\n");
+		ERETURN(1);
 	}
 	*final_paths_ptr = final_paths;
 
@@ -1160,7 +1162,8 @@ build_and_swap_tmpspace_array(char ***final_paths_ptr, multifile_file_data **ref
 		assert (len <= chars_needed);
 		char *p = strdup(buf);
 		if (!p) {
-			return 1;
+			eprintf("Failed allocating memory\n");
+			ERETURN(1);
 		}
 
 		final_paths[x] = ref_files[x]->filename;
@@ -1181,11 +1184,11 @@ rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cf
 		buff = malloc(delta_length);
 		if (!buff) {
 			eprintf("Couldn't allocate necessary memory to pull the patch into memory\n");
-			return MEM_ERROR;
+			ERETURN(MEM_ERROR);
 		}
 		if (delta_length != cread(containing_patchf, buff, delta_length)) {
 			eprintf("Failed reading the patch into memory; truncated or corrupted?\n");
-			return PATCH_TRUNCATED;
+			ERETURN(PATCH_TRUNCATED);
 		}
 		err = copen_mem(&deltaf, buff, delta_length, NO_COMPRESSOR, CFILE_RONLY);
 	} else {
@@ -1196,7 +1199,7 @@ rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cf
 		if (buff) {
 			free(buff);
 		}
-		return err;
+		ERETURN(err);
 	}
 
 	cfile *delta_array[1] = {&deltaf};
@@ -1208,7 +1211,7 @@ rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cf
 	if (buff) {
 		free(buff);
 	}
-	return err;
+	ERETURN(err);
 }
 
 signed int 
@@ -1232,12 +1235,12 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	if(TREE_MAGIC_LEN != cseek(patchf, TREE_MAGIC_LEN, CSEEK_FSTART)) {
 		eprintf("Failed seeking beyond the format magic\n");
 		umask(original_umask);
-		return PATCH_TRUNCATED;
+		ERETURN(PATCH_TRUNCATED);
 	}
 	if(TREE_VERSION_LEN != cread(patchf, buff, TREE_VERSION_LEN)) {
 		eprintf("Failed reading version identifier\n");
 		umask(original_umask);
-		return PATCH_TRUNCATED;
+		ERETURN(PATCH_TRUNCATED);
 	}
 	unsigned int ver = readUBytesLE(buff, TREE_VERSION_LEN);
 	v2printf("patch format ver=%u\n", ver);
@@ -1249,7 +1252,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	err = read_file_manifest(patchf, &src_files, &src_count, "source");
 	if (err) {
 		umask(original_umask);
-		return err;
+		ERETURN(err);
 	}
 
 	err = copen_multifile(&src_cfh, src_directory, src_files, src_count, CFILE_RONLY);
@@ -1392,5 +1395,5 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		free(ref_files);
 	}
 	umask(original_umask);
-	return err;
+	ERETURN(err);
 }
