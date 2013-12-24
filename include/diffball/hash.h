@@ -112,14 +112,15 @@ init_RefHash(RefHash *rhash, cfile *ref_cfh,
 
 signed int 
 RHash_insert_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end);
-inline signed int
+
+signed int
 internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end, hash_insert_func);
 
 signed int
 RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end);
 
-inline signed int RHash_sort(RefHash *rhash);
-inline signed int RHash_cleanse(RefHash *rhash);
+signed int RHash_sort(RefHash *rhash);
+signed int RHash_cleanse(RefHash *rhash);
 signed int free_RefHash(RefHash *rhash);		
 void print_RefHash_stats(RefHash *rhash);
 
@@ -169,46 +170,7 @@ base_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, uns
 #define rh_rbucket_hash_init(rh,rc,sl,sr,hr)		\
 	base_rh_bucket_hash_init((rh),(rc),(sl),(sr),(hr), RH_RBUCKET_HASH)
 
-signed int
-base_rh_sort_hash(RefHash *rhash);
-signed int
-rh_rbucket_cleanse(RefHash *rhash);
-
-signed int
-rh_mod_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-signed int
-base_rh_mod_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-signed int
-base_rh_sort_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-signed int
-rh_rmod_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-signed int
-rh_rsort_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-signed int
-rh_rbucket_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-signed int
-base_rh_bucket_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
 #define lookup_offset(rh, ads)		(rh)->lookup_offset((rh),(ads))
-
-off_u64
-rh_mod_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-off_u64
-base_rh_mod_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-off_u64
-base_rh_sort_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-off_u64
-base_rh_bucket_lookup(RefHash *, ADLER32_SEED_CTX *);
-
 
 #endif
 

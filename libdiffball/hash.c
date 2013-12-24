@@ -25,6 +25,43 @@
 #include <diffball/hash.h>
 #include <diffball/bit-functions.h>
 
+static off_u64
+rh_mod_lookup(RefHash *, ADLER32_SEED_CTX *);
+
+static off_u64
+base_rh_mod_lookup(RefHash *, ADLER32_SEED_CTX *);
+
+static off_u64
+base_rh_sort_lookup(RefHash *, ADLER32_SEED_CTX *);
+
+static off_u64
+base_rh_bucket_lookup(RefHash *, ADLER32_SEED_CTX *);
+
+static signed int
+rh_mod_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int
+base_rh_mod_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int
+base_rh_sort_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int
+rh_rmod_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int
+rh_rsort_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int
+rh_rbucket_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int
+base_rh_bucket_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
+
+static signed int base_rh_sort_hash(RefHash *rhash);
+static signed int rh_rbucket_cleanse(RefHash *rhash);
+
+
 int 
 cmp_chksum_ent(const void *ce1, const void *ce2)
 {
@@ -35,7 +72,7 @@ cmp_chksum_ent(const void *ce1, const void *ce2)
 }
 
 
-inline signed int
+signed int
 RHash_cleanse(RefHash *rh)
 {
 	if(rh->cleanse_hash)
@@ -43,7 +80,7 @@ RHash_cleanse(RefHash *rh)
 	return 0;
 }
 
-inline signed int
+signed int
 RHash_sort(RefHash *rh)
 {
 	if(rh->sort_hash)
@@ -52,7 +89,7 @@ RHash_sort(RefHash *rh)
 }
 
 
-inline signed int
+static inline signed int
 RH_bucket_find_chksum_insert_pos(unsigned short chksum, unsigned short array[],
 	unsigned short count)
 {
@@ -85,7 +122,7 @@ RH_bucket_find_chksum_insert_pos(unsigned short chksum, unsigned short array[],
 }
 
 /* ripped straight out of K&R C manual.  great book btw. */
-inline signed int
+static inline signed int
 RH_bucket_find_chksum(unsigned short chksum, unsigned short array[], 
 	unsigned short count)
 {
@@ -112,13 +149,13 @@ RH_bucket_find_chksum(unsigned short chksum, unsigned short array[],
 	 return -1;
 }
 
-off_u64
+static off_u64
 rh_mod_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
 {
 	return ((unsigned long *)rhash->hash)[get_checksum(ads) % rhash->hr_size];
 }
 
-off_u64
+static off_u64
 base_rh_mod_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
 {
    unsigned long checksum, index;
@@ -127,7 +164,7 @@ base_rh_mod_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
    return ((chksum_ent *)rhash->hash)[index].chksum == checksum ? ((chksum_ent *)rhash->hash)[index].offset : 0;
 }
 
-off_u64
+static off_u64
 base_rh_sort_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
 {
 	chksum_ent ent, *p;
@@ -138,7 +175,7 @@ base_rh_sort_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
 	return p->offset;
 }
 
-off_u64
+static off_u64
 base_rh_bucket_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads) {
 	bucket *hash = (bucket*)rhash->hash;
 	unsigned long index, chksum;
@@ -355,7 +392,7 @@ RH_bucket_resize(bucket *hash, unsigned long index, unsigned short size)
 	return 0;
 }
 
-signed int
+static signed int
 rh_mod_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	unsigned long *hash = (unsigned long*) rhash->hash;
@@ -368,7 +405,7 @@ rh_mod_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 	return FAILED_HASH_INSERT;
 }
 
-signed int
+static signed int
 base_rh_mod_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	chksum_ent *hash = (chksum_ent *)rhash->hash;
@@ -384,7 +421,7 @@ base_rh_mod_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 	return FAILED_HASH_INSERT;
 }
 
-signed int
+static signed int
 base_rh_bucket_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	unsigned long chksum, index;
@@ -448,7 +485,7 @@ base_rh_bucket_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset
 	return FAILED_HASH_INSERT;
 }
 
-signed int
+static signed int
 base_rh_sort_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	chksum_ent *hash = (chksum_ent *)rhash->hash;
@@ -484,7 +521,7 @@ RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 re
 	return internal_loop_block(rhash, ref_cfh, ref_start, ref_end, rhash->insert_match);
 }
 
-inline signed int
+signed int
 internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end, hash_insert_func hif)
 {
 	ADLER32_SEED_CTX ads;
@@ -586,7 +623,7 @@ internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 r
 	return 0;
 }
 
-signed int
+static signed int
 rh_rsort_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	chksum_ent m_ent, *match;
@@ -599,7 +636,7 @@ rh_rsort_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 	return FAILED_HASH_INSERT;
 }	
 
-signed int
+static signed int
 rh_rmod_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	unsigned long index, chksum;
@@ -612,7 +649,7 @@ rh_rmod_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 	return FAILED_HASH_INSERT;
 }
 
-signed int
+static signed int
 rh_rbucket_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	bucket *hash = (bucket *)rhash->hash;
@@ -631,7 +668,7 @@ rh_rbucket_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 	return FAILED_HASH_INSERT;
 }
 
-signed int
+static signed int
 base_rh_sort_hash(RefHash *rhash)
 {
 	unsigned long old_chksum, x=0, hash_offset=0;
@@ -662,7 +699,7 @@ base_rh_sort_hash(RefHash *rhash)
 	return 0;
 }
 
-signed int
+static signed int
 base_rh_sort_cleanse(RefHash *rhash)
 {
 	unsigned long x=0, hash_offset=0;
@@ -686,7 +723,7 @@ base_rh_sort_cleanse(RefHash *rhash)
 	return 0;
 }
 
-signed int
+static signed int
 rh_rbucket_cleanse(RefHash *rhash)
 {
 	bucket *hash = (bucket*)rhash->hash;
