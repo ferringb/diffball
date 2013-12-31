@@ -76,6 +76,173 @@ static int consume_command_chain(const char *target_directory, const char *tmpsp
 #define AT_NO_AUTOMOUNT 0
 #endif
 
+struct path_encoder {
+	char *last_directory;
+};
+
+struct path_encoder *
+path_encoder_new(void)
+{
+	struct path_encoder *p = (struct path_encoder *)calloc(1, sizeof(struct path_encoder));
+	if (p) {
+		p->last_directory = strdup("");
+		if (!p->last_directory) {
+			free(p);
+			p = NULL;
+		}
+	}
+	return p;
+}
+
+void
+path_encoder_free(struct path_encoder *p)
+{
+	if (p->last_directory) {
+		free(p->last_directory);
+	}
+	free(p);
+}
+
+void
+fix_redundant_slashes(char *path)
+{
+	char *current = path;
+	size_t len = strlen(path);
+	// Skip the first char of current else absolute paths wouldn't work.
+	char *last = strchr(current + 1, '/');
+	while (last) {
+		if (last + 1 == current) {
+			memmove(current, last, len - (current - path));
+			len--;
+		} else {
+			current = last;
+		}
+		last = strchr(current +1, '/');
+	}
+}
+
+int
+path_encoder_encode(struct path_encoder *p, const char *original_path, char **calculated_path)
+{
+	*calculated_path = NULL;
+	char *new_path = strdup(original_path);
+	if (!new_path) {
+		return MEM_ERROR;
+	}
+
+	fix_redundant_slashes(new_path);
+
+	char *s1 = p->last_directory;
+	char *s2 = new_path;
+
+	char *last = s1;
+	while (*s1 && *s1 == *s2) {
+		if ('/' == *s1) {
+			last = s1 + 1;
+		}
+		s1++;
+		s2++;
+	}
+	s2 = new_path + (last - p->last_directory);
+	s1 = last;
+
+	// Count the number of directories we need to adjust from the last.
+	int parents_ignored = 0;
+	{
+		char *tmp = strchr(s1, '/');
+		while (tmp) {
+			parents_ignored++;
+			tmp = strchr(tmp + 1, '/');
+		}
+	}
+
+	s1 = NULL;
+	// Update our internal bookkeeping.
+	char *new_dirname = strrchr(s2, '/');
+	if (new_dirname || parents_ignored) {
+		free(p->last_directory);
+		p->last_directory = strndup(new_path, (new_dirname ? new_dirname : s2) - new_path + 1);
+		if (!p->last_directory) {
+			return MEM_ERROR;
+		}
+	}
+
+	// Return the calculated string.
+	if (parents_ignored * 3 > s2 - new_path) {
+		size_t s2_len = strlen(s2);
+		char *tmp = realloc(new_path, s2_len + (parents_ignored * 3) + 1);
+		if (!tmp) {
+			free(new_path);
+			return MEM_ERROR;
+		}
+		memmove(tmp + (parents_ignored * 3), tmp + (s2 - new_path), s2_len + 1);
+		new_path = tmp;
+		s2 = (parents_ignored * 3) + new_path;
+	} else {
+		memmove(new_path + (parents_ignored * 3), s2, strlen(s2) + 1);
+		char *tmp = realloc(new_path, strlen(new_path) + 1 + (parents_ignored * 3));
+		if (!tmp) {
+			free(new_path);
+			return MEM_ERROR;
+		}
+		new_path = tmp;
+		s2 = (parents_ignored * 3) + new_path;
+	}
+
+	while (parents_ignored > 0) {
+		s2 -= 3;
+		memcpy(s2, "../", 3);
+		parents_ignored--;
+	}
+	*calculated_path = s2;
+	return 0;
+}
+
+int
+path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_path)
+{
+	int parents_ignored = 0 ;
+	const char *data_path = data;
+	while (0 == strncmp(data_path, "../", 3)) {
+		data_path += 3;
+		parents_ignored++;
+	}
+
+	// Find the chunk of the last_directory to use.
+	char *dir_end = p->last_directory + strlen(p->last_directory);
+	int x = parents_ignored;
+	for (; x > 0; x--) {
+		dir_end--;
+		for (; dir_end > p->last_directory && *dir_end != '/'; dir_end--) {
+			;
+		}
+		if  (dir_end == p->last_directory) {
+			eprintf("Invalid path encoding detected; too great of a parent ignored value: %i\n", parents_ignored);
+			return DATA_ERROR;
+		}
+	}
+
+	char *new_path = malloc(strlen(data_path) + (dir_end - p->last_directory));
+	if (!new_path) {
+		return MEM_ERROR;
+	}
+	memcpy(new_path, p->last_directory, dir_end - p->last_directory);
+	// Grab the trailing null.
+	memcpy(new_path + (dir_end - p->last_directory), data_path, strlen(data_path) + 1);
+
+	char *dirname_end = strchr(new_path + strlen(p->last_directory) + 1, '/');
+	if (parents_ignored || dirname_end) {
+		// The directory has changed; update ourselves.
+		free(p->last_directory);
+		// This must include the trailing '/'
+		p->last_directory = strndup(new_path, dirname_end - new_path);
+		if (!p->last_directory) {
+			return MEM_ERROR;
+		}
+	}
+	*resultant_path = new_path;
+	return 0;
+}
 
 static char *
 concat_path(const char *directory, const char *frag)
