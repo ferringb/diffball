@@ -67,10 +67,10 @@ FORMAT:
   magic
   version
   4 bytes: # of src files.
-    filename\0
+    filename\0 # PE encoded;
     8 bytes size
   4 bytes: # of generated files.
-    filename\0
+    filename\0 # PE encoded;
     8 bytes size
   8 bytes: # length of the delta
   <delta>
@@ -82,6 +82,8 @@ FORMAT:
   4 bytes: # command count
   command-stream
 
+# PE encoded == string, relative path encoded against the last path using this scheme.
+
 
 single byte command:
  0x00 == regenerated file
@@ -90,46 +92,46 @@ single byte command:
    mtime
    xattrs null delimited
  0x01 == hardlink
-   filename null delimited
-   null delimited hardlink source
+   filename null delimited; PE encoded
+   null delimited hardlink source; PE encoded
  0x02 == directory
-   filename null delimited
+   filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
    mtime
    xattrs null delimited
  0x03 == symlink
-   filename null delimited
+   filename null delimited; PE encoded
    symlink target null delimited
    UID/GID/MODE index
    ctime
    mtime
  0x04 == fifo
-   filename null delimited
+   filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
    mtime
  0x05 == chr device
-   filename null delimited
+   filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
    mtime
    4 bytes major
    4 bytes minor
  0x06 == blk device
-   filename null delimited
+   filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
    mtime
    4 bytes major
    4 bytes minor
  0x07 == socket
-   filename null delimited
+   filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
    mtime
  0x08 == delete
-   filename null delimited
+   filename null delimited; PE encoded
 
 */
 
