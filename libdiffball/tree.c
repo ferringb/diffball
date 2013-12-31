@@ -213,16 +213,16 @@ path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_p
 	int x = parents_ignored;
 	for (; x > 0; x--) {
 		dir_end--;
-		for (; dir_end > p->last_directory && *dir_end != '/'; dir_end--) {
+		for (; dir_end > p->last_directory && '/' != dir_end[-1]; dir_end--) {
 			;
 		}
-		if  (dir_end == p->last_directory) {
+		if  (dir_end == p->last_directory && x != 1) {
 			eprintf("Invalid path encoding detected; too great of a parent ignored value: %i\n", parents_ignored);
 			return DATA_ERROR;
 		}
 	}
 
-	char *new_path = malloc(strlen(data_path) + (dir_end - p->last_directory));
+	char *new_path = malloc(strlen(data_path) + (dir_end - p->last_directory) + 1);
 	if (!new_path) {
 		return MEM_ERROR;
 	}
@@ -230,12 +230,12 @@ path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_p
 	// Grab the trailing null.
 	memcpy(new_path + (dir_end - p->last_directory), data_path, strlen(data_path) + 1);
 
-	char *dirname_end = strchr(new_path + strlen(p->last_directory) + 1, '/');
+	char *dirname_end = strrchr(new_path, '/');
 	if (parents_ignored || dirname_end) {
 		// The directory has changed; update ourselves.
 		free(p->last_directory);
 		// This must include the trailing '/'
-		p->last_directory = strndup(new_path, dirname_end - new_path);
+		p->last_directory = strndup(new_path, (dirname_end ? dirname_end + 1: new_path) - new_path);
 		if (!p->last_directory) {
 			return MEM_ERROR;
 		}
@@ -256,6 +256,35 @@ concat_path(const char *directory, const char *frag)
 		p[dir_len + frag_len] = 0;
 	}
 	return p;
+}
+
+static int
+cWritePathEncodedString(cfile *cfh, struct path_encoder *pe, const char *value)
+{
+	char *result = NULL;
+	int err = path_encoder_encode(pe, value, &result);
+	if (!err) {
+		int len = strlen(result) + 1;
+		if (len != cwrite(cfh, result, len)) {
+			eprintf("Failed writing %i bytes\n", len);
+			err = IO_ERROR;
+		}
+		free(result);
+	}
+	ERETURN(err);
+}
+
+static int
+cReadPathEncodedString(cfile *cfh, struct path_encoder *pe, char **result)
+{
+	*result = NULL;
+	int err = 0;
+	char *encoded_s = (char *)cfile_read_null_string(cfh);
+	if (encoded_s) {
+		err = path_encoder_decode(pe, encoded_s, result);
+		free(encoded_s);
+	}
+	ERETURN(err);
 }
 
 static int
@@ -460,32 +489,36 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 		}
 	}
 	// The format here is 4 bytes for the # of files in this manifest, then:
-	//   null delimited string
+	//   null delimited string written relative to the last file
 	//   8 bytes for the file size for that file.
 	//
+	struct path_encoder *pe = path_encoder_new();
+	if (!pe) {
+		eprintf("Failed allocating memory\n");
+		return MEM_ERROR;
+	}
 	v3printf("Recording %lu files in the delta manifest\n", file_count);
 	cWriteUBytesLE(patchf, file_count, 4);
 	for(x=0; file_count > 0; x++) {
 		if (S_ISREG(fs[x]->st->st_mode) && !fs[x]->link_target) {
-
 			v3printf("Recording file %s length %zi in the %s manifest\n", fs[x]->filename, fs[x]->st->st_size, manifest_name);
-			size_t len = strlen(fs[x]->filename) + 1;
-			if (len != cwrite(patchf, fs[x]->filename, len)) {
-				v0printf("Failed writing %s file manifest\n", manifest_name);
-				ERETURN(IO_ERROR);
+			err = cWritePathEncodedString(patchf, pe, fs[x]->filename);
+			if (!err) {
+				err = cWriteUBytesLE(patchf, fs[x]->st->st_size, 8);
 			}
-			err = cWriteUBytesLE(patchf, fs[x]->st->st_size, 8);
 			if (err) {
+				path_encoder_free(pe);
 				ERETURN(err);
 			}
 			file_count--;
 		}
 	}
+	path_encoder_free(pe);
 	return 0;
 }
 
 static int
-read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
+read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
 {
     v3printf("Reading %s file manifest\n", manifest_name);
 	unsigned char buff[16];
@@ -511,10 +544,9 @@ read_file_manifest(cfile *patchf, multifile_file_data ***fs, unsigned long *fs_c
 			err = MEM_ERROR;
 			goto cleanup;
 		}
-		results[x]->filename = (char *)cfile_read_null_string(patchf);
-		if (!results[x]->filename) {
+		err = cReadPathEncodedString(patchf, pe, &(results[x]->filename));
+		if (err) {
 			file_count = x +1;
-			err = MEM_ERROR;
 			goto cleanup;
 		}
 		results[x]->start = position;
@@ -1389,6 +1421,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	cfile src_cfh, trg_cfh;
 	memset(&src_cfh, 0, sizeof(cfile));
 	memset(&trg_cfh, 0, sizeof(cfile));
+	struct path_encoder *pe = NULL;
 	int err = 0;
 
 	unsigned char buff[16];
@@ -1418,7 +1451,12 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 //	ref_id = src_id;
 	v3printf("Reading src file manifest\n");
 
-	err = read_file_manifest(patchf, &src_files, &src_count, "source");
+	pe = path_encoder_new();
+	if (!pe) {
+		ERETURN(MEM_ERROR);
+	}
+
+	err = read_file_manifest(patchf, pe, &src_files, &src_count, "source");
 	if (err) {
 		umask(original_umask);
 		ERETURN(err);
@@ -1437,10 +1475,13 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
-	err = read_file_manifest(patchf, &ref_files, &ref_count, "target");
+	err = read_file_manifest(patchf, pe, &ref_files, &ref_count, "target");
 	if (err) {
 		goto cleanup;
 	}
+
+	path_encoder_free(pe);
+	pe = NULL;
 
 	target_directory = strdup(raw_directory);
 	if (!target_directory || enforce_trailing_slash(&target_directory)) {
@@ -1566,5 +1607,9 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		free(ref_files);
 	}
 	umask(original_umask);
+
+	if (pe) {
+		path_encoder_free(pe);
+	}
 	ERETURN(err);
 }
