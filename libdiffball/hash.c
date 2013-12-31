@@ -332,7 +332,8 @@ base_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, 
 	if(hr_size == 0)
 		hr_size = DEFAULT_RHASH_SIZE;
 	if(hr_size < MIN_RHASH_SIZE)
-		return MEM_ERROR;
+		hr_size = MIN_RHASH_SIZE;
+
 	hash_shift = unsignedBitsNeeded(hr_size);
 	assert((hr_size & ~(1 << hash_shift)) == hr_size);
 

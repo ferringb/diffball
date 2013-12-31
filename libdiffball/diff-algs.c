@@ -309,7 +309,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			first_run=0;
 			DCBufferReset(buff);
 			v1printf("first run\n");
-			hash_size = MIN(max_hash_size, cfile_len(ref_cfh));
+			hash_size = MAX(MIN_RHASH_SIZE, MIN(max_hash_size, cfile_len(ref_cfh)));
 			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh));
 			v1printf("using hash_size(%lu), sample_rate(%lu)\n", 
 				hash_size, sample_rate);
