@@ -988,7 +988,7 @@ DCB_no_buff_add_add(CommandBuffer *buffer, off_u64 src_pos, off_u32 len, DCB_SRC
 	dcb->dc.dcb_ptr = buffer;
 	dcb->dc.dcb_src = buffer->srcs + src_id;
 	if(len != copyDCB_add_src(buffer, &dcb->dc, dcb->out_cfh)) {
-			v1printf("error executing add_add during bufferless mode\n");
+			v0printf("error executing add_add during bufferless mode\n");
 			return IO_ERROR;
 	}
 	buffer->reconstruct_pos += len;
