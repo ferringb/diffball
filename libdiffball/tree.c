@@ -53,6 +53,8 @@ typedef struct {
 
 struct path_encoder {
 	char *last_directory;
+	size_t total_in;
+	size_t total_out;
 };
 
 void enforce_no_trailing_slash(char *ptr);
@@ -91,6 +93,7 @@ path_encoder_new(void)
 			p = NULL;
 		}
 	}
+	p->total_in = p->total_out = 0;
 	return p;
 }
 
@@ -98,6 +101,8 @@ void
 path_encoder_free(struct path_encoder *p)
 {
 	if (p->last_directory) {
+		v3printf("path_encoder stats: %zi in %zi out: ratio %2.2f\n", p->total_in, p->total_out,
+			(float)p->total_in / (float)p->total_out);
 		free(p->last_directory);
 	}
 	free(p);
@@ -195,6 +200,8 @@ path_encoder_encode(struct path_encoder *p, const char *original_path, char **ca
 		parents_ignored--;
 	}
 	*calculated_path = s2;
+	p->total_in += strlen(original_path);
+	p->total_out += strlen(s2);
 	return 0;
 }
 
@@ -241,6 +248,8 @@ path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_p
 		}
 	}
 	*resultant_path = new_path;
+	p->total_in += strlen(new_path);
+	p->total_out += strlen(data);
 	return 0;
 }
 
