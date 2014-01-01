@@ -200,8 +200,8 @@ path_encoder_encode(struct path_encoder *p, const char *original_path, char **ca
 		parents_ignored--;
 	}
 	*calculated_path = s2;
-	p->total_in += strlen(original_path);
-	p->total_out += strlen(s2);
+	p->total_in += strlen(original_path) + 1;
+	p->total_out += strlen(s2) + 1;
 	return 0;
 }
 
@@ -248,8 +248,8 @@ path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_p
 		}
 	}
 	*resultant_path = new_path;
-	p->total_in += strlen(new_path);
-	p->total_out += strlen(data);
+	p->total_in += strlen(new_path) + 1;
+	p->total_out += strlen(data) + 1;
 	return 0;
 }
 
