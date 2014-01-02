@@ -61,7 +61,7 @@ fdtuReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcb)
 	unsigned char buff[4];
 	unsigned int ver;
 	cfile *cfh;
-	if((cfh = (cfile *)malloc(sizeof(cfile)))==NULL)
+	if((cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL)
 		return -2;
 	if(cseek(patchf, 0, CSEEK_FSTART)!=0) {
 		return IO_ERROR;

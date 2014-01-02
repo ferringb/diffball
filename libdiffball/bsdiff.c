@@ -156,8 +156,8 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		return PATCH_CORRUPT_ERROR;
 	}
 
-	if((diff_cfh = (cfile *)malloc(sizeof(cfile)))==NULL ||
-		(ver == 4 && (extra_cfh = (cfile *)malloc(sizeof(cfile)))==NULL)) {
+	if((diff_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL ||
+		(ver == 4 && (extra_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL)) {
 		return MEM_ERROR;
 	}
 	ctrl_len = readUBytesLE(buff + 8, 4);

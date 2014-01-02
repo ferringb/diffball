@@ -73,7 +73,7 @@ signed int
 xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff, 
 	unsigned int version)
 {
-	cfile *add_cfh, *ctrl_cfh;
+	cfile *add_cfh = NULL, *ctrl_cfh = NULL;
 	unsigned long control_offset, control_end, flags;
 	unsigned long len, offset, x, count, proc_count;
 	unsigned long add_start, add_pos;
@@ -99,7 +99,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 
 	if(flags & XD_COMPRESSED_FLAG) {
 		v2printf("compressed segments detected\n");
-		if((ctrl_cfh = (cfile *)malloc(sizeof(cfile)))==NULL) {
+		if((ctrl_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL) {
 			return MEM_ERROR;
 		}
 		copen_child_cfh(ctrl_cfh, patchf, control_offset, control_end, 
@@ -152,7 +152,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 		count, ctell(ctrl_cfh, CSEEK_FSTART));
 	if(flags & XD_COMPRESSED_FLAG) {
 		add_pos = 0;
-		if((add_cfh = (cfile *)malloc(sizeof(cfile)))==NULL) {
+		if((add_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL) {
 			return MEM_ERROR;
 		}
 		copen_child_cfh(add_cfh, patchf, add_start, control_offset, 
