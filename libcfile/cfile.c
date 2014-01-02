@@ -342,7 +342,7 @@ cclose(cfile *cfh)
 	if (!(cfh->state_flags & CFILE_CHILD_CFH) && cfh->io.close) {
 		result = cfh->io.close(cfh, cfh->io.data);
 	}
-	memset(&(cfh->io.data), 0, sizeof(cfh->io.data));
+	memset(&(cfh->io), 0, sizeof(cfh->io));
 
 	/* XXX questionable */
 	if(cfh->state_flags & CFILE_OPEN_FH) {
