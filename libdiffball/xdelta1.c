@@ -155,8 +155,12 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 		if((add_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL) {
 			return MEM_ERROR;
 		}
-		copen_child_cfh(add_cfh, patchf, add_start, control_offset, 
+		int err = copen_child_cfh(add_cfh, patchf, add_start, control_offset,
 			GZIP_COMPRESSOR, CFILE_RONLY);
+		if (err) {
+			eprintf("Nonzero exit code opening the compressed segment of this xdelta patch: %i\n", err);
+			return err;
+		}
 		add_id = DCB_REGISTER_ADD_SRC(dcbuff, add_cfh, NULL, 1);
 	} else {
 		add_pos = add_start;
