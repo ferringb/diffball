@@ -102,7 +102,7 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 
 	int err = 0;
 	dcprintf("copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
-	cfh->state_flags = CFILE_CHILD_CFH | (~CFILE_SEEK_IS_COSTLY & parent->access_flags);
+	cfh->state_flags = CFILE_CHILD_CFH | parent->state_flags;
 	cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count++;
 	dcprintf("setting child id=%u\n", cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count);
 	cfh->cfh_id = cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count;
