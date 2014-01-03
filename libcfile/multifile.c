@@ -360,7 +360,8 @@ copen_multifile(cfile *cfh, const char *root, multifile_file_data **files, unsig
 	cfh->io.flush = cflush_multifile;
 	cfh->io.close = cclose_multifile;
 	cfh->io.data = (void *)data;
-	
+	cfh->state_flags |= CFILE_CHILD_INHERITS_IO;
+
 	return 0;
 
 cleanup:

@@ -124,7 +124,7 @@ copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 		cfh->data.buff = parent->data.buff + fh_start;
 		cfh->data.size = cfh->data.end = fh_end - fh_start;
 		cfh->state_flags |= CFILE_MEM_ALIAS;
-	} else {
+	} else if (parent->state_flags & CFILE_CHILD_INHERITS_IO) {
 		memcpy(&(cfh->io), &(parent->io), sizeof(parent->io));
 	}
 	return err;
@@ -345,7 +345,7 @@ cclose(cfile *cfh)
 	memset(&(cfh->io), 0, sizeof(cfh->io));
 
 	/* XXX questionable */
-	if(cfh->state_flags & CFILE_OPEN_FH) {
+	if(cfh->state_flags & CFILE_OPEN_FH && !(cfh->state_flags & CFILE_CHILD_CFH)) {
 		close(cfh->raw_fh);
 	}
 	if(cfh->state_flags & CFILE_FREE_AT_CLOSING) {
