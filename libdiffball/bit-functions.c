@@ -17,6 +17,8 @@
 */
 #include <stdlib.h>
 #include <diffball/bit-functions.h>
+#include <cfile.h>
+
 
 inline unsigned int 
 unsignedBitsNeeded(unsigned long int y)
@@ -175,4 +177,82 @@ writeUBitsBE(unsigned char *out_buff, unsigned long value, unsigned int bit_coun
 	for(x = bit_count - start_bit, byte=0; x >= 0; byte++, x-=8) 
 		out_buff[byte] = (value >> x) & 0xff;
 	return 0;
+}
+
+signed long long
+creadHighBitVariableIntBE(cfile *cfh)
+{
+	unsigned long result = 0;
+	do {
+		if (cfh->data.end == cfh->data.pos) {
+			int err = crefill(cfh);
+			if (err <= 0) {
+				return err ? err : result;
+			}
+		}
+		result <<= 7;
+		result |= cfh->data.buff[cfh->data.pos] & 0x7f;
+		cfh->data.pos++;
+	} while (cfh->data.buff[cfh->data.pos - 1] & 0x80);
+	return result;
+}
+
+signed long long
+creadHighBitVariableIntLE(cfile *cfh)
+{
+	unsigned long result = 0;
+	int position = 0;
+	do {
+		if (cfh->data.end == cfh->data.pos) {
+			int err = crefill(cfh);
+			if (err <= 0) {
+				return err ? err : result;
+			}
+		}
+		result |= (cfh->data.buff[cfh->data.pos] & 0x7f) << position;
+		position += 7;
+		cfh->data.pos++;
+	} while (cfh->data.buff[cfh->data.pos - 1] & 0x80);
+	return result;
+}
+
+int
+cwriteHighBitVariableIntLE(cfile *cfh, unsigned long long value)
+{
+	unsigned char buff;
+	do {
+		buff = value & 0x7f;
+		value >>= 7;
+		if (value) {
+			// Flip the high bit to indicate more bytes will follow.
+			buff |= 0x80;
+		}
+		int err = cwrite(cfh, &buff, 1);
+		if (err != 1) {
+			return err ? err : IO_ERROR;
+		}
+	} while (value);
+	return 0;
+}
+
+int
+cwriteHighBitVariableIntBE(cfile *cfh, unsigned long long value)
+{
+	unsigned char buff;
+	int bits_needed = unsignedBitsNeeded(value);
+	do {
+		bits_needed = bits_needed - 7;
+		bits_needed = bits_needed >= 0 ? bits_needed : 0;
+		buff = (value >> bits_needed) & 0x7f;
+		if (bits_needed) {
+			// Flip the high bit to indicate more bytes will follow.
+			buff |= 0x80;
+		}
+		int err = cwrite(cfh, &buff, 1);
+		if (err != 1) {
+			return err ? err : IO_ERROR;
+		}
+	} while (bits_needed);
+	return 0;
+
 }

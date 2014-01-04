@@ -27,6 +27,8 @@
 #define LONG_BIT_COUNT 64
 #define LONG_BYTE_COUNT 8
 
+#include <cfile.h>
+
 inline unsigned int unsignedBitsNeeded(unsigned long int y);
 inline unsigned int signedBitsNeeded(signed long int y);
 inline unsigned int unsignedBytesNeeded(unsigned long int y);
@@ -50,6 +52,15 @@ unsigned int writeSBitsBE(unsigned char *out_buff, signed long value,
 	unsigned int bit_count);
 unsigned int writeUBitsBE(unsigned char *out_buff, unsigned long value, 
 	unsigned int bit_count);
+
+int
+cwriteHighBitVariableIntBE(cfile *cfh, unsigned long long value);
+signed long long
+creadHighBitVariableIntBE(cfile *cfh);
+int
+cwriteHighBitVariableIntLE(cfile *cfh, unsigned long long value);
+signed long long
+creadHighBitVariableIntLE(cfile *cfh);
 
 #endif
 

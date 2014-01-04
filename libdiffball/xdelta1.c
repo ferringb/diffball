@@ -46,22 +46,6 @@ check_xdelta1_magic(cfile *patchf)
 	return 0;
 }
 
-unsigned long inline 
-readXDInt(cfile *patchf, unsigned char *buff)
-{
-	unsigned long num=0;
-	signed int count=-1;
-	do {
-		count++;
-		cread(patchf, buff + count, 1);
-	} while(buff[count] & 0x80);
-	for(; count >= 0; count--) {
-		num <<= 7;
-		num |= (buff[count] & 0x7f); 
-	}
-	return num;
-}
-
 signed int 
 xdelta1EncodeDCBuffer(CommandBuffer *buffer, unsigned int version, 
 	cfile *out_cfh)
@@ -112,18 +96,18 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	cseek(ctrl_cfh, 24, CSEEK_CUR);
 
 	/* read the frigging to length, since it's variable */
-	x = readXDInt(ctrl_cfh, buff);
+	x = creadHighBitVariableIntLE(ctrl_cfh);
 		v2printf("to_len(%lu)\n", x);
 
 	/* two bytes here I don't know about... */
 	cseek(ctrl_cfh, 2, CSEEK_CUR);
 	/* get and skip the segment name's len and md5 */
-	x = readXDInt(ctrl_cfh, buff);
+	x = creadHighBitVariableIntLE(ctrl_cfh);
 
 	cseek(ctrl_cfh, x + 16, CSEEK_CUR);
 
 	/* read the damned segment patch len. */
-	x = readXDInt(ctrl_cfh, buff);
+	x = creadHighBitVariableIntLE(ctrl_cfh);
 
 	/* skip the seq/has data bytes */
 	/* handle sequential/has_data info */
@@ -133,11 +117,11 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	v2printf("patch sequential? (%u)\n", add_is_sequential);
 
 	/* get and skip the next segment name len and md5. */
-	x = readXDInt(ctrl_cfh, buff);
+	x = creadHighBitVariableIntLE(ctrl_cfh);
 	cseek(ctrl_cfh, x + 16, CSEEK_CUR);
 
 	/* read the damned segment patch len. */
-	x = readXDInt(ctrl_cfh, buff);
+	x = creadHighBitVariableIntLE(ctrl_cfh);
 	v2printf("seg2_len(%lu)\n", x);
 
 	/* handle sequential/has_data */
@@ -145,7 +129,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	copy_is_sequential = buff[1];
 	v2printf("copy is sequential? (%u)\n", copy_is_sequential);
 	/* next get the number of instructions (eg copy | adds) */
-	count = readXDInt(ctrl_cfh, buff);
+	count = creadHighBitVariableIntLE(ctrl_cfh);
 	proc_count=0;
 	/* so starts the commands... */
 	v2printf("supposedly %lu commands...\nstarting command processing at %zi\n",
@@ -168,9 +152,9 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	}
 	ref_id = src_id;
 	while(proc_count++ != count) {
-		x = readXDInt(ctrl_cfh, buff);
-		offset = readXDInt(ctrl_cfh, buff);
-		len = readXDInt(ctrl_cfh, buff);
+		x = creadHighBitVariableIntLE(ctrl_cfh);
+		offset = creadHighBitVariableIntLE(ctrl_cfh);
+		len = creadHighBitVariableIntLE(ctrl_cfh);
 		if(x==XD_INDEX_COPY) {
 			DCB_add_copy(dcbuff, offset, 0, len, ref_id);
 		} else {
