@@ -296,18 +296,6 @@ concat_path(const char *directory, const char *frag)
 	return p;
 }
 
-static int
-cWriteUBytesLE(cfile *cfh, unsigned long value, unsigned int len)
-{
-	unsigned char buff[16];
-	writeUBytesLE(buff, value, len);
-	if (len != cwrite(cfh, buff, len)) {
-		v0printf("Failed writing %i bytes\n", len);
-		ERETURN(IO_ERROR);
-	}
-	return 0;
-}
-
 unsigned int
 check_tree_magic(cfile *patchf)
 {
@@ -412,7 +400,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 
 	table->byte_size = unsignedBytesNeeded(table->count ? table->count -1 : 0);
 
-	if (cWriteUBytesLE(patchf, table->count, 4)) {
+	if (cwriteHighBitVariableIntLE(patchf, table->count)) {
 		eprintf("Failed writing the uid/gid/mode table; out of space?\n");
 		free_ugm_table(table);
 		ERETURN(IO_ERROR);
@@ -423,9 +411,9 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 	qsort(table->array, table->count, sizeof(ugm_tuple), cmp_ugm_index);
 	for (x = 0; x < table->count; x++) {
 		table->array[x].index = x;
-		if (cWriteUBytesLE(patchf, table->array[x].uid, TREE_COMMAND_UID_LEN) ||
-			cWriteUBytesLE(patchf, table->array[x].uid, TREE_COMMAND_GID_LEN) ||
-			cWriteUBytesLE(patchf, table->array[x].mode, TREE_COMMAND_MODE_LEN)) {
+		if (cwriteHighBitVariableIntLE(patchf, table->array[x].uid) ||
+			cwriteHighBitVariableIntLE(patchf, table->array[x].uid) ||
+			cwriteUBytesLE(patchf, table->array[x].mode, TREE_COMMAND_MODE_LEN)) {
 			eprintf("Failed writing the uid/gid/mode table; out of space?\n");
 			free_ugm_table(table);
 			ERETURN(IO_ERROR);
@@ -443,21 +431,24 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 static int
 consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 {
-	unsigned char buff[TREE_COMMAND_UID_LEN + TREE_COMMAND_GID_LEN + TREE_COMMAND_MODE_LEN];
-
 	ugm_table *table = calloc(1, sizeof(ugm_table));
 	if (!table) {
 		eprintf("Failed allocating ugm table\n");
 		ERETURN(MEM_ERROR);
 	}
 
-	if (4 != cread(patchf, buff, 4)) {
-		eprintf("Failed reading ugm table header\n");
-		free(table);
-		ERETURN(PATCH_TRUNCATED);
+	#define read_or_fail(value, message...) \
+	{ \
+		signed long long tmp = creadHighBitVariableIntLE(patchf); \
+		if (tmp < 0) { \
+			eprintf(message); \
+			free(table); \
+			ERETURN(PATCH_TRUNCATED); \
+		} \
+		(value) = tmp; \
 	}
-	table->count = readUBytesLE(buff, 4);
 
+	read_or_fail(table->count, "Failed reading ugm table header\n");
 	v3printf("Reading %lu entries in the UID/GID/Mode table\n", table->count);
 
 	table->array = calloc(table->count, sizeof(ugm_tuple));
@@ -469,17 +460,20 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 
 	unsigned long x;
 	for (x = 0; x < table->count; x++) {
-		if (sizeof(buff) != cread(patchf, buff, sizeof(buff))) {
-			eprintf("Failed reading ugm table at index %lu\n", x);
-			free_ugm_table(table);
-			ERETURN(PATCH_TRUNCATED);
+		read_or_fail(table->array[x].uid, "Failed reading ugm table at index %lu\n", x);
+		read_or_fail(table->array[x].gid, "Failed reading ugm table at index %lu\n", x);
+		{
+			signed long long tmp = creadUBytesLE(patchf, TREE_COMMAND_MODE_LEN);
+			if (tmp < 0) {
+				eprintf("Failed reading ugm table at index %lu\n", x);
+				ERETURN(PATCH_TRUNCATED);
+			}
+			table->array[x].mode = (07777 & tmp);
 		}
-		table->array[x].uid = readUBytesLE(buff, TREE_COMMAND_UID_LEN);
-		table->array[x].gid = readUBytesLE(buff + TREE_COMMAND_UID_LEN, TREE_COMMAND_GID_LEN);
-		// Limit the mask to protect against any old screwups.
-		table->array[x].mode = (07777 & readUBytesLE(buff + TREE_COMMAND_UID_LEN + TREE_COMMAND_GID_LEN, TREE_COMMAND_MODE_LEN));
 		table->array[x].index = 0;
 	}
+
+	#undef read_or_fail
 
 	table->byte_size = unsignedBytesNeeded(table->count ? table->count -1 : 0);
 	*resultant_table = table;
@@ -502,13 +496,13 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 	//   8 bytes for the file size for that file.
 	//
 	v3printf("Recording %lu files in the delta manifest\n", file_count);
-	cWriteUBytesLE(patchf, file_count, 4);
+	cwriteHighBitVariableIntLE(patchf, file_count);
 	for(x=0; file_count > 0; x++) {
 		if (S_ISREG(fs[x]->st->st_mode) && !fs[x]->link_target) {
 			v3printf("Recording file %s length %zi in the %s manifest\n", fs[x]->filename, fs[x]->st->st_size, manifest_name);
 			err = path_encoder_cwrite(pe, patchf, fs[x]->filename);
 			if (!err) {
-				err = cWriteUBytesLE(patchf, fs[x]->st->st_size, 8);
+				err = cwriteHighBitVariableIntLE(patchf, fs[x]->st->st_size);
 			}
 			if (err) {
 				ERETURN(err);
@@ -523,12 +517,11 @@ static int
 read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
 {
     v3printf("Reading %s file manifest\n", manifest_name);
-	unsigned char buff[16];
-	if (4 != cread(patchf, buff, 4)) {
+	signed long long file_count = creadHighBitVariableIntLE(patchf);
+	if (file_count < 0) {
 		eprintf("Failed reading %s manifest count\n", manifest_name);
 		ERETURN(PATCH_TRUNCATED);
 	}
-	unsigned long file_count = readUBytesLE(buff, 4);
 	*fs_count = file_count;
 	int err = 0;
 	multifile_file_data **results = calloc(sizeof(multifile_file_data *), file_count);
@@ -552,7 +545,8 @@ read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data *
 			goto cleanup;
 		}
 		results[x]->start = position;
-		if (8 != cread(patchf, buff, 8)) {
+		signed long long tmp = creadHighBitVariableIntLE(patchf);
+		if (tmp < 0) {
 			eprintf("Failed reading %s manifest count\n", manifest_name);
 			file_count = x +1;
 			err = PATCH_TRUNCATED;
@@ -565,7 +559,7 @@ read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data *
 			file_count = x + 1;
 			goto cleanup;
 		}
-		results[x]->st->st_size = readUBytesLE(buff, 8);
+		results[x]->st->st_size = tmp;
 		results[x]->st->st_mode = S_IFREG | 0600;
 		position = results[x]->end = position + results[x]->st->st_size;
 		v3printf("adding to %s manifest: %s length %zu\n", manifest_name, results[x]->filename, position - results[x]->start);
@@ -592,7 +586,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	int err;
 	ugm_table *ugm_table = NULL;
 	cwrite(patchf, TREE_MAGIC, TREE_MAGIC_LEN);
-	cWriteUBytesLE(patchf, TREE_VERSION, TREE_VERSION_LEN);
+	cwriteUBytesLE(patchf, TREE_VERSION, TREE_VERSION_LEN);
 
 	multifile_file_data **src_files = NULL, **ref_files = NULL;
 	unsigned long src_count = 0, ref_count = 0;
@@ -675,7 +669,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 
 	// Flush the command count.  It's number of ref_count entries + # of unlinks commands.
 	v3printf("Flushing command count %lu\n", command_count);
-	err = cWriteUBytesLE(patchf, command_count, 4);
+	err = cwriteHighBitVariableIntLE(patchf, command_count);
 	if (err) {
 		free_ugm_table(ugm_table);
 		path_encoder_free(pe);
@@ -739,7 +733,7 @@ static int
 encode_unlink(cfile *patchf, multifile_file_data *entry, struct path_encoder *pe)
 {
 	v3printf("Writing unlink command for %s\n", entry->filename);
-	int err = cWriteUBytesLE(patchf, TREE_COMMAND_UNLINK, TREE_COMMAND_LEN);
+	int err = cwriteUBytesLE(patchf, TREE_COMMAND_UNLINK, TREE_COMMAND_LEN);
 	if (!err) {
 		err = path_encoder_cwrite(pe, patchf, entry->filename);
 	}
@@ -752,15 +746,17 @@ encode_unlink(cfile *patchf, multifile_file_data *entry, struct path_encoder *pe
 static int
 encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, struct path_encoder *pe)
 {
-	#define write_or_return(value, len) {int err=cWriteUBytesLE(patchf, (value), (len)); if (err) { ERETURN(err); }; }
+	#define write_or_return(func, args...) {int err=(func)(patchf, args); if (err) { ERETURN(err); }; }
+	#define write_or_return_fixed(value, len) write_or_return(cwriteUBytesLE, value, len)
+	#define write_or_return_variable(value) write_or_return(cwriteHighBitVariableIntLE, value)
 
 	#define write_common_block(st) \
 		{ ugm_tuple *match = search_ugm_table(table, (st)->st_uid, (st)->st_gid, (st)->st_mode); \
 		  assert(match); \
-		  write_or_return(match->index, table->byte_size); \
+		  write_or_return_fixed(match->index, table->byte_size); \
 		} \
-		write_or_return((st)->st_ctime, TREE_COMMAND_TIME_LEN); \
-		write_or_return((st)->st_mtime, TREE_COMMAND_TIME_LEN);
+		write_or_return_variable((st)->st_ctime); \
+		write_or_return_variable((st)->st_mtime);
 
 #define write_null_string(value) \
 { int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); ERETURN(IO_ERROR); }; }
@@ -771,25 +767,25 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 	if (S_ISREG(entry->st->st_mode)) {
 		if (!entry->link_target) {
 			v3printf("writing manifest command for regular %s\n", entry->filename);
-			write_or_return(TREE_COMMAND_REG, TREE_COMMAND_LEN);
+			write_or_return_fixed(TREE_COMMAND_REG, TREE_COMMAND_LEN);
 			write_common_block(entry->st);
 			// xattrs
 			return 0;
 		}
 		v3printf("writing manifest command for hardlink %s -> %s\n", entry->filename, entry->link_target);
-		write_or_return(TREE_COMMAND_HARDLINK, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_HARDLINK, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_PE_string(entry->link_target);
 
 	} else if (S_ISDIR(entry->st->st_mode)) {
 		v3printf("writing manifest command for directory %s\n", entry->filename);
-		write_or_return(TREE_COMMAND_DIR, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_DIR, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 
 	} else if (S_ISLNK(entry->st->st_mode)) {
 		v3printf("writing manifest command for symlink %s -> %s\n", entry->filename, entry->link_target);
-		write_or_return(TREE_COMMAND_SYM, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_SYM, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		assert(entry->link_target);
 		write_null_string(entry->link_target);
@@ -797,23 +793,23 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 
 	} else if (S_ISFIFO(entry->st->st_mode)) {
 		v3printf("writing manifest command for fifo %s\n", entry->filename);
-		write_or_return(TREE_COMMAND_FIFO, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_FIFO, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 
 	} else if (S_ISCHR(entry->st->st_mode) || S_ISBLK(entry->st->st_mode)) {
 		v3printf("writing manifest command for dev %s\n", entry->filename);
-		write_or_return(
+		write_or_return_fixed(
 			(S_ISCHR(entry->st->st_mode) ? TREE_COMMAND_CHR : TREE_COMMAND_BLK),
 			TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
-		write_or_return(major(entry->st->st_dev), TREE_COMMAND_DEV_LEN);
-		write_or_return(minor(entry->st->st_dev), TREE_COMMAND_DEV_LEN);
+		write_or_return_variable(major(entry->st->st_dev));
+		write_or_return_variable(minor(entry->st->st_dev));
 
 	} else if (S_ISSOCK(entry->st->st_mode)) {
 		v3printf("writing manifest command for socket %s\n", entry->filename);
-		write_or_return(TREE_COMMAND_SOCKET, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_SOCKET, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 
@@ -833,7 +829,6 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	cfile deltaf;
 	memset(&deltaf, 0, sizeof(cfile));
 	char tmpname[] = "/tmp/differ.XXXXXX";
-	unsigned char buff[16];
 	int tmp_fd = mkstemp(tmpname);
 	if (tmp_fd < 0) {
 		v0printf("Failed getting a temp file\n");
@@ -862,7 +857,7 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	fstat(tmp_fd, &st);
 
 	v3printf("File content delta is %lu bytes\n", st.st_size);
-	if (cWriteUBytesLE(patchf, st.st_size, 8)) {
+	if (cwriteHighBitVariableIntLE(patchf, st.st_size)) {
 		v0printf("Failed writing delta length\n");
 		err = IO_ERROR;
 		goto ERR_FD;
@@ -1173,19 +1168,26 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 	#define read_path_or_return(value) \
 		{ int err = path_encoder_cread(pe, patchf, &value); if (err) { eprintf("Failed reading path encoded string\n"); ERETURN(err); }; };
 
-	#define read_or_return(value, len) \
+	#define read_or_return_fixed(value, len) \
 		{ \
 			if ((len) != cread(patchf, buff, (len))) { eprintf("Failed reading %i bytes\n", (len)); ERETURN(PATCH_TRUNCATED); }; \
 			(value) = readUBytesLE(buff, (len)); \
 		}
 
+	#define read_or_return_variable(value) \
+		{ \
+			signed long long tmp = creadHighBitVariableIntLE(patchf); \
+			if (tmp < 0) { eprintf("Failed reading variable int from the patch\n"); ERETURN(PATCH_TRUNCATED); }; \
+			(value) = tmp; \
+		}
+
 	#define read_common_block(st) \
-		read_or_return(ugm_index, table->byte_size); \
+		read_or_return_fixed(ugm_index, table->byte_size); \
 		(st).st_uid = table->array[ugm_index].uid; \
 		(st).st_gid = table->array[ugm_index].gid; \
 		(st).st_mode = table->array[ugm_index].mode; \
-		read_or_return((st).st_ctime, TREE_COMMAND_TIME_LEN); \
-		read_or_return((st).st_mtime, TREE_COMMAND_TIME_LEN);
+		read_or_return_variable((st).st_ctime); \
+		read_or_return_variable((st).st_mtime);
 
 	#define enforce_or_fail(command, args...) \
 		{ \
@@ -1276,8 +1278,8 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			read_path_or_return(filename);
 			read_common_block(st);
 			unsigned long major = 0, minor = 0;
-			read_or_return(major, TREE_COMMAND_DEV_LEN);
-			read_or_return(minor, TREE_COMMAND_DEV_LEN);
+			read_or_return_variable(major);
+			read_or_return_variable(minor);
 			enforce_or_fail(enforce_mknod, is_chr ? S_IFCHR : S_IFBLK, major, minor, &st);
 			break;
 
@@ -1321,7 +1323,8 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 	ERETURN(err);
 
 	#undef enforce_or_fail
-	#undef read_or_return
+	#undef read_or_return_variable
+	#undef read_or_return_fixed
 	#undef read_string_or_return
 	#undef read_common_block
 }
@@ -1533,13 +1536,12 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
-	if (8 != cread(patchf, buff, 8)) {
+	signed long long delta_size = creadHighBitVariableIntLE(patchf);
+	if (delta_size < 0) {
 		eprintf("Failed reading delta length\n");
 		err = PATCH_TRUNCATED;
 		goto cleanup;
 	}
-
-	unsigned long delta_size = readUBytesLE(buff, 8);
 	size_t delta_start = ctell(patchf, CSEEK_FSTART);
 	err = rebuild_files_from_delta(&src_cfh, patchf, &trg_cfh, delta_start, delta_size);
 	if (err) {
@@ -1570,12 +1572,12 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 
 	v3printf("Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
 
-	if (4 != cread(patchf, buff, 4)) {
+	signed long long command_count = creadHighBitVariableIntLE(patchf);
+	if (command_count < 0) {
 		eprintf("Failed reading command count\n");
 		err = PATCH_TRUNCATED;
 		goto cleanup;
 	}
-	unsigned long command_count = readUBytesLE(buff, 4);
 	v3printf("command stream is %lu commands\n", command_count);
 
 	unsigned long file_pos = 0;

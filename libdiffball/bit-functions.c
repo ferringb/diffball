@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <diffball/bit-functions.h>
 #include <cfile.h>
+#include <assert.h>
 
 
 inline unsigned int 
@@ -78,6 +79,20 @@ readUBytesLE(const unsigned char *buff, unsigned int l)
 	return (unsigned long)num;
 }
 
+signed long long
+creadUBytesLE(cfile *cfh, unsigned int l)
+{
+	assert(l < 8);
+	unsigned char buff[8];
+	int result = cread(cfh, buff, l);
+	if (result < 0) {
+		return result;
+	} else if (result != l) {
+		return EOF_ERROR;
+	}
+	return readUBytesLE(buff, l);
+}
+
 /*
 signed long 
 readSBytesLE(const unsigned char *buff, unsigned int l)
@@ -125,6 +140,17 @@ writeUBytesLE(unsigned char *buff, unsigned long value, unsigned int l)
 		buff[x] = ((value >> (x * 8)) & 0xff);
 	if(l != 4 && (value >> (l * 8)) > 0)
 		return 1;
+	return 0;
+}
+
+int
+cwriteUBytesLE(cfile *cfh, unsigned long value, unsigned int len)
+{
+	unsigned char buff[16];
+	writeUBytesLE(buff, value, len);
+	if (len != cwrite(cfh, buff, len)) {
+		return IO_ERROR;
+	}
 	return 0;
 }
 

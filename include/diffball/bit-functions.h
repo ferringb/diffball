@@ -36,6 +36,7 @@ inline unsigned int signedBytesNeeded(signed long int y);
 
 unsigned long readUBytesBE(const unsigned char *buff, unsigned int l);
 unsigned long readUBytesLE(const unsigned char *buff, unsigned int l);
+signed long long creadUBytesLE(cfile *cfh, unsigned int l);
 signed long readSBytesBE(const unsigned char *buff, unsigned int l);
 //signed long readSBytesLE(const unsigned char *buff, unsigned int l);
 
@@ -43,6 +44,7 @@ unsigned int writeUBytesBE(unsigned char *buff, unsigned long value,
 	unsigned int l);
 unsigned int writeUBytesLE(unsigned char *buff, unsigned long value,
 	unsigned int l);
+int cwriteUBytesLE(cfile *cfh, unsigned long value, unsigned int len);
 unsigned int writeSBytesBE(unsigned char *buff, signed long value,
 	unsigned int l);
 unsigned int writeSBytesLE(unsigned char *buff, signed long value,
