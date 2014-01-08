@@ -52,7 +52,7 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 
 // Flags for commands.
 // If set, then mtime is not encoded- ctime is the same value.
-#define TREE_COMMAND_REUSE_CTIME 0x80
+#define TREE_COMMAND_REUSE_CTIME 0x40
 
 
 /* TREE NOTES
