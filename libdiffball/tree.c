@@ -51,7 +51,7 @@ typedef struct {
 	unsigned int byte_size;
 } ugm_table;
 
-struct path_encoder {
+struct relative_encoder {
 	char *last_directory;
 	size_t total_in;
 	size_t total_out;
@@ -62,11 +62,11 @@ void enforce_no_trailing_slash(char *ptr);
 #define ERETURN(value) { if ((value) != 0) { eprintf("%s:%i Exiting due to nonzero return: %i\n", __FILE__, __LINE__, (int)(value)); }; return (value) ; };
 
 static int flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf);
-static int encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, struct path_encoder *pe);
-static int encode_unlink(cfile *patchf, multifile_file_data *entry, struct path_encoder *pe);
+static int encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, struct relative_encoder *pe);
+static int encode_unlink(cfile *patchf, multifile_file_data *entry, struct relative_encoder *pe);
 static signed long
 generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_pos, unsigned long src_count, multifile_file_data *ref_entry,
-				 struct path_encoder *p, int dry_run);
+				 struct relative_encoder *p, int dry_run);
 static int enforce_standard_attributes(const char *path, const struct stat *st, mode_t extra_flags);
 static int enforce_standard_attributes_via_path(const char *path, const struct stat *st, int skip_mode);
 static int enforce_directory(const char *path, const struct stat *st);
@@ -74,7 +74,7 @@ static int enforce_symlink(const char *path, const char *link_target, const stru
 
 static int consume_command_chain(const char *target_directory, const char *tmpspace, cfile *patchf,
 	multifile_file_data **ref_files, char **final_paths, unsigned long ref_count, unsigned long *ref_pos,
-	ugm_table *table, struct path_encoder *pe,
+	ugm_table *table, struct relative_encoder *pe,
 	unsigned long command_count);
 
 // used with fstatat if available
@@ -83,10 +83,10 @@ static int consume_command_chain(const char *target_directory, const char *tmpsp
 #endif
 
 
-struct path_encoder *
-path_encoder_new(void)
+struct relative_encoder *
+relative_encoder_new(void)
 {
-	struct path_encoder *p = (struct path_encoder *)calloc(1, sizeof(struct path_encoder));
+	struct relative_encoder *p = (struct relative_encoder *)calloc(1, sizeof(struct relative_encoder));
 	if (p) {
 		p->last_directory = strdup("");
 		if (!p->last_directory) {
@@ -100,10 +100,10 @@ path_encoder_new(void)
 }
 
 void
-path_encoder_free(struct path_encoder *p)
+relative_encoder_free(struct relative_encoder *p)
 {
 	if (p->last_directory) {
-		v3printf("path_encoder stats: %zi in %zi out: ratio %2.2f\n", p->total_in, p->total_out,
+		v3printf("relative_encoder stats: %zi in %zi out: ratio %2.2f\n", p->total_in, p->total_out,
 			(float)p->total_in / (float)p->total_out);
 		free(p->last_directory);
 	}
@@ -111,7 +111,7 @@ path_encoder_free(struct path_encoder *p)
 }
 
 static unsigned long long
-path_encoder_encode_time(struct path_encoder *p, time_t new_time)
+relative_encoder_encode_time(struct relative_encoder *p, time_t new_time)
 {
 	signed long long result = new_time - p->last_time;
 	if (result < 0) {
@@ -126,7 +126,7 @@ path_encoder_encode_time(struct path_encoder *p, time_t new_time)
 }
 
 static time_t
-path_encoder_decode_time(struct path_encoder *p, unsigned long long value)
+relative_encoder_decode_time(struct relative_encoder *p, unsigned long long value)
 {
 	time_t result = p->last_time;
 	if (value & 0x1) {
@@ -157,7 +157,7 @@ fix_redundant_slashes(char *path)
 }
 
 int
-path_encoder_encode_path(struct path_encoder *p, const char *original_path, char **calculated_path)
+relative_encoder_encode_path(struct relative_encoder *p, const char *original_path, char **calculated_path)
 {
 	*calculated_path = NULL;
 	char *new_path = strdup(original_path);
@@ -236,7 +236,7 @@ path_encoder_encode_path(struct path_encoder *p, const char *original_path, char
 }
 
 int
-path_encoder_decode_path(struct path_encoder *p, const char *data, char **resultant_path)
+relative_encoder_decode_path(struct relative_encoder *p, const char *data, char **resultant_path)
 {
 	int parents_ignored = 0 ;
 	const char *data_path = data;
@@ -284,23 +284,23 @@ path_encoder_decode_path(struct path_encoder *p, const char *data, char **result
 }
 
 static int
-path_encoder_cread_path(struct path_encoder *pe, cfile *cfh, char **result)
+relative_encoder_cread_path(struct relative_encoder *pe, cfile *cfh, char **result)
 {
 	*result = NULL;
 	int err = 0;
 	char *encoded_s = (char *)cfile_read_null_string(cfh);
 	if (encoded_s) {
-		err = path_encoder_decode_path(pe, encoded_s, result);
+		err = relative_encoder_decode_path(pe, encoded_s, result);
 		free(encoded_s);
 	}
 	ERETURN(err);
 }
 
 static int
-path_encoder_cwrite_path(struct path_encoder *pe, cfile *cfh, const char *value)
+relative_encoder_cwrite_path(struct relative_encoder *pe, cfile *cfh, const char *value)
 {
 	char *result = NULL;
-	int err = path_encoder_encode_path(pe, value, &result);
+	int err = relative_encoder_encode_path(pe, value, &result);
 	if (!err) {
 		int len = strlen(result) + 1;
 		if (len != cwrite(cfh, result, len)) {
@@ -511,7 +511,7 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 }
 
 static int
-flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_count, const char *manifest_name, struct path_encoder *pe)
+flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_count, const char *manifest_name, struct relative_encoder *pe)
 {
 	int err;
 	// Identify and output the # of files that will be created.
@@ -530,7 +530,7 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 	for(x=0; file_count > 0; x++) {
 		if (S_ISREG(fs[x]->st->st_mode) && !fs[x]->link_target) {
 			v3printf("Recording file %s length %zi in the %s manifest\n", fs[x]->filename, fs[x]->st->st_size, manifest_name);
-			err = path_encoder_cwrite_path(pe, patchf, fs[x]->filename);
+			err = relative_encoder_cwrite_path(pe, patchf, fs[x]->filename);
 			if (!err) {
 				err = cwriteHighBitVariableIntLE(patchf, fs[x]->st->st_size);
 			}
@@ -544,7 +544,7 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 }
 
 static int
-read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
+read_file_manifest(cfile *patchf, struct relative_encoder *pe, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
 {
     v3printf("Reading %s file manifest\n", manifest_name);
 	signed long long file_count = creadHighBitVariableIntLE(patchf);
@@ -569,7 +569,7 @@ read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data *
 			err = MEM_ERROR;
 			goto cleanup;
 		}
-		err = path_encoder_cread_path(pe, patchf, &(results[x]->filename));
+		err = relative_encoder_cread_path(pe, patchf, &(results[x]->filename));
 		if (err) {
 			file_count = x +1;
 			goto cleanup;
@@ -631,7 +631,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		ERETURN(DATA_ERROR);
 	}
 
-	struct path_encoder *pe = path_encoder_new();
+	struct relative_encoder *pe = relative_encoder_new();
 	if (!pe) {
 		eprintf("Failed allocating memory\n");
 		return MEM_ERROR;
@@ -640,14 +640,14 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	err = flush_file_manifest(patchf, src_files, src_count, "source", pe);
 	if (err) {
 		eprintf("Failed flushing ref files content\n");
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(err);
 	}
 
 	err = flush_file_manifest(patchf, ref_files, ref_count, "target", pe);
 	if (err) {
 		eprintf("Failed flushing ref files content\n");
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(err);
 	}
 
@@ -656,21 +656,21 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 
 	err = flush_file_content_delta(dcbuff, patchf);
 	if (err) {
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(err);
 	}
 
 	v3printf("Flushed the file content delta.  Writing magic, magic then command stream\n");
 	if (TREE_INTERFILE_MAGIC_LEN != cwrite(patchf, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN)) {
 		v0printf("Failed flushing interfile magic\n");
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(IO_ERROR);
 	}
 
 	// Compute and flush the UGM table.
 	err = compute_and_flush_ugm_table(patchf, ref_files, ref_count, &ugm_table);
 	if (err) {
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(err);
 	}
 
@@ -681,7 +681,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		unlink_result = generate_unlinks(patchf, src_files, &src_pos, src_count, ref_files[ref_pos], NULL, 1);
 		if (unlink_result < 0) {
 			eprintf("Failed identification of unlinks\n");
-			path_encoder_free(pe);
+			relative_encoder_free(pe);
 			free_ugm_table(ugm_table);
 			ERETURN(unlink_result);
 		}
@@ -691,7 +691,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	if (unlink_result < 0) {
 		eprintf("Failed tail end of identification of unlinks\n");
 		free_ugm_table(ugm_table);
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(unlink_result);
 	} else {
 		command_count += unlink_result;
@@ -702,7 +702,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	err = cwriteHighBitVariableIntLE(patchf, command_count);
 	if (err) {
 		free_ugm_table(ugm_table);
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 		ERETURN(err);
 	}
 
@@ -714,7 +714,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 			err = unlink_result;
 		}
 		if (err) {
-			path_encoder_free(pe);
+			relative_encoder_free(pe);
 			free_ugm_table(ugm_table);
 			ERETURN(err);
 		}
@@ -726,13 +726,13 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	if (unlink_result < 0) {
 		err = unlink_result;
 	}
-	path_encoder_free(pe);
+	relative_encoder_free(pe);
 	free_ugm_table(ugm_table);
 	ERETURN(err);
 }
 
 static signed long
-generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_pos, unsigned long src_count, multifile_file_data *ref_entry, struct path_encoder *pe, int dry_run)
+generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_pos, unsigned long src_count, multifile_file_data *ref_entry, struct relative_encoder *pe, int dry_run)
 {
 	unsigned long unlink_count = 0;
 	while (*src_pos < src_count) {
@@ -760,12 +760,12 @@ generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_po
 }
 
 static int
-encode_unlink(cfile *patchf, multifile_file_data *entry, struct path_encoder *pe)
+encode_unlink(cfile *patchf, multifile_file_data *entry, struct relative_encoder *pe)
 {
 	v3printf("Writing unlink command for %s\n", entry->filename);
 	int err = cwriteUBytesLE(patchf, TREE_COMMAND_UNLINK, TREE_COMMAND_LEN);
 	if (!err) {
-		err = path_encoder_cwrite_path(pe, patchf, entry->filename);
+		err = relative_encoder_cwrite_path(pe, patchf, entry->filename);
 	}
 	if (err) {
 		eprintf("Failed writing unlink command for %s to the patch\n", entry->filename);
@@ -774,7 +774,7 @@ encode_unlink(cfile *patchf, multifile_file_data *entry, struct path_encoder *pe
 }
 
 static int
-encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, struct path_encoder *pe)
+encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, struct relative_encoder *pe)
 {
 	#define write_or_return(func, args...) {int err=(func)(patchf, args); if (err) { ERETURN(err); }; }
 	#define write_or_return_fixed(value, len) write_or_return(cwriteUBytesLE, value, len)
@@ -785,14 +785,14 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		  assert(match); \
 		  write_or_return_fixed(match->index, table->byte_size); \
 		} \
-		write_or_return_variable(path_encoder_encode_time(pe, (st)->st_ctime)); \
-		write_or_return_variable(path_encoder_encode_time(pe, (st)->st_mtime));
+		write_or_return_variable(relative_encoder_encode_time(pe, (st)->st_ctime)); \
+		write_or_return_variable(relative_encoder_encode_time(pe, (st)->st_mtime));
 
 #define write_null_string(value) \
 { int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); ERETURN(IO_ERROR); }; }
 
 #define write_PE_string(value) \
-{ int err = path_encoder_cwrite_path(pe, patchf, (value)); if(err) { v0printf("Failed writing to the handle\n"); ERETURN(err); }; }
+{ int err = relative_encoder_cwrite_path(pe, patchf, (value)); if(err) { v0printf("Failed writing to the handle\n"); ERETURN(err); }; }
 
 	if (S_ISREG(entry->st->st_mode)) {
 		if (!entry->link_target) {
@@ -1172,7 +1172,7 @@ enforce_no_trailing_slash(char *ptr)
 static int
 consume_command_chain(const char *target_directory, const char *tmpspace, cfile *patchf,
     multifile_file_data **ref_files, char **final_paths, unsigned long ref_count, unsigned long *ref_pos,
-    ugm_table *table, struct path_encoder *pe,
+    ugm_table *table, struct relative_encoder *pe,
     unsigned long command_count)
 {
 	int err = 0;
@@ -1196,7 +1196,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		{ (value) = (char *)cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); ERETURN(PATCH_TRUNCATED); }; };
 
 	#define read_path_or_return(value) \
-		{ int err = path_encoder_cread_path(pe, patchf, &value); if (err) { eprintf("Failed reading path encoded string\n"); ERETURN(err); }; };
+		{ int err = relative_encoder_cread_path(pe, patchf, &value); if (err) { eprintf("Failed reading path encoded string\n"); ERETURN(err); }; };
 
 	#define read_or_return_fixed(value, len) \
 		{ \
@@ -1215,7 +1215,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		{ \
 			signed long long tmp = creadHighBitVariableIntLE(patchf); \
 			if (tmp < 0) { eprintf("Failed reading variable int from the patch\n"); ERETURN(PATCH_TRUNCATED); }; \
-			(value) = path_encoder_decode_time(pe, tmp); \
+			(value) = relative_encoder_decode_time(pe, tmp); \
 		}
 
 	#define read_common_block(st) \
@@ -1482,7 +1482,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	cfile src_cfh, trg_cfh;
 	memset(&src_cfh, 0, sizeof(cfile));
 	memset(&trg_cfh, 0, sizeof(cfile));
-	struct path_encoder *pe = NULL;
+	struct relative_encoder *pe = NULL;
 	int err = 0;
 
 	unsigned char buff[16];
@@ -1512,7 +1512,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 //	ref_id = src_id;
 	v3printf("Reading src file manifest\n");
 
-	pe = path_encoder_new();
+	pe = relative_encoder_new();
 	if (!pe) {
 		ERETURN(MEM_ERROR);
 	}
@@ -1666,7 +1666,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	umask(original_umask);
 
 	if (pe) {
-		path_encoder_free(pe);
+		relative_encoder_free(pe);
 	}
 	ERETURN(err);
 }
