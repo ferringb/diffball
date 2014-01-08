@@ -41,7 +41,7 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 
 #define TREE_COMMAND_LEN		1
 #define TREE_COMMAND_REG 		0x00
-#define TREE_COMMAND_HARDLINK 		0x01
+#define TREE_COMMAND_HARDLINK   0x01
 #define TREE_COMMAND_DIR		0x02
 #define TREE_COMMAND_SYM		0x03
 #define TREE_COMMAND_FIFO		0x04
@@ -49,6 +49,11 @@ signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
 #define TREE_COMMAND_BLK		0x06
 #define TREE_COMMAND_SOCKET		0x07
 #define TREE_COMMAND_UNLINK		0x08
+
+// Flags for commands.
+// If set, then mtime is not encoded- ctime is the same value.
+#define TREE_COMMAND_REUSE_CTIME 0x80
+
 
 /* TREE NOTES
 
@@ -83,7 +88,7 @@ single byte command:
  0x00 == regenerated file
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
    xattrs null delimited
  0x01 == hardlink
    filename null delimited; PE encoded
@@ -92,38 +97,38 @@ single byte command:
    filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
    xattrs null delimited
  0x03 == symlink
    filename null delimited; PE encoded
    symlink target null delimited
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
  0x04 == fifo
    filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
  0x05 == chr device
    filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
    4 bytes major
    4 bytes minor
  0x06 == blk device
    filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
    4 bytes major
    4 bytes minor
  0x07 == socket
    filename null delimited; PE encoded
    UID/GID/MODE index
    ctime
-   mtime
+   mtime # Only if TREE_COMMAND_REUSE_CTIME isn't set.
  0x08 == delete
    filename null delimited; PE encoded
 

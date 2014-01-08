@@ -786,7 +786,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		  write_or_return_fixed(match->index, table->byte_size); \
 		} \
 		write_or_return_variable(relative_encoder_encode_time(pe, (st)->st_ctime)); \
-		write_or_return_variable(relative_encoder_encode_time(pe, (st)->st_mtime));
+		if ((st)->st_ctime != (st)->st_mtime) {	write_or_return_variable(relative_encoder_encode_time(pe, (st)->st_mtime)); };
 
 #define write_null_string(value) \
 { int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); ERETURN(IO_ERROR); }; }
@@ -794,10 +794,12 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 #define write_PE_string(value) \
 { int err = relative_encoder_cwrite_path(pe, patchf, (value)); if(err) { v0printf("Failed writing to the handle\n"); ERETURN(err); }; }
 
+	unsigned int time_flags = (entry->st->st_ctime == entry->st->st_mtime ? TREE_COMMAND_REUSE_CTIME : 0x00);
+
 	if (S_ISREG(entry->st->st_mode)) {
 		if (!entry->link_target) {
 			v3printf("writing manifest command for regular %s\n", entry->filename);
-			write_or_return_fixed(TREE_COMMAND_REG, TREE_COMMAND_LEN);
+			write_or_return_fixed(TREE_COMMAND_REG | time_flags, TREE_COMMAND_LEN);
 			write_common_block(entry->st);
 			// xattrs
 			return 0;
@@ -809,13 +811,13 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 
 	} else if (S_ISDIR(entry->st->st_mode)) {
 		v3printf("writing manifest command for directory %s\n", entry->filename);
-		write_or_return_fixed(TREE_COMMAND_DIR, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_DIR | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 
 	} else if (S_ISLNK(entry->st->st_mode)) {
 		v3printf("writing manifest command for symlink %s -> %s\n", entry->filename, entry->link_target);
-		write_or_return_fixed(TREE_COMMAND_SYM, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_SYM | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		assert(entry->link_target);
 		write_null_string(entry->link_target);
@@ -823,14 +825,14 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 
 	} else if (S_ISFIFO(entry->st->st_mode)) {
 		v3printf("writing manifest command for fifo %s\n", entry->filename);
-		write_or_return_fixed(TREE_COMMAND_FIFO, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_FIFO | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 
 	} else if (S_ISCHR(entry->st->st_mode) || S_ISBLK(entry->st->st_mode)) {
 		v3printf("writing manifest command for dev %s\n", entry->filename);
 		write_or_return_fixed(
-			(S_ISCHR(entry->st->st_mode) ? TREE_COMMAND_CHR : TREE_COMMAND_BLK),
+			(S_ISCHR(entry->st->st_mode) ? TREE_COMMAND_CHR : TREE_COMMAND_BLK) | time_flags,
 			TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
@@ -839,7 +841,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 
 	} else if (S_ISSOCK(entry->st->st_mode)) {
 		v3printf("writing manifest command for socket %s\n", entry->filename);
-		write_or_return_fixed(TREE_COMMAND_SOCKET, TREE_COMMAND_LEN);
+		write_or_return_fixed(TREE_COMMAND_SOCKET | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 
@@ -1224,7 +1226,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		(st).st_gid = table->array[ugm_index].gid; \
 		(st).st_mode = table->array[ugm_index].mode; \
 		read_or_return_time((st).st_ctime); \
-		read_or_return_time((st).st_mtime);
+		if (reuse_ctime) { (st).st_mtime = (st).st_ctime; } else { read_or_return_time((st).st_mtime); };
 
 	#define enforce_or_fail(command, args...) \
 		{ \
@@ -1242,6 +1244,11 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 	patchf->data.pos++;
 
 	int is_chr = 0;
+	int reuse_ctime = 0;
+	if (command_type & TREE_COMMAND_REUSE_CTIME) {
+		reuse_ctime = 1;
+		command_type &= ~TREE_COMMAND_REUSE_CTIME;
+	}
 
 	switch (command_type) {
 		case TREE_COMMAND_REG:
