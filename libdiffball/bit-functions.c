@@ -208,7 +208,7 @@ writeUBitsBE(unsigned char *out_buff, unsigned long value, unsigned int bit_coun
 signed long long
 creadHighBitVariableIntBE(cfile *cfh)
 {
-	unsigned long result = 0;
+	unsigned long long result = 0;
 	do {
 		if (cfh->data.end == cfh->data.pos) {
 			int err = crefill(cfh);
@@ -217,7 +217,7 @@ creadHighBitVariableIntBE(cfile *cfh)
 			}
 		}
 		result <<= 7;
-		result |= cfh->data.buff[cfh->data.pos] & 0x7f;
+		result |= (cfh->data.buff[cfh->data.pos] & 0x7f);
 		cfh->data.pos++;
 	} while (cfh->data.buff[cfh->data.pos - 1] & 0x80);
 	return result;
@@ -226,7 +226,7 @@ creadHighBitVariableIntBE(cfile *cfh)
 signed long long
 creadHighBitVariableIntLE(cfile *cfh)
 {
-	unsigned long result = 0;
+	unsigned long long result = 0;
 	int position = 0;
 	do {
 		if (cfh->data.end == cfh->data.pos) {
@@ -235,7 +235,8 @@ creadHighBitVariableIntLE(cfile *cfh)
 				return err ? err : result;
 			}
 		}
-		result |= (cfh->data.buff[cfh->data.pos] & 0x7f) << position;
+		unsigned char val = (cfh->data.buff[cfh->data.pos] & 0x7f);
+		result |= ((unsigned long long)val) << position;
 		position += 7;
 		cfh->data.pos++;
 	} while (cfh->data.buff[cfh->data.pos - 1] & 0x80);

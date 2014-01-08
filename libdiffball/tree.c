@@ -55,6 +55,7 @@ struct path_encoder {
 	char *last_directory;
 	size_t total_in;
 	size_t total_out;
+	time_t last_time;
 };
 
 void enforce_no_trailing_slash(char *ptr);
@@ -93,6 +94,7 @@ path_encoder_new(void)
 			p = NULL;
 		}
 	}
+	p->last_time = 0;
 	p->total_in = p->total_out = 0;
 	return p;
 }
@@ -106,6 +108,34 @@ path_encoder_free(struct path_encoder *p)
 		free(p->last_directory);
 	}
 	free(p);
+}
+
+static unsigned long long
+path_encoder_encode_time(struct path_encoder *p, time_t new_time)
+{
+	signed long long result = new_time - p->last_time;
+	if (result < 0) {
+		result *= -1;
+		result <<= 1;
+		result |= 1;
+	} else {
+		result <<= 1;
+	}
+	p->last_time = new_time;
+	return result;
+}
+
+static time_t
+path_encoder_decode_time(struct path_encoder *p, unsigned long long value)
+{
+	time_t result = p->last_time;
+	if (value & 0x1) {
+		result -= (value >> 1);
+	} else {
+		result += (value >> 1);
+	}
+	p->last_time = result;
+	return result;
 }
 
 void
@@ -127,7 +157,7 @@ fix_redundant_slashes(char *path)
 }
 
 int
-path_encoder_encode(struct path_encoder *p, const char *original_path, char **calculated_path)
+path_encoder_encode_path(struct path_encoder *p, const char *original_path, char **calculated_path)
 {
 	*calculated_path = NULL;
 	char *new_path = strdup(original_path);
@@ -206,7 +236,7 @@ path_encoder_encode(struct path_encoder *p, const char *original_path, char **ca
 }
 
 int
-path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_path)
+path_encoder_decode_path(struct path_encoder *p, const char *data, char **resultant_path)
 {
 	int parents_ignored = 0 ;
 	const char *data_path = data;
@@ -254,23 +284,23 @@ path_encoder_decode(struct path_encoder *p, const char *data, char **resultant_p
 }
 
 static int
-path_encoder_cread(struct path_encoder *pe, cfile *cfh, char **result)
+path_encoder_cread_path(struct path_encoder *pe, cfile *cfh, char **result)
 {
 	*result = NULL;
 	int err = 0;
 	char *encoded_s = (char *)cfile_read_null_string(cfh);
 	if (encoded_s) {
-		err = path_encoder_decode(pe, encoded_s, result);
+		err = path_encoder_decode_path(pe, encoded_s, result);
 		free(encoded_s);
 	}
 	ERETURN(err);
 }
 
 static int
-path_encoder_cwrite(struct path_encoder *pe, cfile *cfh, const char *value)
+path_encoder_cwrite_path(struct path_encoder *pe, cfile *cfh, const char *value)
 {
 	char *result = NULL;
-	int err = path_encoder_encode(pe, value, &result);
+	int err = path_encoder_encode_path(pe, value, &result);
 	if (!err) {
 		int len = strlen(result) + 1;
 		if (len != cwrite(cfh, result, len)) {
@@ -500,7 +530,7 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 	for(x=0; file_count > 0; x++) {
 		if (S_ISREG(fs[x]->st->st_mode) && !fs[x]->link_target) {
 			v3printf("Recording file %s length %zi in the %s manifest\n", fs[x]->filename, fs[x]->st->st_size, manifest_name);
-			err = path_encoder_cwrite(pe, patchf, fs[x]->filename);
+			err = path_encoder_cwrite_path(pe, patchf, fs[x]->filename);
 			if (!err) {
 				err = cwriteHighBitVariableIntLE(patchf, fs[x]->st->st_size);
 			}
@@ -539,7 +569,7 @@ read_file_manifest(cfile *patchf, struct path_encoder *pe, multifile_file_data *
 			err = MEM_ERROR;
 			goto cleanup;
 		}
-		err = path_encoder_cread(pe, patchf, &(results[x]->filename));
+		err = path_encoder_cread_path(pe, patchf, &(results[x]->filename));
 		if (err) {
 			file_count = x +1;
 			goto cleanup;
@@ -735,7 +765,7 @@ encode_unlink(cfile *patchf, multifile_file_data *entry, struct path_encoder *pe
 	v3printf("Writing unlink command for %s\n", entry->filename);
 	int err = cwriteUBytesLE(patchf, TREE_COMMAND_UNLINK, TREE_COMMAND_LEN);
 	if (!err) {
-		err = path_encoder_cwrite(pe, patchf, entry->filename);
+		err = path_encoder_cwrite_path(pe, patchf, entry->filename);
 	}
 	if (err) {
 		eprintf("Failed writing unlink command for %s to the patch\n", entry->filename);
@@ -755,14 +785,14 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		  assert(match); \
 		  write_or_return_fixed(match->index, table->byte_size); \
 		} \
-		write_or_return_variable((st)->st_ctime); \
-		write_or_return_variable((st)->st_mtime);
+		write_or_return_variable(path_encoder_encode_time(pe, (st)->st_ctime)); \
+		write_or_return_variable(path_encoder_encode_time(pe, (st)->st_mtime));
 
 #define write_null_string(value) \
 { int len=strlen((value)) + 1; if (len != cwrite(patchf, (value), len)) { v0printf("Failed writing string len %i\n", len); ERETURN(IO_ERROR); }; }
 
 #define write_PE_string(value) \
-{ int err = path_encoder_cwrite(pe, patchf, (value)); if(err) { v0printf("Failed writing to the handle\n"); ERETURN(err); }; }
+{ int err = path_encoder_cwrite_path(pe, patchf, (value)); if(err) { v0printf("Failed writing to the handle\n"); ERETURN(err); }; }
 
 	if (S_ISREG(entry->st->st_mode)) {
 		if (!entry->link_target) {
@@ -1166,7 +1196,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		{ (value) = (char *)cfile_read_null_string(patchf); if (!(value)) { eprintf("Failed reading null string\n"); ERETURN(PATCH_TRUNCATED); }; };
 
 	#define read_path_or_return(value) \
-		{ int err = path_encoder_cread(pe, patchf, &value); if (err) { eprintf("Failed reading path encoded string\n"); ERETURN(err); }; };
+		{ int err = path_encoder_cread_path(pe, patchf, &value); if (err) { eprintf("Failed reading path encoded string\n"); ERETURN(err); }; };
 
 	#define read_or_return_fixed(value, len) \
 		{ \
@@ -1181,13 +1211,20 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 			(value) = tmp; \
 		}
 
+	#define read_or_return_time(value) \
+		{ \
+			signed long long tmp = creadHighBitVariableIntLE(patchf); \
+			if (tmp < 0) { eprintf("Failed reading variable int from the patch\n"); ERETURN(PATCH_TRUNCATED); }; \
+			(value) = path_encoder_decode_time(pe, tmp); \
+		}
+
 	#define read_common_block(st) \
 		read_or_return_fixed(ugm_index, table->byte_size); \
 		(st).st_uid = table->array[ugm_index].uid; \
 		(st).st_gid = table->array[ugm_index].gid; \
 		(st).st_mode = table->array[ugm_index].mode; \
-		read_or_return_variable((st).st_ctime); \
-		read_or_return_variable((st).st_mtime);
+		read_or_return_time((st).st_ctime); \
+		read_or_return_time((st).st_mtime);
 
 	#define enforce_or_fail(command, args...) \
 		{ \
