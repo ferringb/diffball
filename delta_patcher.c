@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2003-2005 Brian Harring
+  Copyright (C) 2003-2014 Brian Harring
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
@@ -43,7 +43,7 @@ static struct usage_options help_opts[] = {
 	FORMAT_HELP_OPTION("patch-format", 'f', "Override patch auto-identification"),
 	FORMAT_HELP_OPTION("max-buffer", 'b', "Override the default 128KB buffer max"),
 	FORMAT_HELP_OPTION("tmp-dir", 't', "Override the environmental TMPDIR for any temp usage"),
-	USAGE_FLUFF("Normal usage is patcher src-file patch(s) reconstructed-file\n"
+	USAGE_FLUFF("Normal usage is delta_patcher src-file patch(s) reconstructed-file\n"
 	"if you need to override the auto-identification (eg, you hit a bug), use -f.  Note this settings\n"
 	"affects -all- used patches, so it's use should be limited to applying a single patch"),
 	END_HELP_OPTS
@@ -70,12 +70,12 @@ main(int argc, char **argv)
 	unsigned long reconst_size = 0xffff;
 	
 	#define DUMP_USAGE(exit_code) \
-		print_usage("patcher", "src_file patch(es) [trg_file|or to stdout]", help_opts, exit_code);
+		print_usage("delta_patcher", "src_file patch(es) [trg_file|or to stdout]", help_opts, exit_code);
 
 	while((optr = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
 		switch(optr) {
 		case OVERSION:
-			print_version("patcher");		exit(0);
+			print_version("delta_patcher");		exit(0);
 		case OUSAGE:
 		case OHELP:
 			DUMP_USAGE(0);

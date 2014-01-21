@@ -1,5 +1,5 @@
 /*
-  Copyright (C) 2003-2005 Brian Harring
+  Copyright (C) 2003-2014 Brian Harring
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
@@ -55,9 +55,9 @@ struct usage_options help_opts[] = {
 	FORMAT_HELP_OPTION("source-exclude-file", SRC_EXCLUDE_FILE, "read source-exclude patterns from the given file."),
 	FORMAT_HELP_OPTION("target-exclude", 'T', "a file glob used to filter what target files are considered; this option is cumulative."),
 	FORMAT_HELP_OPTION("target-exclude-file", TRG_EXCLUDE_FILE, "read target-exclude patterns from the given file."),
-	USAGE_FLUFF("differ expects 3 args- source, target, name for the patch\n"
+	USAGE_FLUFF("delta_tree expects 3 args- source, target, name for the patch\n"
 	"if output to stdout is enabled, only 2 args required- source, target\n"
-	"Example usage: differ older-version newerer-version upgrade-patch"),
+	"Example usage: delta_tree older-version newerer-version upgrade-patch"),
 	END_HELP_OPTS
 };
 
@@ -185,12 +185,12 @@ int main(int argc, char **argv)
 	unsigned int patch_to_stdout = 0;
 
 	#define DUMP_USAGE(exit_code)		\
-		print_usage("differ", "src_file trg_file [patch_file|or to stdout]", help_opts, exit_code);
+		print_usage("delta_tree", "src_file trg_file [patch_file|or to stdout]", help_opts, exit_code);
 
 	while((optr = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
 		switch(optr) {
 		case OVERSION:
-			print_version("differ");		exit(0);
+			print_version("delta_tree");		exit(0);
 		case OUSAGE:
 		case OHELP:
 			DUMP_USAGE(0);
