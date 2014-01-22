@@ -52,9 +52,9 @@ struct usage_options help_opts[] = {
 	DIFF_HELP_OPTIONS,
 	FORMAT_HELP_OPTION("patch-format", 'f', "format to output the patch in"),
 	FORMAT_HELP_OPTION("source-exclude", 'S', "a file glob used to filter what source files are considered; this option is cumulative."),
-	FORMAT_HELP_OPTION("source-exclude-file", SRC_EXCLUDE_FILE, "read source-exclude patterns from the given file."),
+	{0, "source-exclude-file", "read source-exclude patterns from the given file."},
 	FORMAT_HELP_OPTION("target-exclude", 'T', "a file glob used to filter what target files are considered; this option is cumulative."),
-	FORMAT_HELP_OPTION("target-exclude-file", TRG_EXCLUDE_FILE, "read target-exclude patterns from the given file."),
+	{0, "target-exclude-file", "read target-exclude patterns from the given file."},
 	USAGE_FLUFF("delta_tree expects 3 args- source, target, name for the patch\n"
 	"if output to stdout is enabled, only 2 args required- source, target\n"
 	"Example usage: delta_tree older-version newerer-version upgrade-patch"),

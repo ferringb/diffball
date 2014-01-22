@@ -57,7 +57,7 @@ print_usage(const char *prog, const char *usage_portion, struct usage_options *t
 			else
 				fprintf(stdout, "\n");
 		} else if(NULL != u_ptr->long_arg) {
-			fprintf(stdout, "	 --%-*s", long_len, u_ptr->long_arg);
+			fprintf(stdout, "     --%-*s", long_len, u_ptr->long_arg);
 			if(NULL != u_ptr->description)
 				fprintf(stdout, " %s\n", u_ptr->description);
 			else
