@@ -347,7 +347,7 @@ main(int argc, char **argv)
 	free(target);
 
 	v1printf("beginning search for gaps, and unprocessed files\n");
-	err=MultiPassAlg(&dcbuff, &ref_full, ref_id, &ver_full, ver_id, hash_size);
+	err=MultiPassAlg(&dcbuff, &ref_full, ref_id, &ver_full, ver_id, hash_size, 512);
 	check_return(err, "MultiPassAlg", "final multipass run failed");
 	err=DCB_finalize(&dcbuff);
 	check_return2(err, "DCB_finalize");

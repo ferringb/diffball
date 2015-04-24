@@ -21,7 +21,6 @@
 #include <diffball/adler32.h>
 #include <diffball/defs.h>
 
-#define DEFAULT_SEED_LEN		 (16)
 #define DEFAULT_MAX_HASH_COUNT		(48000000/sizeof(unsigned long))
 #define RHASH_INDEX_MASK			(0xffff)
 #define DEFAULT_RHASH_SIZE			(0x10000)

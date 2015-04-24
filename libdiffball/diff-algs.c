@@ -213,14 +213,13 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 signed int
 MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 	cfile *ver_cfh, unsigned char ver_id, 
-	unsigned long max_hash_size)
+	unsigned long max_hash_size, unsigned int seed_len)
 {
 	int err;
 	RefHash rhash;
 	cfile ver_window;
 	memset(&ver_window, 0, sizeof(cfile));
 	unsigned long hash_size=0, sample_rate=1;
-	unsigned long int seed_len;
 	unsigned long gap_req;
 	unsigned long gap_total_len;
 	unsigned char first_run=0;
@@ -229,11 +228,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 	err = DCB_finalize(buff);
 	if(err)
 		ERETURN(err);
-	if( ((DCB_llm *)buff->DCB)->main_head == NULL) {
-		seed_len = 512;
-	} else {
-		seed_len = 128;
-	}
+
 	v1printf("multipass, hash_size(%lu)\n", hash_size);
 	for(; seed_len >=16; seed_len /= 2) {
 		if( ((DCB_llm *)buff->DCB)->main_head == NULL) {

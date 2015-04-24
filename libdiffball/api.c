@@ -38,7 +38,7 @@ simple_difference(cfile *ref_cfh, cfile *ver_cfh, cfile *out_cfh, unsigned int p
 		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh));
 	}
 	if(seed_len==0) {
-		seed_len = DEFAULT_SEED_LEN;
+		seed_len = DEFAULT_MULTIPASS_SEED_LEN;
 	}
 
 	if(patch_id==0) {
@@ -49,7 +49,7 @@ simple_difference(cfile *ref_cfh, cfile *ver_cfh, cfile *out_cfh, unsigned int p
 	DCB_llm_init(&buffer, 4, cfile_len(ref_cfh), cfile_len(ver_cfh));
 	ref_id = DCB_REGISTER_ADD_SRC(&buffer, ver_cfh, NULL, 0);
 	ver_id = DCB_REGISTER_COPY_SRC(&buffer, ref_cfh, NULL, 0);
-	MultiPassAlg(&buffer, ref_cfh, ref_id, ver_cfh, ver_id, hash_size);
+	MultiPassAlg(&buffer, ref_cfh, ref_id, ver_cfh, ver_id, hash_size, seed_len);
 	if((encode_result = DCB_finalize(&buffer)) != 0)
 		return encode_result;
 	DCB_test_total_copy_len(&buffer);
