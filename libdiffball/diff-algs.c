@@ -257,7 +257,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 				continue;
 			}
 			hash_size= max_hash_size;
-			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, gap_total_len);
+			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, gap_total_len, seed_len);
 			v1printf("using hash_size(%lu), sample_rate(%lu)\n", 
 				hash_size, sample_rate);
 			err = rh_rbucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
@@ -305,7 +305,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			DCBufferReset(buff);
 			v1printf("first run\n");
 			hash_size = MAX(MIN_RHASH_SIZE, MIN(max_hash_size, cfile_len(ref_cfh)));
-			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh));
+			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh), seed_len);
 			v1printf("using hash_size(%lu), sample_rate(%lu)\n", 
 				hash_size, sample_rate);
 			err = rh_bucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);

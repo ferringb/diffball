@@ -35,7 +35,7 @@ simple_difference(cfile *ref_cfh, cfile *ver_cfh, cfile *out_cfh, unsigned int p
 	}
 	if(sample_rate==0) {
 		/* implement a better assessment based on mem and such */
-		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh));
+		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh), seed_len);
 	}
 	if(seed_len==0) {
 		seed_len = DEFAULT_MULTIPASS_SEED_LEN;

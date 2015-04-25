@@ -177,11 +177,11 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	if(sample_rate==0) {
-		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(&ref_full));
-	}
 	if(seed_len==0) {
 		seed_len = DEFAULT_SEED_LEN;
+	}
+	if(sample_rate==0) {
+		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(&ref_full), seed_len);
 	}
 
 	v1printf("using patch format %lu\n", patch_format_id);
