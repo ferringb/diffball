@@ -342,20 +342,15 @@ base_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, 
 	if(rh == NULL)
 		return MEM_ERROR;
 	rh->max_depth = DEFAULT_RHASH_BUCKET_SIZE;
-	if((rh->depth = (unsigned char *)malloc(rhash->hr_size)) == NULL) {
+	if((rh->depth = (unsigned char *)calloc(sizeof(unsigned char), rhash->hr_size)) == NULL) {
 		free(rh);
 		return MEM_ERROR;
-	} else if((rh->chksum = (unsigned short **)malloc(rhash->hr_size * sizeof(unsigned short *)))==NULL) {
+	} else if((rh->chksum = (unsigned short **)calloc(sizeof(unsigned short *), rhash->hr_size))==NULL) {
 		free(rh->depth); free(rh);
 		return MEM_ERROR;
-	} else if((rh->offset = (off_u64 **)malloc(rhash->hr_size * sizeof(off_u64 *)))==NULL) {
+	} else if((rh->offset = (off_u64 **)calloc(sizeof(off_u64 *), rhash->hr_size))==NULL) {
 		free(rh->chksum); free(rh->depth); free(rh);
 		return MEM_ERROR;
-	}
-	for(x=0; x < rhash->hr_size; x++) {
-		rh->offset[x] = NULL;
-		rh->chksum[x] = NULL;
-		rh->depth[x] = 0;
 	}
 	rhash->hash = (void *)rh;
 	if(type & RH_RBUCKET_HASH) {
