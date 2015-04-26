@@ -129,13 +129,13 @@ RH_bucket_find_chksum(unsigned short chksum, unsigned short array[],
 	int low,high,mid;
 	low = 0;
 	if(count < 32) {
-		while(low < count) {
+		for(; low < count; low++) {
 			if(chksum == array[low])
 				return low;
-			low++;
 		}
 		return -1;
 	}
+
 	high = count - 1;
 	while(low <= high) {
 		mid = (low+high) /2;
