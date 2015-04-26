@@ -102,7 +102,7 @@ main(int argc, char **argv)
 	if(output_to_stdout) {
 		out_fh = 1;
 	} else {
-		if(patch_count == 1) {
+		if(patch_count <= 1) {
 			v0printf("you must specify at least a patch\n");
 			DUMP_USAGE(EXIT_USAGE);
 		}
