@@ -185,6 +185,9 @@ main(int argc, char **argv)
 	for(x=0; x < patch_count; x++) {
 		cclose(&patch_cfh[x]);
 	}
+	if (recon_val) {
+		v0printf("Failed reconstructing the target file: error %ld\n", recon_val);
+	}
 	return recon_val;
 }
 

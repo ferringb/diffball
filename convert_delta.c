@@ -225,5 +225,8 @@ main(int argc, char **argv)
 		cclose(&in_cfh[x]);
 	}
 	cclose(&out_cfh);
-	return 0;
+	if(encode_result) {
+		v0printf("Failed converting patch\n");
+	}
+	return encode_result;
 }
