@@ -103,12 +103,12 @@ init_primes(pctx);						\
 
 
 
-signed int 
-init_RefHash(RefHash *rhash, cfile *ref_cfh, 
-		unsigned int seed_len, unsigned int sample_rate, 
+signed int
+init_RefHash(RefHash *rhash, cfile *ref_cfh,
+		unsigned int seed_len, unsigned int sample_rate,
 		unsigned long hr_size, unsigned int hash_type);
 
-signed int 
+signed int
 RHash_insert_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end);
 
 signed int
@@ -119,7 +119,7 @@ RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 re
 
 signed int RHash_sort(RefHash *rhash);
 signed int RHash_cleanse(RefHash *rhash);
-signed int free_RefHash(RefHash *rhash);		
+signed int free_RefHash(RefHash *rhash);
 void print_RefHash_stats(RefHash *rhash);
 
 signed int
@@ -127,19 +127,15 @@ RH_bucket_resize(bucket *hash, unsigned long index, unsigned short size);
 
 
 //hash type initializations.
-void 
+void
 common_init_RefHash(RefHash *, cfile *, unsigned int, unsigned int, unsigned int, hash_insert_func hif, free_hash_func fhf,
 	hash_lookup_offset_func hlof);
 
 signed int
-base_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, 
-	unsigned int type);
+rh_rbucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size);
 
-#define rh_bucket_hash_init(rh,rc,sl,sr,hr)		\
-	base_rh_bucket_hash_init((rh),(rc),(sl),(sr),(hr), RH_BUCKET_HASH)
-
-#define rh_rbucket_hash_init(rh,rc,sl,sr,hr)		\
-	base_rh_bucket_hash_init((rh),(rc),(sl),(sr),(hr), RH_RBUCKET_HASH)
+signed int
+rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size);
 
 #define lookup_offset(rh, ads)		(rh)->lookup_offset((rh),(ads))
 

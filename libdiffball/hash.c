@@ -36,6 +36,9 @@ base_rh_bucket_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
 
 static signed int rh_rbucket_cleanse(RefHash *rhash);
 
+static signed int
+common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type);
+
 
 int 
 cmp_chksum_ent(const void *ce1, const void *ce2)
@@ -204,7 +207,19 @@ hash_insert_func hif, free_hash_func fhf, hash_lookup_offset_func hlof)
 }
 
 signed int
-base_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type)
+rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size)
+{
+    return common_rh_bucket_hash_init(rhash, ref_cfh, seed_len, sample_rate, hr_size, RH_BUCKET_HASH);
+}
+signed int
+rh_rbucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size)
+{
+    return common_rh_bucket_hash_init(rhash, ref_cfh, seed_len, sample_rate, hr_size, RH_RBUCKET_HASH);
+}
+
+static signed int
+common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type)
+
 {
 	bucket *rh;
 	unsigned long x, hash_shift;
