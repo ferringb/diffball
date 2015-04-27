@@ -144,6 +144,10 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	off_u64 ver_size;
 	off_u64 ver_pos, src_pos;
 
+	if(0 != cseek(patchf, 0, CSEEK_FSTART)) {
+		return EOF_ERROR;
+	}
+
 	if(cread(patchf, buff, 32)!=32) {
 		return EOF_ERROR;
 	}
