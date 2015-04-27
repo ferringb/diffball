@@ -39,6 +39,11 @@ static signed int rh_rbucket_cleanse(RefHash *rhash);
 static signed int
 common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type);
 
+//#define RH_BUCKET_NEED_RESIZE(x)    \
+//( (x) == 16 || (x) == 32 || (x) == 64 || (x) == 128 || (x) == 256 || (x) == 512)
+
+#define RH_BUCKET_NEED_RESIZE(x) \
+    ( ((x) & ((x) - 1)) == 0)
 
 int 
 cmp_chksum_ent(const void *ce1, const void *ce2)
@@ -311,9 +316,7 @@ base_rh_bucket_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset
 		if(low != -1 && (low == hash->depth[index] || hash->chksum[index][low] != chksum)) {
 			/* expand bucket if needed */
 
-#define NEED_RESIZE(x)	RH_BUCKET_NEED_RESIZE(x)
-
-			if(NEED_RESIZE(hash->depth[index])) {
+			if(RH_BUCKET_NEED_RESIZE(hash->depth[index])) {
 				if (RH_bucket_resize(hash, index, MIN(hash->max_depth, (hash->depth[index] * RH_BUCKET_REALLOC_RATE)))) {
 					return MEM_ERROR;
 				}

@@ -36,9 +36,6 @@
 
 #define RH_BUCKET_MIN_ALLOC 		(16)
 #define RH_BUCKET_REALLOC_RATE 		(2)
-#define RH_BUCKET_NEED_RESIZE(x)	\
-( (x) == 16 || (x) == 32 || (x) == 64 || (x) == 128 || (x) == 256 || (x) == 512)
-
 #define SUCCESSFULL_HASH_INSERT_NOW_IS_FULL		2
 #define SUCCESSFULL_HASH_INSERT						1
 #define FAILED_HASH_INSERT						0
