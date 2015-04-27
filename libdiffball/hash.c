@@ -26,31 +26,7 @@
 #include <diffball/bit-functions.h>
 
 static off_u64
-rh_mod_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-static off_u64
-base_rh_mod_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-static off_u64
-base_rh_sort_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-static off_u64
 base_rh_bucket_lookup(RefHash *, ADLER32_SEED_CTX *);
-
-static signed int
-rh_mod_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-static signed int
-base_rh_mod_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-static signed int
-base_rh_sort_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-static signed int
-rh_rmod_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
-
-static signed int
-rh_rsort_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
 
 static signed int
 rh_rbucket_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
@@ -58,7 +34,6 @@ rh_rbucket_insert_match(RefHash *, ADLER32_SEED_CTX *, off_u64);
 static signed int
 base_rh_bucket_hash_insert(RefHash *, ADLER32_SEED_CTX *, off_u64);
 
-static signed int base_rh_sort_hash(RefHash *rhash);
 static signed int rh_rbucket_cleanse(RefHash *rhash);
 
 
@@ -150,32 +125,6 @@ RH_bucket_find_chksum(unsigned short chksum, unsigned short array[],
 }
 
 static off_u64
-rh_mod_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
-{
-	return ((unsigned long *)rhash->hash)[get_checksum(ads) % rhash->hr_size];
-}
-
-static off_u64
-base_rh_mod_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
-{
-   unsigned long checksum, index;
-   checksum = get_checksum(ads);
-   index = checksum % rhash->hr_size;
-   return ((chksum_ent *)rhash->hash)[index].chksum == checksum ? ((chksum_ent *)rhash->hash)[index].offset : 0;
-}
-
-static off_u64
-base_rh_sort_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads)
-{
-	chksum_ent ent, *p;
-	ent.chksum = get_checksum(ads);
-	p = (chksum_ent*)bsearch(&ent, rhash->hash, rhash->hr_size, sizeof(chksum_ent), cmp_chksum_ent);
-	if(p == NULL)
-		return 0;
-	return p->offset;
-}
-
-static off_u64
 base_rh_bucket_lookup(RefHash *rhash, ADLER32_SEED_CTX *ads) {
 	bucket *hash = (bucket*)rhash->hash;
 	unsigned long index, chksum;
@@ -254,74 +203,6 @@ hash_insert_func hif, free_hash_func fhf, hash_lookup_offset_func hlof)
 	rhash->cleanse_hash = NULL;
 }
 
-
-signed int
-rh_mod_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size)
-{
-	unsigned long int x;
-	unsigned long *hash;
-	common_init_RefHash(rhash, ref_cfh, seed_len, sample_rate, RH_MOD_HASH, rh_mod_hash_insert, NULL, rh_mod_lookup);
-	if((rhash->hr_size = get_nearest_prime(hr_size)) == 0)
-		return MEM_ERROR;
-
-	if((hash=(unsigned long*)malloc(sizeof(unsigned long) * (rhash->hr_size)))==NULL) {
-			return MEM_ERROR;
-	}
-
-	// init the bugger==0
-	for(x=0; x < rhash->hr_size; x++) {
-		hash[x] = 0;
-	}
-	rhash->hash = (void *)hash;
-	rhash->flags |= RH_SORTED;
-	return 0;
-}
-
-
-signed int
-base_rh_rmod_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type)
-{
-	chksum_ent *hash;
-	unsigned long x;
-	common_init_RefHash(rhash, ref_cfh, seed_len, sample_rate, type, base_rh_mod_hash_insert, NULL, base_rh_mod_lookup);
-	if((rhash->hr_size = get_nearest_prime(hr_size)) == 0)
-		return MEM_ERROR;
-
-	if((hash=(chksum_ent *)malloc(sizeof(chksum_ent) * (rhash->hr_size)))==NULL) {
-		return MEM_ERROR;
-	}
-
-	for(x = 0; x < rhash->hr_size; x++)
-		hash[x].chksum = hash[x].offset = 0;
-	rhash->flags |= RH_SORTED;
-
-	if(type == RH_RMOD_HASH) {
-		rhash->flags |= RH_IS_REVLOOKUP;
-		rhash->insert_match = rh_rmod_insert_match;
-	}
-	rhash->hash = (void*)hash;
-	rhash->type = type;
-	return 0;
-}
-
-signed int
-base_rh_sort_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type)
-{
-	common_init_RefHash(rhash, ref_cfh, seed_len, sample_rate, type, base_rh_sort_hash_insert, NULL, base_rh_sort_lookup);
-	rhash->hr_size = hr_size;
-	if((rhash->hash = (void *)malloc(sizeof(chksum_ent) * rhash->hr_size))==NULL) {
-		return MEM_ERROR;
-	}
-	rhash->sort_hash = base_rh_sort_hash;
-	rhash->cleanse_hash = base_rh_sort_hash;
-	if(type == RH_RSORT_HASH) {
-		rhash->flags |= RH_IS_REVLOOKUP;
-		rhash->insert_match = rh_rsort_insert_match;
-	}
-	rhash->flags |= RH_SORTED;
-	return 0;
-}
-
 signed int
 base_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type)
 {
@@ -389,35 +270,6 @@ RH_bucket_resize(bucket *hash, unsigned long index, unsigned short size)
 }
 
 static signed int
-rh_mod_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
-{
-	unsigned long *hash = (unsigned long*) rhash->hash;
-	unsigned long index =0;
-	index = get_checksum(ads) % rhash->hr_size;
-	if(! hash[index]) {
-		hash[index] = offset;
-		return SUCCESSFULL_HASH_INSERT;
-	}
-	return FAILED_HASH_INSERT;
-}
-
-static signed int
-base_rh_mod_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
-{
-	chksum_ent *hash = (chksum_ent *)rhash->hash;
-	unsigned long chksum = get_checksum(ads);
-	unsigned long index = chksum % rhash->hr_size;
-	if(! hash[index].chksum) {
-		hash[index].chksum = chksum;
-		/* cmod == complete hash, not reverse lookups.  so the offset gets recorded */
-		if(rhash->type & RH_CMOD_HASH)
-			hash[index].offset = offset;
-		return SUCCESSFULL_HASH_INSERT;
-	}
-	return FAILED_HASH_INSERT;
-}
-
-static signed int
 base_rh_bucket_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	unsigned long chksum, index;
@@ -479,23 +331,6 @@ base_rh_bucket_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset
 		}
 	}
 	return FAILED_HASH_INSERT;
-}
-
-static signed int
-base_rh_sort_hash_insert(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
-{
-	chksum_ent *hash = (chksum_ent *)rhash->hash;
-	if(rhash->hr_size == rhash->inserts) {
-		v1printf("resizing from %lu to %lu\n", rhash->hr_size, rhash->hr_size + 1000);
-		if((hash = (chksum_ent *)realloc(rhash->hash, (rhash->hr_size + 1000) * sizeof(chksum_ent)))==NULL){
-			return MEM_ERROR;
-		}
-		rhash->hash = (void *)hash;
-		rhash->hr_size +=1000;
-	}
-	hash[rhash->inserts].chksum = get_checksum(ads);
-	hash[rhash->inserts].offset = (rhash->type == RH_SORT_HASH ? offset : 0);
-	return SUCCESSFULL_HASH_INSERT;
 }
 
 signed int
@@ -620,32 +455,6 @@ internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 r
 }
 
 static signed int
-rh_rsort_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
-{
-	chksum_ent m_ent, *match;
-	m_ent.chksum = get_checksum(ads) % rhash->hr_size;
-	match = bsearch(&m_ent, rhash->hash, rhash->hr_size, sizeof(chksum_ent), cmp_chksum_ent);
-	if(match != NULL && match->offset == 0) {
-		match->offset = offset;
-		return SUCCESSFULL_HASH_INSERT;
-	}
-	return FAILED_HASH_INSERT;
-}	
-
-static signed int
-rh_rmod_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
-{
-	unsigned long index, chksum;
-	chksum = get_checksum(ads);
-	index = chksum % rhash->hr_size;
-	if( ((chksum_ent *)rhash->hash)[index].chksum == chksum) {
-		((chksum_ent *)rhash->hash)[index].offset = offset;
-		return SUCCESSFULL_HASH_INSERT;
-	}
-	return FAILED_HASH_INSERT;
-}
-
-static signed int
 rh_rbucket_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 {
 	bucket *hash = (bucket *)rhash->hash;
@@ -662,61 +471,6 @@ rh_rbucket_insert_match(RefHash *rhash, ADLER32_SEED_CTX *ads, off_u64 offset)
 		}
 	}
 	return FAILED_HASH_INSERT;
-}
-
-static signed int
-base_rh_sort_hash(RefHash *rhash)
-{
-	unsigned long old_chksum, x=0, hash_offset=0;
-	chksum_ent *hash = (chksum_ent *)rhash->hash;
-	assert(rhash->inserts);
-	v1printf("inserts=%lu, hr_size=%lu\n", rhash->inserts, rhash->hr_size);
-	qsort(hash, rhash->inserts, sizeof(chksum_ent), cmp_chksum_ent);
-	old_chksum = hash[0].chksum;
-	rhash->duplicates=0;
-	for(x=1; x < rhash->inserts; x++) {
-		if(hash[x].chksum==old_chksum) {
-			rhash->duplicates++;
-		} else {
-			old_chksum = hash[x].chksum;
-			if(hash_offset) {
-				hash[x - rhash->duplicates].chksum = old_chksum;
-				hash[x - rhash->duplicates].offset = hash[x].offset;
-			}
-		}
-	}
-	rhash->inserts -= rhash->duplicates;
-	if((rhash->hash = (void *)realloc(rhash->hash, rhash->inserts * sizeof(chksum_ent)))==NULL) {
-		return MEM_ERROR;
-	}
-	rhash->hr_size = rhash->inserts;
-	v1printf("hash is %lu bytes\n", rhash->hr_size * sizeof(chksum_ent));
-	rhash->flags |= RH_SORTED;
-	return 0;
-}
-
-static signed int
-base_rh_sort_cleanse(RefHash *rhash)
-{
-	unsigned long x=0, hash_offset=0;
-	chksum_ent *hash = (chksum_ent *)rhash->hash;
-	assert(rhash->inserts);
-	assert(rhash->flags & RH_SORTED);
-	v1printf("inserts=%lu, hr_size=%lu\n", rhash->inserts, rhash->hr_size);
-	rhash->duplicates=0;
-	for(x=1; x < rhash->inserts; x++) {
-		if(hash[x].offset==0) {
-			rhash->duplicates++;
-		} else {
-			if(hash_offset) {
-				hash[x - rhash->duplicates].chksum = hash[x].chksum;
-				hash[x - rhash->duplicates].offset = hash[x].offset;
-			}
-		}
-	}
-	rhash->inserts -= rhash->duplicates;
-	rhash->hr_size = rhash->inserts;
-	return 0;
 }
 
 static signed int

@@ -132,34 +132,7 @@ common_init_RefHash(RefHash *, cfile *, unsigned int, unsigned int, unsigned int
 	hash_lookup_offset_func hlof);
 
 signed int
-rh_mod_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size);
-
-signed int
-base_rh_rmod_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, 
-	unsigned int type);
-
-#define rh_rmod_hash_init(rh,rc,sl,sr,hr)		\
-	base_rh_rmod_hash_init((rh),(rc),(sl),(sr),(hr), RH_RMOD_HASH)
-
-#define rh_cmod_hash_init(rh,rc,sl,sr,hr)		\
-	base_rh_rmod_hash_init((rh),(rc),(sl),(sr),(hr), RH_CMOD_HASH)
-
-signed int
-base_rh_sort_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, 
-	unsigned int type);
-
-signed int
 base_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, 
-	unsigned int type);
-
-#define rh_sort_hash_init(rh,rc,sl,sr,hr)		\
-	base_rh_sort_hash_init((rh),(rc),(sl),(sr),(hr), RH_SORT_HASH)
-
-#define rh_rsort_hash_init(rh,rc,sl,sr,hr)		\
-	base_rh_sort_hash_init((rh),(rc),(sl),(sr),(hr), RH_RSORT_HASH)
-
-signed int
-base_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, 
 	unsigned int type);
 
 #define rh_bucket_hash_init(rh,rc,sl,sr,hr)		\
