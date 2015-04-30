@@ -26,11 +26,6 @@
 #define DEFAULT_RHASH_SIZE			(0x10000)
 #define MIN_RHASH_SIZE				(0x10000)
 #define DEFAULT_RHASH_BUCKET_SIZE	(0x400)
-#define RH_MOD_HASH					(0x1)
-#define RH_RMOD_HASH				(0x2)
-#define RH_CMOD_HASH				(0x4)
-#define RH_SORT_HASH				(0x8)
-#define RH_RSORT_HASH				(0x10)
 #define RH_BUCKET_HASH				(0x20)
 #define RH_RBUCKET_HASH				(0x40)
 
@@ -82,7 +77,6 @@ typedef struct _RefHash {
 	hash_insert_func		 hash_insert;
 	hash_insert_func		insert_match;
 	free_hash_func		free_hash;
-	sort_hash_func		sort_hash;
 	cleanse_hash_func		cleanse_hash;
 	hash_lookup_offset_func		lookup_offset;
 	void *				hash;
@@ -114,7 +108,6 @@ internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 r
 signed int
 RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end);
 
-signed int RHash_sort(RefHash *rhash);
 signed int RHash_cleanse(RefHash *rhash);
 signed int free_RefHash(RefHash *rhash);
 void print_RefHash_stats(RefHash *rhash);

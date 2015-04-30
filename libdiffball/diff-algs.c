@@ -270,7 +270,6 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 				RHash_insert_block(&rhash, ver_cfh, dc.offset, dc.len + 
 					dc.offset);
 			}
-			RHash_sort(&rhash);
 			v1printf("looking for matches in reference file\n");
 			err=RHash_find_matches(&rhash, ref_cfh, 0, cfile_len(ref_cfh));
 			if(err) {
@@ -326,7 +325,6 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			if(err)
 				ERETURN(err);
 		}
-		RHash_sort(&rhash);
 
 #ifdef DEBUG_DCBUFFER
 		assert(DCB_test_llm_main(buff));

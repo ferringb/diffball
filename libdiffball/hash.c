@@ -63,14 +63,6 @@ RHash_cleanse(RefHash *rh)
 	return 0;
 }
 
-signed int
-RHash_sort(RefHash *rh)
-{
-	if(rh->sort_hash)
-		return rh->sort_hash(rh);
-	return 0;
-}
-
 
 static inline signed int
 RH_bucket_find_chksum_insert_pos(unsigned short chksum, unsigned short array[],
@@ -206,7 +198,6 @@ hash_insert_func hif, free_hash_func fhf, hash_lookup_offset_func hlof)
 	rhash->hash_insert = hif;
 	rhash->insert_match = NULL;
 	rhash->free_hash   = fhf;
-	rhash->sort_hash   = NULL;
 	rhash->lookup_offset = hlof;
 	rhash->cleanse_hash = NULL;
 }
@@ -362,11 +353,6 @@ RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 re
 {
 	if(rhash->flags & ~RH_IS_REVLOOKUP)
 		return 0;
-	if(rhash->sort_hash) {
-		signed int x = rhash->sort_hash(rhash);
-		if(x)
-			return x;
-	}
 	return internal_loop_block(rhash, ref_cfh, ref_start, ref_end, rhash->insert_match);
 }
 
@@ -544,16 +530,6 @@ print_RefHash_stats(RefHash *rhash) {
 	v1printf("hash stats: good duplicates(%f%%)\n", 100.0 - ((float)
 		rhash->bad_duplicates/rhash->duplicates * 100));
 #endif
-/*	if(rhash->type & RH_RSORT_HASH) {
-		for(x=0; x < rhash->hr_size; x++) {
-			if(rhash->hash.chk[x].offset) {
-				matched++;
-			}
-		}
-		v1printf("hash stats: matched entries(%lu), percentage(%f%%)\n", 
-			matched, ((float)matched/rhash->inserts)*100);
-	}
-*/
 	v1printf("hash stats: seed_len(%u), sample_rate(%u)\n", rhash->seed_len,
 		rhash->sample_rate);
 }
