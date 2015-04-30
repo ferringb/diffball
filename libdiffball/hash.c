@@ -255,14 +255,7 @@ common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len
 signed int
 RH_bucket_resize(bucket *hash, unsigned long index, unsigned short size)
 {
-	assert(
-		hash->depth[index]==0		|| 
-		hash->depth[index]==4		|| 
-		hash->depth[index]==8		|| 
-		hash->depth[index]==16		||
-		hash->depth[index]==32		||
-		hash->depth[index]==64		||
-		hash->depth[index]==128);
+    assert(RH_BUCKET_NEED_RESIZE(hash->depth[index]));
 	if(hash->depth[index]==0) {
 		if((hash->chksum[index] = (unsigned short *)malloc(size * sizeof(unsigned short)))==NULL)
 			return MEM_ERROR;
