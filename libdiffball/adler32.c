@@ -75,11 +75,6 @@ init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len,
 		ads->s1 = ads->s2 = ads->tail = 0;
 		ads->seed_len = seed_len;
 		ads->multi = 181;//multi;
-		if((ads->last_seed = (unsigned int *)
-			calloc(seed_len, sizeof(int)))==NULL) {
-				//printf("shite, error allocing needed memory\n");
-				return MEM_ERROR;
-		}
 		if((ads->seed_chars = (unsigned char *)calloc(seed_len, sizeof(unsigned char)))==NULL) {
 				return MEM_ERROR;
 		}
@@ -104,20 +99,18 @@ update_adler32_seed(ADLER32_SEED_CTX *ads, unsigned char *buff,
 			ads->s1 += buff[x];
 			ads->s2 *= ads->multi;
 			ads->s2 += ads->s1;
-			ads->last_seed[x] = buff[x];
 			ads->seed_chars[x] = buff[x];
 		}
-		ads->tail = 0;				
+		ads->tail = 0;
 	} else {
 		for(x=0; x < len; x++){
-			ads->s1 = ads->s1 - ads->last_seed[ads->tail] + buff[x];
+			ads->s1 = ads->s1 - ads->seed_chars[ads->tail] + buff[x];
 
-			ads->s2 -= (ads->last_multi * ads->last_seed[ads->tail]);
+			ads->s2 -= (ads->last_multi * ads->seed_chars[ads->tail]);
 			ads->s2 *= ads->multi;
 			ads->s2 += ads->s1;
 
 			ads->seed_chars[ads->tail] = buff[x];
-			ads->last_seed[ads->tail] = buff[x];
 			ads->tail = (ads->tail + 1) % ads->seed_len;
 		}
 	}
@@ -135,7 +128,6 @@ unsigned int
 free_adler32_seed(ADLER32_SEED_CTX *ads)
 {
 	//printf("free_adler32_seed\n");
-	free(ads->last_seed);
 	free(ads->seed_chars);
 	ads->s1 = ads->s2 = ads->tail = 0;
 	return 0;
