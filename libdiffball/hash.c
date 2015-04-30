@@ -244,7 +244,7 @@ common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len
 		return MEM_ERROR;
 	}
 	rhash->hash = (void *)rh;
-	if(type & RH_RBUCKET_HASH) {
+	if(type == RH_RBUCKET_HASH) {
 		rhash->cleanse_hash = rh_rbucket_cleanse;
 		rhash->flags |= RH_IS_REVLOOKUP;
 		rhash->insert_match = rh_rbucket_insert_match;
