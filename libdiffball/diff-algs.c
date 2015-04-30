@@ -40,7 +40,7 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 	unsigned long bad_match=0, no_match=0, good_match=0;
 	unsigned long hash_offset, x;
 	int err;
-	err = init_adler32_seed(&ads, rh->seed_len, 1);
+	err = init_adler32_seed(&ads, rh->seed_len);
 	if(err)
 			ERETURN(err);
 	va = vs = vc = 0;

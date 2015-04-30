@@ -68,8 +68,7 @@ static unsigned long PRIMES[] = {
 */
 
 int 
-init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len, 
-	unsigned int multi) 
+init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len)
 {
 		unsigned int x;
 		ads->s1 = ads->s2 = ads->tail = 0;

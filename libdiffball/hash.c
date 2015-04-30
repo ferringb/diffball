@@ -378,7 +378,7 @@ internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 r
 	unsigned long len;
 	signed int		 result;
 	cfile_window *cfw;
-	if(init_adler32_seed(&ads, rhash->seed_len, 1))
+	if(init_adler32_seed(&ads, rhash->seed_len))
 		return MEM_ERROR;
 	cseek(ref_cfh, ref_start, CSEEK_FSTART);
 	cfw = expose_page(ref_cfh);
