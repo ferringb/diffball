@@ -38,6 +38,8 @@ static signed int rh_rbucket_cleanse(RefHash *rhash);
 
 static signed int
 common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len, unsigned int sample_rate, unsigned long hr_size, unsigned int type);
+static signed int internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end, hash_insert_func);
+
 
 #define RH_BUCKET_NEED_RESIZE(x) \
     ( ((x) & ((x) - 1)) == 0)
@@ -353,7 +355,7 @@ RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 re
 	return internal_loop_block(rhash, ref_cfh, ref_start, ref_end, rhash->insert_match);
 }
 
-signed int
+static signed int
 internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end, hash_insert_func hif)
 {
 	ADLER32_SEED_CTX ads;

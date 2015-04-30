@@ -103,9 +103,6 @@ signed int
 RHash_insert_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end);
 
 signed int
-internal_loop_block(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end, hash_insert_func);
-
-signed int
 RHash_find_matches(RefHash *rhash, cfile *ref_cfh, off_u64 ref_start, off_u64 ref_end);
 
 signed int RHash_cleanse(RefHash *rhash);
