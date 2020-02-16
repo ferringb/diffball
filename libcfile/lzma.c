@@ -51,6 +51,7 @@ cseek_xz(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offset
 		}
 		cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
 			cfh->data.offset = cfh->data.end = 0;
+		xzs->avail_in = xzs->avail_out = 0;
 		if (ensure_lseek_position(cfh))
 		{
 			return (cfh->err = IO_ERROR);
