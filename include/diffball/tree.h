@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (C) 2003-2014 Brian Harring <ferringb@gmail.com>
-#ifndef _HEADER_BDELTA
-#define _HEADER_BDELTA 1
+#ifndef _HEADER_TREE
+#define _HEADER_TREE 1
 #include <diffball/dcbuffer.h>
 #include <cfile.h>
 
