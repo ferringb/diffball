@@ -24,19 +24,6 @@ int check_str_chksum(const unsigned char *block)
 	return (chksum == octal_str2long((block + TAR_CHKSUM_LOC), TAR_CHKSUM_LEN));
 }
 
-/* possibly this could be done different, what of endptr of strtol?
-   Frankly I worry about strtol trying to go too far and causing a segfault, due to tar fields not always having trailing \0 */
-inline unsigned long octal_str2long(const unsigned char *string, unsigned int length)
-{
-	char *ptr = (char *)malloc(length + 1);
-	unsigned long x;
-	strncpy((char *)ptr, (const char *)string, length);
-	ptr[length] = '\0'; /* overkill? */
-	x = strtol((char *)ptr, NULL, 8);
-	free(ptr);
-	return (x);
-}
-
 int read_fh_to_tar_entry(cfile *src_cfh, tar_entry **tar_entries,
 						 unsigned long *total_count)
 {
