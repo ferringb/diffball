@@ -80,3 +80,7 @@ free_adler32_seed(ADLER32_SEED_CTX *ads)
   ads->s1 = ads->s2 = ads->tail = 0;
   return 0;
 }
+
+// C standards for inline are stupid.
+extern void update_adler32_seed(ADLER32_SEED_CTX *ads, unsigned char *buff,
+                                unsigned int len);

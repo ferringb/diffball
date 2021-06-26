@@ -8,6 +8,9 @@
 #include <diffball/defs.h>
 #include "tar.h"
 
+// C standards for inline are stupid.
+extern unsigned long octal_str2long(const unsigned char *string, unsigned int length);
+
 int check_str_chksum(const unsigned char *block)
 {
 	/* the chksum is 8 bytes and lives at byte 148.

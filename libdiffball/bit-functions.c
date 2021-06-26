@@ -5,6 +5,12 @@
 #include <cfile.h>
 #include <assert.h>
 
+//c standards for inline are stupid.
+extern unsigned int unsignedBitsNeeded(unsigned long int y);
+extern unsigned int signedBitsNeeded(signed long int y);
+extern unsigned int unsignedBytesNeeded(unsigned long int y);
+extern unsigned int signedBytesNeeded(signed long int y);
+
 unsigned long
 readUBytesBE(const unsigned char *buff, unsigned int l)
 {

@@ -14,6 +14,11 @@ unsigned int largefile_support = 0;
 largefile_support = 1;
 #endif
 
+// C standards for inline are stupid.
+extern void flag_lseek_needed(cfile *cfh);
+extern void set_last_lseeker(cfile *cfh);
+extern signed int ensure_lseek_position(cfile *cfh);
+
 static inline int
 error_if_closed(cfile *cfh, const char *operation)
 {
