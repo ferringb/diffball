@@ -1,4 +1,4 @@
-AUTOMAKE_OPTIONS	= dist-bzip2 no-dist-gzip
+AUTOMAKE_OPTIONS	= dist-bzip2 no-dist-gzip foreign
 
 AM_CFLAGS = -Wall -D_GNU_SOURCE -I$(top_builddir)/include/
 SUBDIRS = libcfile libdiffball include man
