@@ -2,6 +2,8 @@
 AC_INIT(diffball, 1.0.1, ferringb@gmail.com)
 # Checks for programs.
 
+AC_PROG_CC_C99
+
 AC_ARG_ENABLE(asserts,
 AC_HELP_STRING([--enable-asserts],[enable all asserts (default no)]),
 [case "${enableval}" in
