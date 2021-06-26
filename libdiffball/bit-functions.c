@@ -229,7 +229,7 @@ int cwriteHighBitVariableIntLE(cfile *cfh, unsigned long long value)
 int cwriteHighBitVariableIntBE(cfile *cfh, unsigned long long value)
 {
 	unsigned char buff;
-	int bits_needed = unsignedBitsNeeded(value);
+	unsigned int bits_needed = unsignedBitsNeeded(value);
 	do
 	{
 		bits_needed = bits_needed - 7;
