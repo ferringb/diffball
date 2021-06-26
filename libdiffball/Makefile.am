@@ -7,7 +7,7 @@ DCB_FILES  = dcbuffer.c dcb-cfh-funcs.c command_list.c
 DIFF_FILES = diff-algs.c adler32.c primes.c hash.c $(DCB_FILES) errors.c apply-patch.c api.c
 
 libdiffball_la_LDFLAGS = -lm
-libdiffball_la_CFLAGS = $(AM_CFLAGS) -I$(top_builddir)/include
+libdiffball_la_CFLAGS = $(AM_CFLAGS) -I$(top_builddir)/include -DDIFFBALL_ENABLE_INLINE
 lib_LTLIBRARIES = libdiffball.la
 libdiffball_la_LIBADD = $(top_builddir)/libcfile/libcfile.la
 libdiffball_la_SOURCES = $(FORMATS) $(DIFF_FILES)

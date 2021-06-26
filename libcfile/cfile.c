@@ -619,41 +619,6 @@ copy_cfile_block(cfile *out_cfh, cfile *in_cfh, size_t in_offset, size_t len)
 	return bytes_wrote;
 }
 
-inline void
-flag_lseek_needed(cfile *cfh)
-{
-	if(CFH_IS_CHILD(cfh)) {
-		// if we last lseeked, reset it.
-		if (cfh->lseek_info.parent_ptr->lseek_info.parent.last == cfh->cfh_id) {
-			cfh->lseek_info.parent_ptr->lseek_info.parent.last = 0;
-		}
-	} else {
-		// same deal here.
-		if(cfh->lseek_info.parent.last == cfh->cfh_id) {
-			cfh->lseek_info.parent.last = 0;
-		}
-	}
-		
-}
-
-inline void
-set_last_lseeker(cfile *cfh)
-{
-	if(CFH_IS_CHILD(cfh)) {
-		cfh->lseek_info.parent_ptr->lseek_info.parent.last = cfh->cfh_id;
-	} else {
-		cfh->lseek_info.parent.last = cfh->cfh_id;
-	}
-}
-
-inline signed int
-ensure_lseek_position(cfile *cfh)
-{
-	if(LAST_LSEEKER(cfh) != cfh->cfh_id)
-		return raw_ensure_position(cfh);
-	return 0;
-}
-
 cfile_window *
 expose_page(cfile *cfh)
 {

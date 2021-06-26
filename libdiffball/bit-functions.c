@@ -6,45 +6,6 @@
 #include <assert.h>
 
 
-inline unsigned int 
-unsignedBitsNeeded(unsigned long int y)
-{
-	unsigned int x=1;
-	if (y == 0) {
-		return 0;
-	}
-	while((y = y >>1) > 0)
-		x++;
-	return x;	
-}
-
-inline unsigned int 
-signedBitsNeeded(signed long int y)
-{
-	return unsignedBitsNeeded(abs(y)) + 1;
-}
-
-inline unsigned int 
-unsignedBytesNeeded(unsigned long int y)
-{
-	unsigned int x;
-	if (y == 0) {
-		return 0;
-	}
-	x=unsignedBitsNeeded(y);
-	x= (x/8) + (x % 8 ? 1 : 0);
-	return x;
-}
-
-inline unsigned int 
-signedBytesNeeded(signed long int y)
-{
-	unsigned int x;
-	x=signedBitsNeeded(abs(y));
-	x= (x/8) + (x % 8 ? 1 : 0);
-	return x;
-}
-
 unsigned long 
 readUBytesBE(const unsigned char *buff, unsigned int l)
 {

@@ -71,44 +71,7 @@ init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len)
 	return 0;
 }
 
-inline void
-update_adler32_seed(ADLER32_SEED_CTX *ads, unsigned char *buff, 
-	unsigned int len) 
-{		
-	int x;
-	if(len==ads->seed_len) {
-		//printf("computing seed fully\n");
-		ads->s1 = ads->s2 = ads->tail =0;
-		for(x=0; x < ads->seed_len; x++) {
-			ads->s1 += buff[x];
-			ads->s2 *= ads->multi;
-			ads->s2 += ads->s1;
-			ads->seed_chars[x] = buff[x];
-		}
-		ads->tail = 0;
-	} else {
-		for(x=0; x < len; x++){
-			ads->s1 = ads->s1 - ads->seed_chars[ads->tail] + buff[x];
-
-			ads->s2 -= (ads->last_multi * ads->seed_chars[ads->tail]);
-			ads->s2 *= ads->multi;
-			ads->s2 += ads->s1;
-
-			ads->seed_chars[ads->tail] = buff[x];
-			ads->tail = (ads->tail + 1) % ads->seed_len;
-		}
-	}
-}
-
-/*
-unsigned long
-get_checksum(ADLER32_SEED_CTX *ads)
-{
-	return ads->s2;
-}
-*/
-
-unsigned int 
+unsigned int
 free_adler32_seed(ADLER32_SEED_CTX *ads)
 {
 	//printf("free_adler32_seed\n");

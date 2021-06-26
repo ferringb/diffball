@@ -14,10 +14,6 @@
 
 #include <cfile.h>
 
-inline unsigned int unsignedBitsNeeded(unsigned long int y);
-inline unsigned int signedBitsNeeded(signed long int y);
-inline unsigned int unsignedBytesNeeded(unsigned long int y);
-inline unsigned int signedBytesNeeded(signed long int y);
 
 unsigned long readUBytesBE(const unsigned char *buff, unsigned int l);
 unsigned long readUBytesLE(const unsigned char *buff, unsigned int l);
@@ -48,6 +44,53 @@ int
 cwriteHighBitVariableIntLE(cfile *cfh, unsigned long long value);
 signed long long
 creadHighBitVariableIntLE(cfile *cfh);
+
+
+#ifdef DIFFBALL_ENABLE_INLINE
+inline unsigned int 
+unsignedBitsNeeded(unsigned long int y)
+{
+        unsigned int x=1;
+        if (y == 0) {
+                return 0;
+        }
+        while((y = y >>1) > 0)
+                x++;
+        return x;       
+}
+
+inline unsigned int 
+signedBitsNeeded(signed long int y)
+{
+        return unsignedBitsNeeded(abs(y)) + 1;
+}
+
+inline unsigned int 
+unsignedBytesNeeded(unsigned long int y)
+{
+        unsigned int x;
+        if (y == 0) {
+                return 0;
+        }
+	x=unsignedBitsNeeded(y);
+        x= (x/8) + (x % 8 ? 1 : 0);
+        return x;
+}
+
+inline unsigned int 
+signedBytesNeeded(signed long int y)
+{
+        unsigned int x;
+        x=signedBitsNeeded(abs(y));
+        x= (x/8) + (x % 8 ? 1 : 0);
+        return x;
+}
+#else
+unsigned int unsignedBitsNeeded(unsigned long int y);
+unsigned int signedBitsNeeded(signed long int y);
+unsigned int unsignedBytesNeeded(unsigned long int y);
+unsigned int signedBytesNeeded(signed long int y);
+#endif
 
 #endif
 
