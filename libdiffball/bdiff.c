@@ -32,7 +32,7 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 #define BUFFER_SIZE 1024
 	//	unsigned char src_md5[16], ver_md5[16];
 	unsigned char buff[BUFFER_SIZE];
-	off_u32 count, delta_pos;
+	off_u32 delta_pos;
 	off_u64 fh_pos;
 	off_u32 lb;
 	DCommand dc;
@@ -50,7 +50,6 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 	cwrite(out_cfh, buff, BDIFF_MAGIC_LEN + 5);
 	delta_pos = 10;
 	fh_pos = 0;
-	count = 0;
 	while (DCB_commands_remain(buffer))
 	{
 		//	while(count--) {
@@ -106,7 +105,7 @@ signed int
 bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 {
 	unsigned char src_md5[16], ver_md5[16], buff[17];
-	off_u32 len, offset, maxlength;
+	off_u32 len, offset;
 	off_u64 fh_pos;
 	DCB_SRC_ID ref_id, add_id;
 
@@ -116,8 +115,8 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	/* skippping magic bdiff, and version char 'a' */
 	cseek(patchf, 6, CSEEK_ABS);
 	cread(patchf, buff, 4);
-	/* what the heck is maxlength used for? */
-	maxlength = readUBytesBE(buff, 4);
+	/* Format specifies a 'maxlength', but isn't actually used to my knowledge; read 4 bytes either way.  */
+	readUBytesBE(buff, 4);
 	fh_pos = 0;
 	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	//	ref_id = DCB_REGISTER_COPY_SRC(dcbuff, ref_cfh, NULL, 0);

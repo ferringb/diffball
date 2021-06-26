@@ -34,7 +34,6 @@ static char short_opts[] = STD_SHORT_OPTIONS "f:b:";
 
 int main(int argc, char **argv)
 {
-	int out_fh;
 	cfile src_cfh, out_cfh;
 	cfile patch_cfh[256];
 	memset(&src_cfh, 0, sizeof(cfile));
@@ -122,7 +121,6 @@ int main(int argc, char **argv)
 	patch_name = optind + argv;
 	if (output_to_stdout)
 	{
-		out_fh = 1;
 		if (patch_count == 0)
 		{
 			v0printf("Must specify an existing patch file!\n");

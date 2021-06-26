@@ -65,7 +65,6 @@ gdiffEncodeDCBuffer(CommandBuffer *buffer,
 	unsigned int lb = 0, ob = 0;
 	unsigned char off_is_sbytes = 0;
 	unsigned char out_buff[5];
-	unsigned long count;
 	DCommand dc;
 
 	if (offset_type == ENCODING_OFFSET_DC_POS)
@@ -88,7 +87,6 @@ gdiffEncodeDCBuffer(CommandBuffer *buffer,
 	}
 	cwrite(out_cfh, out_buff, GDIFF_VER_LEN);
 	DCBufferReset(buffer);
-	count = 0;
 	while (DCB_commands_remain(buffer))
 	{
 		DCB_get_next_command(buffer, &dc);

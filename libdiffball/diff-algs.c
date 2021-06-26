@@ -262,7 +262,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			first_run = 1;
 		}
 		gap_req = seed_len;
-		v1printf("\nseed size(%lu)...\n\n", seed_len);
+		v1printf("\nseed size(%u)...\n\n", seed_len);
 		gap_total_len = 0;
 		DCBufferReset(buff);
 

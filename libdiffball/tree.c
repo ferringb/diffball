@@ -609,7 +609,7 @@ read_file_manifest(cfile *patchf, struct relative_encoder *pe, multifile_file_da
 	multifile_file_data **results = calloc(sizeof(multifile_file_data *), file_count);
 	if (!results)
 	{
-		eprintf("Failed allocating internal array for %s file manifest: %lu entries.\n", manifest_name, file_count);
+		eprintf("Failed allocating internal array for %s file manifest: %lli entries.\n", manifest_name, file_count);
 		ERETURN(MEM_ERROR);
 	}
 	*fs = results;
@@ -1678,7 +1678,7 @@ build_and_swap_tmpspace_array(char ***final_paths_ptr, multifile_file_data **ref
 
 	for (x = 0; x < ref_count; x++)
 	{
-		int len = snprintf(buf, chars_needed, "%lu", x);
+		int len __attribute__((unused)) = snprintf(buf, chars_needed, "%lu", x);
 		assert(len <= chars_needed);
 		char *p = strdup(buf);
 		if (!p)
@@ -1874,13 +1874,13 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	assert(TREE_INTERFILE_MAGIC_LEN < sizeof(buff));
 	if (TREE_INTERFILE_MAGIC_LEN != cread(patchf, buff, TREE_INTERFILE_MAGIC_LEN))
 	{
-		eprintf("Failed reading intrafile magic in patch file at position %zu\n", delta_size + delta_start);
+		eprintf("Failed reading intrafile magic in patch file at position %llu\n", delta_size + delta_start);
 		err = PATCH_TRUNCATED;
 		goto cleanup;
 	}
 	if (memcmp(buff, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN) != 0)
 	{
-		eprintf("Failed to verify intrafile magic in patch file at position %zu; likely corrupted\n", delta_size + delta_start);
+		eprintf("Failed to verify intrafile magic in patch file at position %llu; likely corrupted\n", delta_size + delta_start);
 		err = PATCH_CORRUPT_ERROR;
 		goto cleanup;
 	}
@@ -1901,7 +1901,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		err = PATCH_TRUNCATED;
 		goto cleanup;
 	}
-	v3printf("command stream is %lu commands\n", command_count);
+	v3printf("command stream is %lli commands\n", command_count);
 
 	unsigned long file_pos = 0;
 	for (x = 0; x < command_count; x++)

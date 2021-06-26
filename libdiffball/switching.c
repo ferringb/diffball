@@ -61,7 +61,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	off_s64 s_off = 0;
 	off_u64 u_off = 0;
 	off_u32 delta_pos = 0, dc_pos = 0;
-	unsigned int lb, ob;
+	unsigned int lb;
 	signed int count;
 	unsigned int x, commands_processed;
 	unsigned char out_buff[256];
@@ -172,7 +172,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			out_buff[0] |= (temp << 6);
 			if (temp + 1 != cwrite(out_cfh, out_buff, temp + 1))
 			{
-				eprintf("Failed writing %lu to the patch fileu\n", temp + 1);
+				eprintf("Failed writing %u to the patch fileu\n", temp + 1);
 				return IO_ERROR;
 			}
 			v2printf("writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
@@ -237,22 +237,18 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			if (u_off >= copy_off_array[3])
 			{
 				temp = 3;
-				ob = 32;
 			}
 			else if (u_off >= copy_off_array[2])
 			{
 				temp = 2;
-				ob = 24;
 			}
 			else if (u_off >= copy_off_array[1])
 			{
 				temp = 1;
-				ob = 16;
 			}
 			else
 			{
 				temp = 0;
-				ob = 8;
 			}
 			out_buff[0] |= (temp << 4);
 			if (offset_type == ENCODING_OFFSET_DC_POS)

@@ -43,7 +43,6 @@ fdtuEncodeDCBuff(CommandBuffer *dcb, cfile *out_cfh)
 signed int
 fdtuReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcb)
 {
-	unsigned long int flags = 0;
 	unsigned long p_len;
 	unsigned long start = 0;
 	unsigned char buff[4];
@@ -90,9 +89,8 @@ fdtuReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcb)
 	cseek(patchf, 8, CSEEK_CUR);
 	if (cread(patchf, buff, 4) != 4)
 		return -1;
-	/* check for flags & 0x1, eg _redundant_ pristine information stored at 
-		the end. */
-	flags = readUBytesLE(buff, 4);
+	/* read the 'flags' field- it's redundant/unused, but read it to document the format. */
+	readUBytesLE(buff, 4);
 	if (cread(patchf, buff, 4) != 4)
 		return -1;
 	start += 16;

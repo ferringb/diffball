@@ -207,7 +207,6 @@ common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len
 
 {
 	bucket *rh;
-	unsigned long x, hash_shift;
 
 	common_init_RefHash(rhash, ref_cfh, seed_len, sample_rate, type, base_rh_bucket_hash_insert, rh_bucket_free, base_rh_bucket_lookup);
 	if (hr_size == 0)
@@ -215,8 +214,7 @@ common_rh_bucket_hash_init(RefHash *rhash, cfile *ref_cfh, unsigned int seed_len
 	if (hr_size < MIN_RHASH_SIZE)
 		hr_size = MIN_RHASH_SIZE;
 
-	hash_shift = unsignedBitsNeeded(hr_size);
-	assert((hr_size & ~(1 << hash_shift)) == hr_size);
+	assert((hr_size & ~(1 << unsignedBitsNeeded(hr_size))) == hr_size);
 
 	rhash->hr_size = hr_size;
 	rh = (bucket *)malloc(sizeof(bucket));

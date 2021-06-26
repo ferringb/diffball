@@ -28,7 +28,7 @@ check_bdelta_magic(cfile *patchf)
 signed int
 bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 {
-	off_u32 dc_pos, total_count, count, maxnum, matches;
+	off_u32 dc_pos, total_count, count, matches;
 	off_u32 add_len, copy_len;
 	off_u64 copy_offset;
 	unsigned char prev, current;
@@ -58,14 +58,6 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 			  (prev == DC_ADD && current == DC_ADD)))
 			matches++;
 	}
-	maxnum = MAX(matches, MAX(dcbuff->src_size, dcbuff->ver_size));
-	/*	if(maxnum <= 0x7f)
-		intsize=1;
-	else if(maxnum <= 0x7fff)
-		intsize=2;
-	else if(maxnum <= 0x7fffff)
-		intsize=3;
-	else*/
 	intsize = 4;
 
 	v2printf("size1=%llu, size2=%llu, matches=%u, intsize=%u\n", (act_off_u64)dcbuff->src_size,
@@ -158,7 +150,8 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	off_u32 size1, size2, or_mask = 0, neg_mask;
 	off_u64 ver_pos = 0, add_pos;
 	off_u64 processed_size = 0;
-	off_u32 add_start;
+	// Used for internal bookkeeping that is then asserted against if in debug mode.
+	off_u32 add_start __attribute__((unused));
 
 	dcbuff->ver_size = 0;
 	//	assert(DCBUFFER_FULL_TYPE == dcbuff->DCBtype);

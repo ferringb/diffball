@@ -451,7 +451,7 @@ void DCB_test_total_copy_len(CommandBuffer *buff)
 			computed_len += dc.data.len;
 	}
 
-	v0printf("dcbuffer test: copy_len(%lu==%lu)\n", buff->total_copy_len,
+	v0printf("dcbuffer test: copy_len(%u==%lu)\n", buff->total_copy_len,
 			 computed_len);
 	DCBufferReset(buff);
 #endif
@@ -807,7 +807,6 @@ int DCB_rec_copy_from_DCB_src(CommandBuffer *tdcb, command_list *tcl,
 	unsigned long index;
 	off_u64 tmp_len;
 	signed short int x;
-	unsigned long size_check;
 	DCLoc *cur;
 	DCB_registered_src *dcb_s;
 
@@ -928,7 +927,7 @@ int DCB_rec_copy_from_DCB_src(CommandBuffer *tdcb, command_list *tcl,
 				tdcb->srcs[x].ov->command[index].offset = sdcb->srcs[scl->src_id[com_offset]].ov->command[cur->offset].offset + seek;
 				tdcb->srcs[x].ov->command[index].len = tmp_len;
 				tdcb->srcs[x].ov->com_count++;
-				size_check = tcl->com_count;
+
 				assert(tdcb->srcs[x].ov != sdcb->srcs[scl->src_id[com_offset]].ov);
 				if (DCB_rec_copy_from_DCB_src(tdcb, tdcb->srcs[x].ov, sdcb,
 											  sdcb->srcs[scl->src_id[com_offset]].ov,
@@ -940,7 +939,6 @@ int DCB_rec_copy_from_DCB_src(CommandBuffer *tdcb, command_list *tcl,
 					return MEM_ERROR;
 				}
 
-				assert(size_check == tcl->com_count);
 				if (tcl->com_count == tcl->com_size)
 				{
 					if (internal_DCB_resize_cl(tcl))
