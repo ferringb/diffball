@@ -4,7 +4,7 @@
 /* as per the norm, modified version of zlib's adler32. 
    eg the code I've wroted, but the original alg/rolling chksum is 
    Mark Adler's baby....*/
-   
+
 /* adler32.c -- compute the Adler-32 checksum of a data stream
  * Copyright (C) 1995-2002 Mark Adler
  * For conditions of distribution and use, see copyright notice in zlib.h 
@@ -52,32 +52,31 @@ static unsigned long PRIMES[] = {
 };
 */
 
-int 
-init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len)
+int init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len)
 {
-		unsigned int x;
-		ads->s1 = ads->s2 = ads->tail = 0;
-		ads->seed_len = seed_len;
-		ads->multi = 181;//multi;
-		if((ads->seed_chars = (unsigned char *)calloc(seed_len, sizeof(unsigned char)))==NULL) {
-				return MEM_ERROR;
-		}
+  unsigned int x;
+  ads->s1 = ads->s2 = ads->tail = 0;
+  ads->seed_len = seed_len;
+  ads->multi = 181; //multi;
+  if ((ads->seed_chars = (unsigned char *)calloc(seed_len, sizeof(unsigned char))) == NULL)
+  {
+    return MEM_ERROR;
+  }
 
-		ads->last_multi = 1;
-		for(x=1; x < seed_len; x++) {
-			ads->last_multi *= ads->multi;
-			ads->last_multi++;
-		}
-	return 0;
+  ads->last_multi = 1;
+  for (x = 1; x < seed_len; x++)
+  {
+    ads->last_multi *= ads->multi;
+    ads->last_multi++;
+  }
+  return 0;
 }
 
 unsigned int
 free_adler32_seed(ADLER32_SEED_CTX *ads)
 {
-	//printf("free_adler32_seed\n");
-	free(ads->seed_chars);
-	ads->s1 = ads->s2 = ads->tail = 0;
-	return 0;
+  //printf("free_adler32_seed\n");
+  free(ads->seed_chars);
+  ads->s1 = ads->s2 = ads->tail = 0;
+  return 0;
 }
-
-

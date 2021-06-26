@@ -6,10 +6,9 @@
 #include <cfile.h>
 #include <diffball/dcbuffer.h>
 
-unsigned long default_dcb_src_cfh_read_func(u_dcb_src usrc, unsigned long src_pos, 
-	unsigned char *buf, unsigned long len);
+unsigned long default_dcb_src_cfh_read_func(u_dcb_src usrc, unsigned long src_pos,
+											unsigned char *buf, unsigned long len);
 
 unsigned long default_dcb_src_cfh_copy_func(DCommand *dc, cfile *out_cfh);
 
 #endif
-

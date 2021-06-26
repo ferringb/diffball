@@ -8,4 +8,3 @@ unsigned long skip_lines_forward(cfile *cfh, unsigned long n);
 unsigned long skip_lines_backward(cfile *cfh, unsigned long n);
 
 #endif
-

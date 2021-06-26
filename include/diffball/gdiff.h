@@ -37,18 +37,18 @@
 unsigned int check_gdiff4_magic(cfile *patchf);
 unsigned int check_gdiff5_magic(cfile *patchf);
 
-signed int gdiffEncodeDCBuffer(CommandBuffer *buffer, 
-	unsigned int offset_type, cfile *out_cfh);
-#define gdiff4EncodeDCBuffer(buff, ocfh)						\
+signed int gdiffEncodeDCBuffer(CommandBuffer *buffer,
+							   unsigned int offset_type, cfile *out_cfh);
+#define gdiff4EncodeDCBuffer(buff, ocfh) \
 	gdiffEncodeDCBuffer((buff), ENCODING_OFFSET_START, (ocfh))
-#define gdiff5EncodeDCBuffer(buff, ocfh)						\
+#define gdiff5EncodeDCBuffer(buff, ocfh) \
 	gdiffEncodeDCBuffer((buff), ENCODING_OFFSET_DC_POS, (ocfh))
 
-//signed int gdiffReconstructDCBuff(cfile *ref_cfh, cfile *patchf, CommandBuffer *dcbuff, 
-signed int gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff, 
-	unsigned int offset_type);
-#define gdiff4ReconstructDCBuff(rcfh, pcfh, buff)						 \
+//signed int gdiffReconstructDCBuff(cfile *ref_cfh, cfile *patchf, CommandBuffer *dcbuff,
+signed int gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
+								  unsigned int offset_type);
+#define gdiff4ReconstructDCBuff(rcfh, pcfh, buff) \
 	gdiffReconstructDCBuff((rcfh), (pcfh), (buff), ENCODING_OFFSET_START)
-#define gdiff5ReconstructDCBuff(rcfh, pcfh, buff)						\
+#define gdiff5ReconstructDCBuff(rcfh, pcfh, buff) \
 	gdiffReconstructDCBuff((rcfh), (pcfh), (buff), ENCODING_OFFSET_DC_POS)
 #endif

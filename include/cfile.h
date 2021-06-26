@@ -6,42 +6,42 @@
 #include <sys/types.h>
 extern unsigned int cfile_verbosity;
 
-#define CFILE_DEFAULT_BUFFER_SIZE 		(4096)
+#define CFILE_DEFAULT_BUFFER_SIZE (4096)
 //#define CFILE_DEFAULT_BUFFER_SIZE		(BUFSIZ)
-#define NO_COMPRESSOR					(0x0)
-#define GZIP_COMPRESSOR					(0x1)
-#define BZIP2_COMPRESSOR				(0x2)
-#define XZ_COMPRESSOR					(0x3)
-#define AUTODETECT_COMPRESSOR			(0x4)
+#define NO_COMPRESSOR (0x0)
+#define GZIP_COMPRESSOR (0x1)
+#define BZIP2_COMPRESSOR (0x2)
+#define XZ_COMPRESSOR (0x3)
+#define AUTODETECT_COMPRESSOR (0x4)
 
 // access flags
-#define CFILE_RONLY						(0x1)
-#define CFILE_WONLY						(0x2)
-#define CFILE_NEW						(0x10)
-#define CFILE_READABLE					(0x1)
-#define CFILE_WRITEABLE					(0x2)
-#define CFILE_WR						(CFILE_READABLE | CFILE_WRITEABLE)
-#define CFILE_OPEN_FH					(0x8)
-#define CFILE_SEEKABLE					(0x10)
-#define CFILE_BUFFER_ALL				(0x20)
-#define CFILE_SEEK_IS_COSTLY			(0x40)
+#define CFILE_RONLY (0x1)
+#define CFILE_WONLY (0x2)
+#define CFILE_NEW (0x10)
+#define CFILE_READABLE (0x1)
+#define CFILE_WRITEABLE (0x2)
+#define CFILE_WR (CFILE_READABLE | CFILE_WRITEABLE)
+#define CFILE_OPEN_FH (0x8)
+#define CFILE_SEEKABLE (0x10)
+#define CFILE_BUFFER_ALL (0x20)
+#define CFILE_SEEK_IS_COSTLY (0x40)
 
 // state flags
-#define CFILE_MEM_ALIAS					(0x40)
-#define CFILE_CHILD_CFH					(0x80)
-#define CFILE_EOF						(0x100)
-#define CFILE_IS_OPEN					(0x200)
-#define CFILE_FREE_AT_CLOSING			(0x400)
-#define CFILE_CHILD_INHERITS_IO			(0x800)
+#define CFILE_MEM_ALIAS (0x40)
+#define CFILE_CHILD_CFH (0x80)
+#define CFILE_EOF (0x100)
+#define CFILE_IS_OPEN (0x200)
+#define CFILE_FREE_AT_CLOSING (0x400)
+#define CFILE_CHILD_INHERITS_IO (0x800)
 //#define CFILE_FLAG_BACKWARD_SEEKS		(0x800)
 
-#define BZIP2_DEFAULT_COMPRESS_LEVEL		9
+#define BZIP2_DEFAULT_COMPRESS_LEVEL 9
 #ifdef DEBUG_CFILE
-#define BZIP2_VERBOSITY_LEVEL				4
+#define BZIP2_VERBOSITY_LEVEL 4
 #else
-#define BZIP2_VERBOSITY_LEVEL				0
+#define BZIP2_VERBOSITY_LEVEL 0
 #endif
-#define BZIP2_DEFAULT_WORK_LEVEL			30
+#define BZIP2_DEFAULT_WORK_LEVEL 30
 
 /*lseek type stuff
 SEEK_SET
@@ -52,44 +52,46 @@ SEEK_CUR
 SEEK_END
 		The offset is set to the size of the file plus off-
 		set bytes.*/
-#define CSEEK_ABS				0
-#define CSEEK_CUR				1
-#define CSEEK_END				2
-#define CSEEK_FSTART			3
+#define CSEEK_ABS 0
+#define CSEEK_CUR 1
+#define CSEEK_END 2
+#define CSEEK_FSTART 3
 
 /* errors */
-#define IO_ERROR                (-1)
-#define EOF_ERROR               (-2)
-#define MEM_ERROR               (-3)
+#define IO_ERROR (-1)
+#define EOF_ERROR (-2)
+#define MEM_ERROR (-3)
 
 #define CFILE_DEFAULT_MEM_ALIAS_W_REALLOC 0x40000
 
 // this is thrown when the api allows something, but code doesn't yet.
 // case in point, compressors bound to a copen_mem cfile.
 // doing it this route, rather then changing the api down the line.
-#define UNSUPPORTED_OPT			(-6)
+#define UNSUPPORTED_OPT (-6)
 
 typedef struct _cfile *cfile_ptr;
 typedef int (*copen_io_func)(cfile_ptr);
 typedef unsigned int (*cclose_io_func)(cfile_ptr, void *);
 typedef ssize_t (*cwrite_io_func)(cfile_ptr, void *src, size_t len);
 typedef ssize_t (*cread_io_func)(cfile_ptr, void *out, size_t len);
-typedef int     (*crefill_io_func)(cfile_ptr, void *);
+typedef int (*crefill_io_func)(cfile_ptr, void *);
 typedef ssize_t (*cflush_io_func)(cfile_ptr, void *);
 typedef ssize_t (*cseek_io_func)(cfile_ptr, void *, ssize_t raw_offset, ssize_t data_offset, int offset_type);
 
-typedef struct _cfile_io {
-	copen_io_func       open;
-	cclose_io_func      close;
-	cwrite_io_func      write;
-	cread_io_func       read;
-	crefill_io_func     refill;
-	cflush_io_func      flush;
-	cseek_io_func       seek;
-	void				*data;
+typedef struct _cfile_io
+{
+	copen_io_func open;
+	cclose_io_func close;
+	cwrite_io_func write;
+	cread_io_func read;
+	crefill_io_func refill;
+	cflush_io_func flush;
+	cseek_io_func seek;
+	void *data;
 } cfile_io;
 
-typedef struct {
+typedef struct
+{
 	size_t offset;
 	size_t pos;
 	size_t end;
@@ -101,56 +103,57 @@ typedef struct {
 	size_t window_len;
 } cfile_window;
 
-typedef unsigned short 		CFH_ID;
-typedef signed int			ECFH_ID;
+typedef unsigned short CFH_ID;
+typedef signed int ECFH_ID;
 
-typedef struct _cfile {
-	CFH_ID				cfh_id;
-	int					raw_fh;
-	unsigned int		compressor_type;
-	unsigned int		access_flags;
-	unsigned long		state_flags;
-	int					err;
+typedef struct _cfile
+{
+	CFH_ID cfh_id;
+	int raw_fh;
+	unsigned int compressor_type;
+	unsigned int access_flags;
+	unsigned long state_flags;
+	int err;
 
 	/* Note: this pretty much attrocious.  Needs sanitizing... */
-	union {
-		struct {
-			unsigned int		last;
-			unsigned int		handle_count;
+	union
+	{
+		struct
+		{
+			unsigned int last;
+			unsigned int handle_count;
 		} parent;
-		cfile_ptr	parent_ptr;
+		cfile_ptr parent_ptr;
 	} lseek_info;
 
-	cfile_window		data;
+	cfile_window data;
 
-	cfile_window		raw;
+	cfile_window raw;
 
 	/* io backing */
-	cfile_io 			io;
+	cfile_io io;
 
 } cfile;
 
-#define CFH_IS_SEEKABLE(cfh)		(((cfh)->access_flags & CFILE_SEEKABLE) > 1)
-#define CFH_SEEK_IS_COSTLY(cfh)		(((cfh)->access_flags & CFILE_SEEK_IS_COSTLY) > 1)
-#define FREE_CFH_AT_CLOSE(cfh)		((cfh)->state_flags |= CFILE_FREE_AT_CLOSING)
-#define CFH_IS_CHILD(cfh)		((cfh)->state_flags & CFILE_CHILD_CFH)
+#define CFH_IS_SEEKABLE(cfh) (((cfh)->access_flags & CFILE_SEEKABLE) > 1)
+#define CFH_SEEK_IS_COSTLY(cfh) (((cfh)->access_flags & CFILE_SEEK_IS_COSTLY) > 1)
+#define FREE_CFH_AT_CLOSE(cfh) ((cfh)->state_flags |= CFILE_FREE_AT_CLOSING)
+#define CFH_IS_CHILD(cfh) ((cfh)->state_flags & CFILE_CHILD_CFH)
 
-
-int internal_copen(cfile *cfh, int fh, 
-	size_t raw_fh_start, size_t raw_fh_end,
-	size_t data_fh_start, size_t data_fh_end,
-	unsigned int compressor_type, unsigned int access_flags);
+int internal_copen(cfile *cfh, int fh,
+				   size_t raw_fh_start, size_t raw_fh_end,
+				   size_t data_fh_start, size_t data_fh_end,
+				   unsigned int compressor_type, unsigned int access_flags);
 
 int copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compressor_type, unsigned int access_flags);
 int copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags);
 
 int copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
-	size_t fh_end, unsigned int compressor_type, unsigned int
-	access_flags);
+					size_t fh_end, unsigned int compressor_type, unsigned int access_flags);
 
 cfile *copen_dup_cfh(cfile *cfh);
-int copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end, 
-	unsigned int compressor_type, unsigned int access_flags);
+int copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end,
+				 unsigned int compressor_type, unsigned int access_flags);
 
 unsigned int cclose(cfile *cfh);
 ssize_t cread(cfile *cfh, void *out_buff, size_t len);
@@ -167,7 +170,8 @@ cfile_window *next_page(cfile *cfh);
 cfile_window *prev_page(cfile *cfh);
 int cfile_is_open(cfile *cfh);
 
-typedef struct {
+typedef struct
+{
 	char *filename;
 	struct stat *st;
 	size_t start;

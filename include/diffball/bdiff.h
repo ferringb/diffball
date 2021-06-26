@@ -5,7 +5,7 @@
 #define BDIFF_MAGIC "BDIFF"
 #define BDIFF_MAGIC_LEN 5
 #define BDIFF_VERSION 'a'
-#define BDIFF_DEFAULT_MAXBLOCKSIZE (1<<20)
+#define BDIFF_DEFAULT_MAXBLOCKSIZE (1 << 20)
 #include <diffball/diff-algs.h>
 #include <cfile.h>
 

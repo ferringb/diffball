@@ -5,17 +5,16 @@
 #include <diffball/dcbuffer.h>
 #include <cfile.h>
 
-#define BDELTA_MAGIC				"BDT"
-#define BDELTA_MAGIC_LEN		3
-#define BDELTA_VERSION				0x1
-#define BDELTA_VERSION_LEN		2
+#define BDELTA_MAGIC "BDT"
+#define BDELTA_MAGIC_LEN 3
+#define BDELTA_VERSION 0x1
+#define BDELTA_VERSION_LEN 2
 
 unsigned int check_bdelta_magic(cfile *patchf);
-signed int bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, 
-			cfile *out_cfh);
-signed int bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, 
-		CommandBuffer *dcbuff);
-
+signed int bdeltaEncodeDCBuffer(CommandBuffer *dcbuff,
+                                cfile *out_cfh);
+signed int bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
+                                   CommandBuffer *dcbuff);
 
 /* BDELTA Notes
   command is 3 intsize (intsize locked to 4 in last version of bdelta)

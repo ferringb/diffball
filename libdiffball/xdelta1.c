@@ -12,35 +12,47 @@ check_xdelta1_magic(cfile *patchf)
 {
 	unsigned char buff[XDELTA_MAGIC_LEN];
 	cseek(patchf, 0, CSEEK_FSTART);
-	if(XDELTA_MAGIC_LEN != cread(patchf, buff, XDELTA_MAGIC_LEN)) {
+	if (XDELTA_MAGIC_LEN != cread(patchf, buff, XDELTA_MAGIC_LEN))
+	{
 		return 0;
 	}
-	if(memcmp(buff, XDELTA_110_MAGIC, XDELTA_MAGIC_LEN)==0) {
+	if (memcmp(buff, XDELTA_110_MAGIC, XDELTA_MAGIC_LEN) == 0)
+	{
 		return 2;
-	} else if (memcmp(buff, XDELTA_104_MAGIC, XDELTA_MAGIC_LEN)==0) {
+	}
+	else if (memcmp(buff, XDELTA_104_MAGIC, XDELTA_MAGIC_LEN) == 0)
+	{
 		return 1;
-	} else if (memcmp(buff, XDELTA_100_MAGIC, XDELTA_MAGIC_LEN)==0) {
+	}
+	else if (memcmp(buff, XDELTA_100_MAGIC, XDELTA_MAGIC_LEN) == 0)
+	{
 		return 1;
-	} else if (memcmp(buff, XDELTA_020_MAGIC, XDELTA_MAGIC_LEN)==0) {
+	}
+	else if (memcmp(buff, XDELTA_020_MAGIC, XDELTA_MAGIC_LEN) == 0)
+	{
 		return 1;
-	} else if (memcmp(buff, XDELTA_018_MAGIC, XDELTA_MAGIC_LEN)==0) {
+	}
+	else if (memcmp(buff, XDELTA_018_MAGIC, XDELTA_MAGIC_LEN) == 0)
+	{
 		return 1;
-	} else if (memcmp(buff, XDELTA_014_MAGIC, XDELTA_MAGIC_LEN)==0) {
+	}
+	else if (memcmp(buff, XDELTA_014_MAGIC, XDELTA_MAGIC_LEN) == 0)
+	{
 		return 1;
 	}
 	return 0;
 }
 
-signed int 
-xdelta1EncodeDCBuffer(CommandBuffer *buffer, unsigned int version, 
-	cfile *out_cfh)
+signed int
+xdelta1EncodeDCBuffer(CommandBuffer *buffer, unsigned int version,
+					  cfile *out_cfh)
 {
 	return -1;
 }
 
-signed int 
-xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff, 
-	unsigned int version)
+signed int
+xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
+						 unsigned int version)
 {
 	cfile *add_cfh = NULL, *ctrl_cfh = NULL;
 	unsigned long control_offset, control_end, flags;
@@ -55,25 +67,29 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	cread(patchf, buff, 4);
 
 	dcbuff->ver_size = 0;
-	
-	// the header is 32 bytes, then 2 word's, each the length of the 
+
+	// the header is 32 bytes, then 2 word's, each the length of the
 	// src/trg file name.
 	add_start = 32 + readUBytesBE(buff, 2) + readUBytesBE(buff + 2, 2);
 	cseek(patchf, -12, CSEEK_END);
 	control_end = ctell(patchf, CSEEK_FSTART);
 	cread(patchf, buff, 4);
-	control_offset = readUBytesBE(buff,4);
+	control_offset = readUBytesBE(buff, 4);
 
 	cseek(patchf, control_offset, CSEEK_FSTART);
 
-	if(flags & XD_COMPRESSED_FLAG) {
+	if (flags & XD_COMPRESSED_FLAG)
+	{
 		v2printf("compressed segments detected\n");
-		if((ctrl_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL) {
+		if ((ctrl_cfh = (cfile *)calloc(1, sizeof(cfile))) == NULL)
+		{
 			return MEM_ERROR;
 		}
-		copen_child_cfh(ctrl_cfh, patchf, control_offset, control_end, 
-			GZIP_COMPRESSOR, CFILE_RONLY);
-	} else {
+		copen_child_cfh(ctrl_cfh, patchf, control_offset, control_end,
+						GZIP_COMPRESSOR, CFILE_RONLY);
+	}
+	else
+	{
 		ctrl_cfh = patchf;
 	}
 
@@ -82,7 +98,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 
 	/* read the frigging to length, since it's variable */
 	x = creadHighBitVariableIntLE(ctrl_cfh);
-		v2printf("to_len(%lu)\n", x);
+	v2printf("to_len(%lu)\n", x);
 
 	/* two bytes here I don't know about... */
 	cseek(ctrl_cfh, 2, CSEEK_CUR);
@@ -115,38 +131,50 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	v2printf("copy is sequential? (%u)\n", copy_is_sequential);
 	/* next get the number of instructions (eg copy | adds) */
 	count = creadHighBitVariableIntLE(ctrl_cfh);
-	proc_count=0;
+	proc_count = 0;
 	/* so starts the commands... */
 	v2printf("supposedly %lu commands...\nstarting command processing at %zi\n",
-		count, ctell(ctrl_cfh, CSEEK_FSTART));
-	if(flags & XD_COMPRESSED_FLAG) {
+			 count, ctell(ctrl_cfh, CSEEK_FSTART));
+	if (flags & XD_COMPRESSED_FLAG)
+	{
 		add_pos = 0;
-		if((add_cfh = (cfile *)calloc(1, sizeof(cfile)))==NULL) {
+		if ((add_cfh = (cfile *)calloc(1, sizeof(cfile))) == NULL)
+		{
 			return MEM_ERROR;
 		}
 		int err = copen_child_cfh(add_cfh, patchf, add_start, control_offset,
-			GZIP_COMPRESSOR, CFILE_RONLY);
-		if (err) {
+								  GZIP_COMPRESSOR, CFILE_RONLY);
+		if (err)
+		{
 			eprintf("Nonzero exit code opening the compressed segment of this xdelta patch: %i\n", err);
 			return err;
 		}
 		add_id = DCB_REGISTER_ADD_SRC(dcbuff, add_cfh, NULL, 1);
-	} else {
+	}
+	else
+	{
 		add_pos = add_start;
 		add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	}
 	ref_id = src_id;
-	while(proc_count++ != count) {
+	while (proc_count++ != count)
+	{
 		x = creadHighBitVariableIntLE(ctrl_cfh);
 		offset = creadHighBitVariableIntLE(ctrl_cfh);
 		len = creadHighBitVariableIntLE(ctrl_cfh);
-		if(x==XD_INDEX_COPY) {
+		if (x == XD_INDEX_COPY)
+		{
 			DCB_add_copy(dcbuff, offset, 0, len, ref_id);
-		} else {
-			if(add_is_sequential != 0) {
-				offset += add_pos; 
+		}
+		else
+		{
+			if (add_is_sequential != 0)
+			{
+				offset += add_pos;
 				add_pos += len;
-			} else {
+			}
+			else
+			{
 				offset += add_pos;
 			}
 			DCB_add_add(dcbuff, offset, len, add_id);
@@ -155,11 +183,10 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	v2printf("finishing position was %zi\n", ctell(ctrl_cfh, CSEEK_FSTART));
 	v2printf("processed %lu of %lu commands\n", proc_count, count);
 	dcbuff->ver_size = dcbuff->reconstruct_pos;
-	if(flags & XD_COMPRESSED_FLAG) {
+	if (flags & XD_COMPRESSED_FLAG)
+	{
 		cclose(ctrl_cfh);
 		free(ctrl_cfh);
 	}
 	return 0;
 }
-
-

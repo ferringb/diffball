@@ -5,40 +5,38 @@
 #include <diffball/dcbuffer.h>
 #include <cfile.h>
 
-#define TREE_MAGIC				"TREE"
-#define TREE_MAGIC_LEN		4
-#define TREE_VERSION				0x1
-#define TREE_VERSION_LEN		2
+#define TREE_MAGIC "TREE"
+#define TREE_MAGIC_LEN 4
+#define TREE_VERSION 0x1
+#define TREE_VERSION_LEN 2
 
-#define TREE_INTERFILE_MAGIC	"--TREE--"
-#define TREE_INTERFILE_MAGIC_LEN			8
+#define TREE_INTERFILE_MAGIC "--TREE--"
+#define TREE_INTERFILE_MAGIC_LEN 8
 
 unsigned int check_tree_magic(cfile *patchf);
-signed int treeEncodeDCBuffer(CommandBuffer *dcbuff, 
-			cfile *out_cfh);
-signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, 
-		CommandBuffer *dcbuff);
-
+signed int treeEncodeDCBuffer(CommandBuffer *dcbuff,
+                              cfile *out_cfh);
+signed int treeReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf,
+                                 CommandBuffer *dcbuff);
 
 // These are defined so that OS specific values- systems limited to unsigned short uid's for example-
 // don't wind up having OS sizes encoded into the cross OS patches.
-#define TREE_COMMAND_MODE_LEN		2
+#define TREE_COMMAND_MODE_LEN 2
 
-#define TREE_COMMAND_LEN		1
-#define TREE_COMMAND_REG 		0x00
-#define TREE_COMMAND_HARDLINK   0x01
-#define TREE_COMMAND_DIR		0x02
-#define TREE_COMMAND_SYM		0x03
-#define TREE_COMMAND_FIFO		0x04
-#define TREE_COMMAND_CHR		0x05
-#define TREE_COMMAND_BLK		0x06
-#define TREE_COMMAND_SOCKET		0x07
-#define TREE_COMMAND_UNLINK		0x08
+#define TREE_COMMAND_LEN 1
+#define TREE_COMMAND_REG 0x00
+#define TREE_COMMAND_HARDLINK 0x01
+#define TREE_COMMAND_DIR 0x02
+#define TREE_COMMAND_SYM 0x03
+#define TREE_COMMAND_FIFO 0x04
+#define TREE_COMMAND_CHR 0x05
+#define TREE_COMMAND_BLK 0x06
+#define TREE_COMMAND_SOCKET 0x07
+#define TREE_COMMAND_UNLINK 0x08
 
 // Flags for commands.
 // If set, then mtime is not encoded- ctime is the same value.
 #define TREE_COMMAND_REUSE_CTIME 0x40
-
 
 /* TREE NOTES
 
@@ -118,7 +116,6 @@ single byte command:
    filename null delimited; PE encoded
 
 */
-
 
 signed int treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_directory, const char *tmp_directory);
 
