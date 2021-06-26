@@ -224,8 +224,6 @@ int internal_DCB_register_volatile_cfh_src(CommandBuffer *dcb, cfile *cfh,
 #define DCB_REGISTER_COPY_SRC(dcb, cfh, func, free)		internal_DCB_register_cfh_src((dcb), (cfh), NULL, (func), DC_COPY, (free))
 #define DCB_register_src(dcb, cfh, rf, cf, free, type)  internal_DCB_register_cfh_src((dcb), (cfh), (rf), (cf), (type), (free))
 
-unsigned long inline current_command_type(CommandBuffer *buff);
-
 EDCB_SRC_ID DCB_register_fake_src(CommandBuffer *dcb, unsigned char type);
 EDCB_SRC_ID DCB_dumb_clone_src(CommandBuffer *dcb, DCB_registered_src *drs, unsigned char type);
 void DCB_register_out_cfh(CommandBuffer *dcb, cfile *out_cfh);
