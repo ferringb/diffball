@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/sysmacros.h>
 #include <diffball/dcbuffer.h>
 #include <diffball/defs.h>
 #include <cfile.h>
