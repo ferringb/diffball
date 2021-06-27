@@ -58,7 +58,7 @@ unsignedBitsNeeded(unsigned long int y)
 inline unsigned int
 signedBitsNeeded(signed long int y)
 {
-        return unsignedBitsNeeded(abs(y)) + 1;
+        return unsignedBitsNeeded(labs(y)) + 1;
 }
 
 inline unsigned int
@@ -78,7 +78,7 @@ inline unsigned int
 signedBytesNeeded(signed long int y)
 {
         unsigned int x;
-        x = signedBitsNeeded(abs(y));
+        x = signedBitsNeeded(labs(y));
         x = (x / 8) + (x % 8 ? 1 : 0);
         return x;
 }

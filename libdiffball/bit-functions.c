@@ -96,7 +96,7 @@ int cwriteUBytesLE(cfile *cfh, unsigned long value, unsigned int len)
 unsigned int
 writeSBytesBE(unsigned char *buff, signed long value, unsigned int l)
 {
-	if (writeUBytesBE(buff, (unsigned long)abs(value), l) != 0)
+	if (writeUBytesBE(buff, (unsigned long)labs(value), l) != 0)
 	{
 		return 1;
 	}
@@ -112,7 +112,7 @@ writeSBytesBE(unsigned char *buff, signed long value, unsigned int l)
 unsigned int
 writeSBytesLE(unsigned char *buff, signed long value, unsigned int l)
 {
-	if (writeUBytesLE(buff, (unsigned long)abs(value), l) != 0)
+	if (writeUBytesLE(buff, (unsigned long)labs(value), l) != 0)
 		return 1;
 	else if ((buff[0] & 0x80) != 0)
 		return 1;
@@ -126,7 +126,7 @@ writeSBitsBE(unsigned char *out_buff, signed long value, unsigned int bit_count)
 {
 	unsigned int start = 0;
 	start = bit_count % 8;
-	writeUBitsBE(out_buff, abs(value), bit_count);
+	writeUBitsBE(out_buff, labs(value), bit_count);
 	if (value < 0)
 	{
 		if (out_buff[0] & (1 << start))

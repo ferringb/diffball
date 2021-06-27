@@ -126,12 +126,12 @@ int crefill_xz(cfile *cfh, void *data)
 				xzs->next_in = cfh->raw.buff;
 			}
 			xz_err = lzma_code(xzs, LZMA_RUN);
-			if (xz_err != LZMA_OK && xz_err != LZMA_STREAM_END)
+			if (LZMA_OK != xz_err && LZMA_STREAM_END != xz_err)
 			{
 				v1printf("encountered err(%i) in xz crefill:%u\n", xz_err, __LINE__);
 				return IO_ERROR;
 			}
-			if ((xz_err == LZMA_STREAM_END))
+			if (LZMA_STREAM_END == xz_err)
 			{
 				dcprintf("encountered stream_end\n");
 				cfh->data.window_len = MAX(xzs->total_out,

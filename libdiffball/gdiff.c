@@ -135,7 +135,7 @@ gdiffEncodeDCBuffer(CommandBuffer *buffer,
 			if (off_is_sbytes)
 			{
 				s_off = (signed long)dc.data.src_pos - (signed long)dc_pos;
-				u_off = abs(s_off);
+				u_off = labs(s_off);
 				ob = signedBytesNeeded(s_off);
 			}
 			else

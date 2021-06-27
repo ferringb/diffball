@@ -471,7 +471,7 @@ cseek(cfile *cfh, ssize_t offset, int offset_type)
 
 	ssize_t data_offset;
 	if (CSEEK_ABS == offset_type)
-		data_offset = abs(offset) - cfh->data.window_offset;
+		data_offset = labs(offset) - cfh->data.window_offset;
 	else if (CSEEK_CUR == offset_type)
 		data_offset = cfh->data.offset + cfh->data.pos + offset;
 	else if (CSEEK_END == offset_type)

@@ -42,7 +42,6 @@ int main(int argc, char **argv)
 	signed long encode_result = 0;
 	unsigned long x, patch_format_id;
 	char src_common[512], trg_common[512], *p; /* common dir's... */
-	unsigned long match_count;
 	long sample_rate = 0, seed_len = 0, hash_size = 0;
 
 	cfile ref_full, ref_window, ver_window, ver_full, out_cfh;
@@ -342,7 +341,6 @@ int main(int argc, char **argv)
 			copen_child_cfh(&ref_window, &ref_full, tar_ptr->start, tar_ptr->end,
 							NO_COMPRESSOR, CFILE_RONLY | CFILE_BUFFER_ALL);
 
-			match_count++;
 			err = rh_bucket_hash_init(&rhash_win, &ref_window, 24, 1, 0);
 			check_return2(err, "init_RefHash");
 			err = RHash_insert_block(&rhash_win, &ref_window, 0,
