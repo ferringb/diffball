@@ -4,7 +4,6 @@
 #define _HEADER_CFILE
 
 #include <sys/types.h>
-extern unsigned int cfile_verbosity;
 
 #define CFILE_DEFAULT_BUFFER_SIZE (4096)
 //#define CFILE_DEFAULT_BUFFER_SIZE		(BUFSIZ)
@@ -204,5 +203,5 @@ unsigned char *cfile_read_string_delim(cfile *cfh, char delim, int eof_is_delim)
 void cfile_set_logging_level(unsigned int level);
 unsigned int cfile_get_logging_level();
 #define cfile_increase_logging_level() \
-	cfile_set_logging_level(MAX(100, cfile_get_logging_level() + 1))
+	cfile_set_logging_level(MIN(100, (cfile_get_logging_level() + 1)))
 #endif

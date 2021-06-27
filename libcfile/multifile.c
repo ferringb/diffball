@@ -189,7 +189,7 @@ cclose_multifile(cfile *cfh, void *raw)
 ssize_t
 cseek_multifile(cfile *cfh, void *raw, ssize_t orig_offset, ssize_t data_offset, int offset_type)
 {
-	dcprintf("requested to cseek to %lu\n", data_offset);
+	cfile_lprintf(1, "requested to cseek to %lu\n", data_offset);
 	multifile_data *data = (multifile_data *)raw;
 	cfh->data.pos = 0;
 	cfh->data.end = 0;
@@ -282,7 +282,7 @@ int crefill_multifile(cfile *cfh, void *raw)
 		return (cfh->err = IO_ERROR);
 	}
 	assert(cfh->data.offset + result <= cfh->data.window_len);
-	dcprintf("crefill_multifile: %u: no_compress, got %lu\n", cfh->cfh_id, cfh->data.end);
+	cfile_lprintf(1, "crefill_multifile: %u: no_compress, got %lu\n", cfh->cfh_id, cfh->data.end);
 	return 0;
 }
 
@@ -565,7 +565,7 @@ int copen_multifile_directory(cfile *cfh, const char *src_directory, multifile_d
 			files[i - 1]->st->st_ino == files[i]->st->st_ino)
 		{
 			files[i]->link_target = files[i - 1]->filename;
-			dcprintf("hardlink found: %s to %s\n", files[i]->filename, files[i]->link_target);
+			cfile_lprintf(1, "hardlink found: %s to %s\n", files[i]->filename, files[i]->link_target);
 		}
 	}
 	qsort(files, files_count, sizeof(multifile_file_data *), cmpstrcmp);

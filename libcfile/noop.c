@@ -10,7 +10,7 @@
 ssize_t
 cseek_no_comp(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offset_type)
 {
-	dcprintf("cseek: %u: no_compressor, flagging it\n", cfh->cfh_id);
+	cfile_lprintf(1, "cseek: %u: no_compressor, flagging it\n", cfh->cfh_id);
 	flag_lseek_needed(cfh);
 	cfh->data.offset = data_offset;
 	cfh->data.pos = cfh->data.end = 0;
@@ -18,7 +18,7 @@ cseek_no_comp(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int o
 	{
 		if (raw_ensure_position(cfh))
 		{
-			dcprintf("%u: raw_ensure_position on WONLY cfile failed\n", cfh->cfh_id);
+			cfile_lprintf(1, "%u: raw_ensure_position on WONLY cfile failed\n", cfh->cfh_id);
 			return IO_ERROR;
 		}
 	}
@@ -54,7 +54,7 @@ int crefill_no_comp(cfile *cfh, void *data)
 		cfh->state_flags |= CFILE_EOF;
 	cfh->data.end = x;
 	cfh->data.pos = 0;
-	dcprintf("crefill: %u: no_compress, got %lu\n", cfh->cfh_id, x);
+	cfile_lprintf(1, "crefill: %u: no_compress, got %lu\n", cfh->cfh_id, x);
 	return 0;
 }
 
@@ -94,7 +94,7 @@ cflush_no_comp(cfile *cfh, void *data)
 
 int internal_copen_no_comp(cfile *cfh)
 {
-	dcprintf("copen: opening w/ no_compressor\n");
+	cfile_lprintf(1, "copen: opening w/ no_compressor\n");
 	if (cfh->access_flags & CFILE_BUFFER_ALL)
 	{
 		cfh->data.size = cfh->data.window_len;
@@ -107,7 +107,7 @@ int internal_copen_no_comp(cfile *cfh)
 	{
 		return MEM_ERROR;
 	}
-	dcprintf("copen: buffer size(%lu), buffer_all(%u)\n", cfh->data.size,
+	cfile_lprintf(1, "copen: buffer size(%lu), buffer_all(%u)\n", cfh->data.size,
 			 cfh->access_flags & CFILE_BUFFER_ALL);
 	cfh->raw.size = 0;
 	cfh->raw.buff = NULL;

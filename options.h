@@ -21,6 +21,7 @@ struct usage_options
 
 #define OVERSION 'V'
 #define OVERBOSE 'v'
+#define CFILE_OVERBOSE 1000
 #define OUSAGE 'u'
 #define OHELP 'h'
 #define OSEED 'b'
@@ -50,13 +51,14 @@ struct usage_options
 #define STD_SHORT_OPTIONS \
 	"Vvcuh"
 
-#define STD_LONG_OPTIONS              \
-	{"version", 0, 0, OVERSION},      \
-		{"verbose", 0, 0, OVERBOSE},  \
-		{"to-stdout", 0, 0, OSTDOUT}, \
-		{"usage", 0, 0, OUSAGE},      \
-	{                                 \
-		"help", 0, 0, OHELP           \
+#define STD_LONG_OPTIONS                         \
+	{"version", 0, 0, OVERSION},                 \
+		{"verbose", 0, 0, OVERBOSE},             \
+		{"cfile-verbose", 0, 0, CFILE_OVERBOSE}, \
+		{"to-stdout", 0, 0, OSTDOUT},            \
+		{"usage", 0, 0, OUSAGE},                 \
+	{                                            \
+		"help", 0, 0, OHELP                      \
 	}
 
 #define STD_HELP_OPTIONS                             \
@@ -106,6 +108,10 @@ void print_usage(const char *prog, const char *usage_portion, struct usage_optio
 		DUMP_USAGE(0);                     \
 	case OVERBOSE:                         \
 		diffball_increase_logging_level(); \
+		break;                             \
+	case CFILE_OVERBOSE:                   \
+		printf("fuckity fuck\n");          \
+		cfile_increase_logging_level();    \
 		break;
 
 #define OPTIONS_COMMON_PATCH_ARGUMENTS(program) \

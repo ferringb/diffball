@@ -19,22 +19,15 @@
 #endif
 #define eprintf(expr...) fprintf(stderr, expr);
 
-#define cfile_lprintf(level, expr...)                \
-        {                                      \
-                if (level <= cfile_verbosity)  \
-                {                              \
-                        fprintf(stderr, expr); \
-                };                             \
+extern unsigned int _cfile_logging_level;
+#define cfile_lprintf(level, expr...)                      \
+        {                                                  \
+                if (level <= _cfile_logging_level)         \
+                {                                          \
+                        fprintf(stderr, "%s: ", __FILE__); \
+                        fprintf(stderr, expr);             \
+                };                                         \
         }
-
-#ifdef DEBUG_CFILE
-#include <stdio.h>
-#define dcprintf(fmt...)                   \
-        fprintf(stderr, "%s: ", __FILE__); \
-        fprintf(stderr, fmt);
-#else
-#define dcprintf(expr...) ((void)0);
-#endif
 
 #include "cfile.h"
 

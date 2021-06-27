@@ -37,7 +37,7 @@ extern unsigned int _diffball_logging_level;
 void diffball_set_logging_level(unsigned int level);
 unsigned int diffball_get_logging_level();
 #define diffball_increase_logging_level() \
-	diffball_set_logging_level(MAX(100, diffball_get_logging_level() + 1))
+	diffball_set_logging_level(MIN(100, (diffball_get_logging_level() + 1)))
 
 #ifdef DEV_VERSION
 #include <assert.h>

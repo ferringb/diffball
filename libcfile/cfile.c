@@ -8,7 +8,6 @@
 #include <fcntl.h>
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
-unsigned int cfile_verbosity;
 unsigned int largefile_support = 0;
 #ifdef _LARGEFILE_SOURCE
 largefile_support = 1;
@@ -106,10 +105,10 @@ int copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 	}
 
 	int err = 0;
-	dcprintf("copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
+	cfile_lprintf(1, "copen_child_cfh: %u: calling internal_copen\n", parent->cfh_id);
 	cfh->state_flags = CFILE_CHILD_CFH | parent->state_flags;
 	cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count++;
-	dcprintf("setting child id=%u\n", cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count);
+	cfile_lprintf(1, "setting child id=%u\n", cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count);
 	cfh->cfh_id = cfh->lseek_info.parent_ptr->lseek_info.parent.handle_count;
 	if (parent->compressor_type != NO_COMPRESSOR)
 	{
@@ -201,7 +200,7 @@ int copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsign
 		return UNSUPPORTED_OPT;
 	}
 
-	dcprintf("copen: calling internal_copen\n");
+	cfile_lprintf(1, "copen: calling internal_copen\n");
 	struct stat st;
 	int fd, flags;
 	size_t size = 0;
@@ -250,7 +249,7 @@ int copen_dup_fd(cfile *cfh, int fh, size_t fh_start, size_t fh_end,
 		return UNSUPPORTED_OPT;
 	}
 
-	dcprintf("copen: calling internal_copen\n");
+	cfile_lprintf(1, "copen: calling internal_copen\n");
 	cfh->state_flags = 0;
 	cfh->lseek_info.parent.last = 0;
 	cfh->lseek_info.parent.handle_count = 1;
@@ -273,13 +272,13 @@ int internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 
 	if (AUTODETECT_COMPRESSOR == compressor_type)
 	{
-		dcprintf("copen: autodetecting comp_type: ");
+		cfile_lprintf(1, "copen: autodetecting comp_type: ");
 		ret_val = cfile_identify_compressor(fh);
 		if (ret_val < 0)
 		{
 			return IO_ERROR;
 		}
-		dcprintf("got %ld\n", ret_val);
+		cfile_lprintf(1, "got %ld\n", ret_val);
 		cfh->compressor_type = ret_val;
 		flag_lseek_needed(cfh);
 	}
@@ -361,7 +360,7 @@ cclose(cfile *cfh)
 	{
 		cflush(cfh);
 	}
-	dcprintf("id(%u), data_size=%lu, raw_size=%lu\n", cfh->cfh_id, cfh->data.size, cfh->raw.size);
+	cfile_lprintf(1, "id(%u), data_size=%lu, raw_size=%lu\n", cfh->cfh_id, cfh->data.size, cfh->raw.size);
 	if (!(cfh->state_flags & CFILE_MEM_ALIAS))
 	{
 		if (cfh->data.buff)
@@ -413,7 +412,7 @@ cread(cfile *cfh, void *buff, size_t len)
 			val = crefill(cfh);
 			if (val <= 0)
 			{
-				dcprintf("%u: got an error/0 bytes, returning from cread\n", cfh->cfh_id);
+				cfile_lprintf(1, "%u: got an error/0 bytes, returning from cread\n", cfh->cfh_id);
 				if (val == 0)
 					return (bytes_wrote);
 				else
@@ -486,7 +485,7 @@ cseek(cfile *cfh, ssize_t offset, int offset_type)
 
 	if (cfh->access_flags & CFILE_WRITEABLE)
 	{
-		dcprintf("%u: flushing cfile prior to cseek\n", cfh->cfh_id);
+		cfile_lprintf(1, "%u: flushing cfile prior to cseek\n", cfh->cfh_id);
 		if (cflush(cfh))
 		{
 			return IO_ERROR;
@@ -498,7 +497,7 @@ cseek(cfile *cfh, ssize_t offset, int offset_type)
 		cfh->data.end > data_offset - cfh->data.offset)
 	{
 
-		dcprintf("cseek: %u: buffered data, repositioning pos\n", cfh->cfh_id);
+		cfile_lprintf(1, "cseek: %u: buffered data, repositioning pos\n", cfh->cfh_id);
 		cfh->data.pos = data_offset - cfh->data.offset;
 		return (CSEEK_ABS == offset_type ? data_offset + cfh->data.window_offset : data_offset);
 	}

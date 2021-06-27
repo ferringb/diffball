@@ -24,25 +24,25 @@ ssize_t
 cseek_xz(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offset_type)
 {
 	lzma_stream *xzs = (lzma_stream *)data;
-	dcprintf("cseek: %u: xz: data_off(%li), data.offset(%lu)\n", cfh->cfh_id, data_offset, cfh->data.offset);
+	cfile_lprintf(1, "cseek: %u: xz: data_off(%li), data.offset(%lu)\n", cfh->cfh_id, data_offset, cfh->data.offset);
 	if (data_offset < 0)
 	{
 		// this sucks.  quick kludge to find the eof, then set data_offset appropriately.
 		// do something better.
-		dcprintf("decompressed total_len isn't know, so having to decompress the whole shebang\n");
+		cfile_lprintf(1, "decompressed total_len isn't know, so having to decompress the whole shebang\n");
 		while (!(cfh->state_flags & CFILE_EOF))
 		{
 			crefill(cfh);
 		}
 		cfh->data.window_len = cfh->data.offset + cfh->data.end;
 		data_offset += cfh->data.window_len;
-		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
+		cfile_lprintf(1, "setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
 	}
 	if (data_offset < cfh->data.offset)
 	{
 		/* note this ain't optimal, but the alternative is modifying
 		   lzma to support seeking... */
-		dcprintf("cseek: xz: data_offset < cfh->data.offset, resetting\n");
+		cfile_lprintf(1, "cseek: xz: data_offset < cfh->data.offset, resetting\n");
 		flag_lseek_needed(cfh);
 		cfh->state_flags &= ~CFILE_EOF;
 		if (lzma_stream_decoder(xzs, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK) != LZMA_OK)
@@ -96,14 +96,14 @@ int crefill_xz(cfile *cfh, void *data)
 	assert(xzs->total_out >= cfh->data.offset + cfh->data.end);
 	if (cfh->state_flags & CFILE_EOF)
 	{
-		dcprintf("crefill: %u: xz: CFILE_EOF flagged, returning 0\n", cfh->cfh_id);
+		cfile_lprintf(1, "crefill: %u: xz: CFILE_EOF flagged, returning 0\n", cfh->cfh_id);
 		cfh->data.offset += cfh->data.end;
 		cfh->data.end = cfh->data.pos = 0;
 	}
 	else
 	{
 		cfh->data.offset += cfh->data.end;
-		dcprintf("crefill: %u: xzs, refilling data\n", cfh->cfh_id);
+		cfile_lprintf(1, "crefill: %u: xzs, refilling data\n", cfh->cfh_id);
 		xzs->avail_out = cfh->data.size;
 		xzs->next_out = cfh->data.buff;
 		do
@@ -112,7 +112,7 @@ int crefill_xz(cfile *cfh, void *data)
 										   (cfh->raw.end - xzs->avail_in) <
 									   cfh->raw.window_len))
 			{
-				dcprintf("crefill: %u: xzs, refilling raw: ", cfh->cfh_id);
+				cfile_lprintf(1, "crefill: %u: xzs, refilling raw: ", cfh->cfh_id);
 				if (ensure_lseek_position(cfh))
 				{
 					cfile_lprintf(1, "encountered IO_ERROR in xz crefill: %u\n", __LINE__);
@@ -120,7 +120,7 @@ int crefill_xz(cfile *cfh, void *data)
 				}
 				cfh->raw.offset += cfh->raw.end;
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size, cfh->raw.window_len - cfh->raw.offset));
-				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
+				cfile_lprintf(1, "read %lu of possible %lu\n", x, cfh->raw.size);
 				xzs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
 				xzs->next_in = cfh->raw.buff;
@@ -133,7 +133,7 @@ int crefill_xz(cfile *cfh, void *data)
 			}
 			if (LZMA_STREAM_END == xz_err)
 			{
-				dcprintf("encountered stream_end\n");
+				cfile_lprintf(1, "encountered stream_end\n");
 				cfh->data.window_len = MAX(xzs->total_out,
 										   cfh->data.window_len);
 				cfh->state_flags |= CFILE_EOF;

@@ -12,7 +12,7 @@ unsigned int
 internal_gzopen(cfile *cfh, z_stream *zs)
 {
 	unsigned int x, y, skip;
-	dcprintf("internal gz_open called\n");
+	cfile_lprintf(1, "internal gz_open called\n");
 	assert(zs != NULL);
 	zs->next_in = cfh->raw.buff;
 	zs->next_out = cfh->data.buff;
@@ -26,7 +26,7 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 
 	if (ensure_lseek_position(cfh))
 	{
-		dcprintf("internal_gzopen:%u ensure_lseek_position failed.n", __LINE__);
+		cfile_lprintf(1, "internal_gzopen:%u ensure_lseek_position failed.n", __LINE__);
 		return IO_ERROR;
 	}
 	x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size, cfh->raw.window_len - 2));
@@ -34,7 +34,7 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 
 	if (inflateInit2(zs, -MAX_WBITS) != Z_OK)
 	{
-		dcprintf("internal_gzopen:%u inflateInit2 failed\n", __LINE__);
+		cfile_lprintf(1, "internal_gzopen:%u inflateInit2 failed\n", __LINE__);
 		return IO_ERROR;
 	}
 
@@ -47,7 +47,7 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 
 	if (cfh->raw.buff[0] != Z_DEFLATED || (cfh->raw.buff[1] & GZ_RESERVED))
 	{
-		dcprintf("internal_gzopen:%u either !Z_DEFLATED || GZ_RESERVED\n", __LINE__);
+		cfile_lprintf(1, "internal_gzopen:%u either !Z_DEFLATED || GZ_RESERVED\n", __LINE__);
 		return IO_ERROR;
 	}
 	/* save flags, since it's possible the gzip header > cfh->raw.size */
@@ -72,8 +72,8 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 		skip++;
 	if (x & GZ_COMMENT)
 		skip++;
-	dcprintf("internal_gzopen:%u skip=%u\n", __LINE__, skip);
-	dcprintf("initial off(%lu), pos(%lu)\n", cfh->raw.offset, cfh->raw.pos);
+	cfile_lprintf(1, "internal_gzopen:%u skip=%u\n", __LINE__, skip);
+	cfile_lprintf(1, "initial off(%lu), pos(%lu)\n", cfh->raw.offset, cfh->raw.pos);
 	while (skip)
 	{
 		while (cfh->raw.buff[cfh->raw.pos] != 0)
@@ -93,7 +93,7 @@ internal_gzopen(cfile *cfh, z_stream *zs)
 		cfh->raw.pos++;
 		skip--;
 	}
-	dcprintf("after skip off(%lu), pos(%lu)\n", cfh->raw.offset, cfh->raw.pos);
+	cfile_lprintf(1, "after skip off(%lu), pos(%lu)\n", cfh->raw.offset, cfh->raw.pos);
 	if (x & GZ_HEAD_CRC)
 	{
 		cfh->raw.pos += 2;
@@ -133,26 +133,26 @@ ssize_t
 cseek_gzip(cfile *cfh, void *data, ssize_t offset, ssize_t data_offset, int offset_type)
 {
 	z_stream *zs = (z_stream *)data;
-	dcprintf("cseek: %u: gz: data_off(%li), data.offset(%lu)\n", cfh->cfh_id, data_offset, cfh->data.offset);
+	cfile_lprintf(1, "cseek: %u: gz: data_off(%li), data.offset(%lu)\n", cfh->cfh_id, data_offset, cfh->data.offset);
 	if (offset < 0)
 	{
 		// this sucks.  quick kludge to find the eof, then set data_offset appropriately.
 		// do something better.
-		dcprintf("decompressed total_len isn't know, so having to decompress the whole shebang\n");
+		cfile_lprintf(1, "decompressed total_len isn't know, so having to decompress the whole shebang\n");
 		while (!(cfh->state_flags & CFILE_EOF))
 		{
 			crefill(cfh);
 		}
 		cfh->data.window_len = cfh->data.offset + cfh->data.end;
 		data_offset += cfh->data.window_len;
-		dcprintf("setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
+		cfile_lprintf(1, "setting total_len(%lu); data.offset(%li), seek_target(%li)\n", cfh->data.window_len, cfh->data.offset, data_offset);
 	}
 
 	if (data_offset < cfh->data.offset)
 	{
 		/* note this ain't optimal, but the alternative is modifying
 		   zlib to support seeking... */
-		dcprintf("cseek: gz: data_offset < cfh->data.offset, resetting\n");
+		cfile_lprintf(1, "cseek: gz: data_offset < cfh->data.offset, resetting\n");
 		flag_lseek_needed(cfh);
 		inflateEnd(zs);
 		cfh->state_flags &= ~CFILE_EOF;
@@ -201,14 +201,14 @@ int crefill_gzip(cfile *cfh, void *data)
 	assert(zs->total_out >= cfh->data.offset + cfh->data.end);
 	if (cfh->state_flags & CFILE_EOF)
 	{
-		dcprintf("crefill: %u: gz: CFILE_EOF flagged, returning 0\n", cfh->cfh_id);
+		cfile_lprintf(1, "crefill: %u: gz: CFILE_EOF flagged, returning 0\n", cfh->cfh_id);
 		cfh->data.offset += cfh->data.end;
 		cfh->data.end = cfh->data.pos = 0;
 	}
 	else
 	{
 		cfh->data.offset += cfh->data.end;
-		dcprintf("crefill: %u: zs, refilling data\n", cfh->cfh_id);
+		cfile_lprintf(1, "crefill: %u: zs, refilling data\n", cfh->cfh_id);
 		zs->avail_out = cfh->data.size;
 		zs->next_out = cfh->data.buff;
 		do
@@ -217,7 +217,7 @@ int crefill_gzip(cfile *cfh, void *data)
 										  (cfh->raw.end - zs->avail_in) <
 									  cfh->raw.window_len))
 			{
-				dcprintf("crefill: %u: zs, refilling raw: ", cfh->cfh_id);
+				cfile_lprintf(1, "crefill: %u: zs, refilling raw: ", cfh->cfh_id);
 				if (ensure_lseek_position(cfh))
 				{
 					cfile_lprintf(1, "encountered IO_ERROR in gz crefill: %u\n", __LINE__);
@@ -225,7 +225,7 @@ int crefill_gzip(cfile *cfh, void *data)
 				}
 				cfh->raw.offset += cfh->raw.end;
 				x = read(cfh->raw_fh, cfh->raw.buff, MIN(cfh->raw.size, cfh->raw.window_len - cfh->raw.offset));
-				dcprintf("read %lu of possible %lu\n", x, cfh->raw.size);
+				cfile_lprintf(1, "read %lu of possible %lu\n", x, cfh->raw.size);
 				zs->avail_in = cfh->raw.end = x;
 				cfh->raw.pos = 0;
 				zs->next_in = cfh->raw.buff;
@@ -239,7 +239,7 @@ int crefill_gzip(cfile *cfh, void *data)
 			}
 			if (err == Z_STREAM_END)
 			{
-				dcprintf("encountered stream_end\n");
+				cfile_lprintf(1, "encountered stream_end\n");
 				/* this doesn't handle u64 yet, so make it do so at some point*/
 				cfh->data.window_len = MAX(zs->total_out,
 										   cfh->data.window_len);
