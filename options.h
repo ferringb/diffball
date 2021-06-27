@@ -96,4 +96,25 @@ void print_usage(const char *prog, const char *usage_portion, struct usage_optio
 
 // just reuse dcbuffer's logging level.
 #define lprintf(level, expr...) dcb_lprintf(level, expr)
+
+#define OPTIONS_COMMON_ARGUMENTS(program)  \
+	case OVERSION:                         \
+		print_version(program);            \
+		exit(0);                           \
+	case OUSAGE:                           \
+	case OHELP:                            \
+		DUMP_USAGE(0);                     \
+	case OVERBOSE:                         \
+		diffball_increase_logging_level(); \
+		break;
+
+#define OPTIONS_COMMON_PATCH_ARGUMENTS(program) \
+	OPTIONS_COMMON_ARGUMENTS(program);          \
+	case 'f':                                   \
+		src_format = optarg;                    \
+		break;                                  \
+	case OSTDOUT:                               \
+		output_to_stdout = 1;                   \
+		break;
+
 #endif

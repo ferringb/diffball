@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 	tar_entry **src_ptrs = NULL;
 	tar_entry *target = NULL;
 	tar_entry *tar_ptr = NULL;
-	unsigned int patch_to_stdout = 0;
+	unsigned int output_to_stdout = 0;
 	char *patch_format = NULL;
 	void *vptr;
 	signed err;
@@ -84,8 +84,14 @@ int main(int argc, char **argv)
 	{
 		switch (optr)
 		{
+			OPTIONS_COMMON_ARGUMENTS("diffball");
+
+		// this should be renamed to '-t' for --target
 		case 'f':
 			patch_format = optarg;
+			break;
+		case OSTDOUT:
+			output_to_stdout = 1;
 			break;
 		case OSAMPLE:
 			sample_rate = atol(optarg);
@@ -101,19 +107,6 @@ int main(int argc, char **argv)
 			seed_len = atol(optarg);
 			if (seed_len == 0 || seed_len > MAX_SEED_LEN)
 				DUMP_USAGE(EXIT_USAGE);
-			break;
-		case OVERSION:
-			print_version("diffball");
-			exit(0);
-		case OVERBOSE:
-			diffball_increase_logging_level();
-			break;
-		case OSTDOUT:
-			patch_to_stdout = 1;
-			break;
-		case OUSAGE:
-		case OHELP:
-			DUMP_USAGE(0);
 			break;
 		default:
 			dcb_lprintf(0, "invalid arg- %s\n", argv[optind]);
@@ -153,7 +146,7 @@ int main(int argc, char **argv)
 			exit(EXIT_USAGE);
 		}
 	}
-	if (patch_to_stdout != 0)
+	if (output_to_stdout != 0)
 	{
 		out_fh = 1;
 	}

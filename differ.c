@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	unsigned long sample_rate = 0;
 	unsigned long seed_len = 0;
 	unsigned long hash_size = 0;
-	unsigned int patch_to_stdout = 0;
+	unsigned int output_to_stdout = 0;
 
 #define DUMP_USAGE(exit_code) \
 	print_usage("differ", "src_file trg_file [patch_file|or to stdout]", help_opts, exit_code);
@@ -59,15 +59,7 @@ int main(int argc, char **argv)
 	{
 		switch (optr)
 		{
-		case OVERSION:
-			print_version("differ");
-			exit(0);
-		case OUSAGE:
-		case OHELP:
-			DUMP_USAGE(0);
-		case OVERBOSE:
-			diffball_increase_logging_level();
-			break;
+			OPTIONS_COMMON_ARGUMENTS("differ");
 		case OSAMPLE:
 			sample_rate = atol(optarg);
 			if (sample_rate == 0 || sample_rate > MAX_SAMPLE_RATE)
@@ -84,7 +76,7 @@ int main(int argc, char **argv)
 				DUMP_USAGE(EXIT_USAGE);
 			break;
 		case OSTDOUT:
-			patch_to_stdout = 1;
+			output_to_stdout = 1;
 			break;
 		case 'f':
 			patch_format = optarg;
@@ -130,7 +122,7 @@ int main(int argc, char **argv)
 		}
 		DUMP_USAGE(EXIT_USAGE);
 	}
-	if (patch_to_stdout != 0)
+	if (output_to_stdout != 0)
 	{
 		out_fh = 1;
 	}
@@ -170,7 +162,7 @@ int main(int argc, char **argv)
 
 	dcb_lprintf(1, "using patch format %lu\n", patch_id);
 	dcb_lprintf(1, "using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
-			seed_len, sample_rate, hash_size);
+				seed_len, sample_rate, hash_size);
 	dcb_lprintf(1, "DCB verbosity level(%u)\n", diffball_get_logging_level());
 	dcb_lprintf(1, "cfile verbosity level(%u)\n", cfile_get_logging_level());
 	dcb_lprintf(1, "initializing Command Buffer...\n");
@@ -181,7 +173,7 @@ int main(int argc, char **argv)
 	close(out_fh);
 	if (err)
 	{
-		if (!patch_to_stdout)
+		if (!output_to_stdout)
 		{
 			unlink(patch_name);
 		}

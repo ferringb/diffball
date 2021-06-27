@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	unsigned long format_id;
 	signed long int recon_val = 0;
 	unsigned int output_to_stdout = 0;
-	char *patch_format = NULL;
+	char *src_format = NULL;
 	int optr = 0, err;
 	unsigned long reconst_size = 0xffff;
 
@@ -60,27 +60,13 @@ int main(int argc, char **argv)
 	{
 		switch (optr)
 		{
-		case OVERSION:
-			print_version("patcher");
-			exit(0);
-		case OUSAGE:
-		case OHELP:
-			DUMP_USAGE(0);
-		case OVERBOSE:
-			diffball_increase_logging_level();
-			break;
-		case OSTDOUT:
-			output_to_stdout = 1;
-			break;
-		case 'f':
-			patch_format = optarg;
-			break;
+			OPTIONS_COMMON_PATCH_ARGUMENTS("patcher");
 		case 'b':
 			reconst_size = atol(optarg);
 			if (reconst_size > 0x4000000 || reconst_size == 0)
 			{
 				dcb_lprintf(0, "requested buffer size %lu isn't sane.  Must be greater then 0, and less then %lu\n",
-						reconst_size, 0x4000000L);
+							reconst_size, 0x4000000L);
 				exit(EXIT_USAGE);
 			}
 			break;
@@ -150,12 +136,12 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	if (patch_format != NULL)
+	if (src_format != NULL)
 	{
-		format_id = check_for_format(patch_format, strlen(patch_format));
+		format_id = check_for_format(src_format, strlen(src_format));
 		if (format_id == 0)
 		{
-			dcb_lprintf(0, "desired forced patch format '%s' is unknown\n", patch_format);
+			dcb_lprintf(0, "desired forced patch format '%s' is unknown\n", src_format);
 			exit(EXIT_FAILURE);
 		}
 	}

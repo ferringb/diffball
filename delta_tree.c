@@ -14,8 +14,6 @@
 #include "options.h"
 #include <diffball/errors.h>
 
-unsigned int global_verbosity = 0;
-
 char *patch_format;
 
 #define SRC_EXCLUDE_FILE 254
@@ -191,15 +189,7 @@ int main(int argc, char **argv)
 	{
 		switch (optr)
 		{
-		case OVERSION:
-			print_version("delta_tree");
-			exit(0);
-		case OUSAGE:
-		case OHELP:
-			DUMP_USAGE(0);
-		case OVERBOSE:
-			global_verbosity++;
-			break;
+			OPTIONS_COMMON_ARGUMENTS("delta_tree");
 		case OSAMPLE:
 			sample_rate = atol(optarg);
 			if (sample_rate == 0 || sample_rate > MAX_SAMPLE_RATE)
@@ -315,8 +305,9 @@ int main(int argc, char **argv)
 
 	dcb_lprintf(1, "using patch format %lu\n", patch_id);
 	dcb_lprintf(1, "using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
-			 seed_len, sample_rate, hash_size);
-	dcb_lprintf(1, "verbosity level(%u)\n", global_verbosity);
+				seed_len, sample_rate, hash_size);
+	dcb_lprintf(1, "dcb: verbosity level(%u)\n", diffball_get_logging_level());
+	dcb_lprintf(1, "cfile: verbosity level(%u)\n", cfile_get_logging_level());
 	dcb_lprintf(1, "initializing Command Buffer...\n");
 
 	encode_result = simple_difference(&ref_cfh, &ver_cfh, &out_cfh, patch_id, seed_len, sample_rate, hash_size);

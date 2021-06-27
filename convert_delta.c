@@ -61,24 +61,11 @@ int main(int argc, char **argv)
 	{
 		switch (optr)
 		{
-		case OVERSION:
-			print_version("convert_delta");
-			exit(0);
-		case OUSAGE:
-		case OHELP:
-			DUMP_USAGE(0);
-		case OVERBOSE:
-			diffball_increase_logging_level();
-			break;
-		case 'f':
-			src_format = optarg;
-			break;
+			OPTIONS_COMMON_PATCH_ARGUMENTS("convert_delta");
 		case 't':
 			trg_format = optarg;
 			break;
-		case OSTDOUT:
-			output_to_stdout = 1;
-			break;
+
 		default:
 			dcb_lprintf(0, "unknown option %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);

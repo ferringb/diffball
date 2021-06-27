@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 
 	unsigned int output_to_stdout = 0;
 
-	char *patch_format = NULL;
+	char *src_format = NULL;
 	int optr = 0, err;
 	unsigned long reconst_size = 0xffff;
 
@@ -57,21 +57,7 @@ int main(int argc, char **argv)
 	{
 		switch (optr)
 		{
-		case OVERSION:
-			print_version("delta_patcher");
-			exit(0);
-		case OUSAGE:
-		case OHELP:
-			DUMP_USAGE(0);
-		case OVERBOSE:
-			diffball_increase_logging_level();
-			break;
-		case OSTDOUT:
-			output_to_stdout = 1;
-			break;
-		case 'f':
-			patch_format = optarg;
-			break;
+			OPTIONS_COMMON_PATCH_ARGUMENTS("delta_patcher");
 		case 'b':
 			reconst_size = atol(optarg);
 			if (reconst_size > 0x4000000 || reconst_size == 0)
@@ -122,12 +108,12 @@ int main(int argc, char **argv)
 	dcb_lprintf(1, "dcb: verbosity level(%u)\n", diffball_get_logging_level());
 	dcb_lprintf(1, "cfile: verbosity level(%u)\n", cfile_get_logging_level());
 
-	if (patch_format != NULL)
+	if (src_format != NULL)
 	{
-		format_id = check_for_format(patch_format, strlen(patch_format));
+		format_id = check_for_format(src_format, strlen(src_format));
 		if (format_id == 0)
 		{
-			dcb_lprintf(0, "desired forced patch format '%s' is unknown\n", patch_format);
+			dcb_lprintf(0, "desired forced patch format '%s' is unknown\n", src_format);
 			exit(EXIT_FAILURE);
 		}
 	}
