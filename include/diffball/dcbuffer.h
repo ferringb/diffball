@@ -200,17 +200,6 @@ typedef struct _CommandBuffer
 #define copyDCB_copy_src(dcb, dc, out_cfh) \
 	((dc)->dcb_src->copy_func((dc), (out_cfh)))
 
-/* not used anymore, chuck at some point */
-#define DCB_REGISTER_MATCHES_VER_CFH(buff, cfh)                    \
-	if ((buff)->DCBtype == DCBUFFER_MATCHES_TYPE)                  \
-	{                                                              \
-		(buff)->DCB.matches.ver_start = cfile_start_offset((cfh)); \
-	}                                                              \
-	else if ((buff)->DCBtype == DCBUFFER_LLMATCHES_TYPE)           \
-	{                                                              \
-		(buff)->DCB.llm.ver_start = cfile_start_offset((cfh));     \
-	}
-
 int DCB_register_dcb_src(CommandBuffer *dcb, CommandBuffer *dcb_src);
 int DCB_register_overlay_src(CommandBuffer *dcb,
 							 cfile *src, dcb_src_read_func rf1, dcb_src_copy_func rc1,
