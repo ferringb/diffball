@@ -55,7 +55,7 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 		if (DC_COPY == dc.type)
 		{
 			dcb_lprintf(2, "copy command, out_cfh(%u), fh_pos(%llu), offset(%llu), len(%u)\n",
-					 delta_pos, (act_off_u64)fh_pos, (act_off_u64)dc.data.src_pos, dc.data.len);
+						delta_pos, (act_off_u64)fh_pos, (act_off_u64)dc.data.src_pos, dc.data.len);
 			fh_pos += dc.data.len;
 			lb = 5;
 			buff[0] = 0;
@@ -75,7 +75,7 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 		else
 		{
 			dcb_lprintf(2, "add  command, out_cfh(%u), fh_pos(%llu), len(%u)\n",
-					 delta_pos, (act_off_u64)fh_pos, dc.data.len);
+						delta_pos, (act_off_u64)fh_pos, dc.data.len);
 			fh_pos += dc.data.len;
 			buff[0] = 0x80;
 			lb = 1;
@@ -105,7 +105,6 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	unsigned char src_md5[16], ver_md5[16], buff[17];
 	off_u32 len, offset;
 	off_u64 fh_pos;
-	DCB_SRC_ID ref_id, add_id;
 
 	dcbuff->ver_size = 0;
 	memset(src_md5, 0, 16);
@@ -116,8 +115,7 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	/* Format specifies a 'maxlength', but isn't actually used to my knowledge; read 4 bytes either way.  */
 	readUBytesBE(buff, 4);
 	fh_pos = 0;
-	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
-	ref_id = src_id;
+	EDCB_SRC_ID add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	while (1 == cread(patchf, buff, 1))
 	{
 		dcb_lprintf(2, "got command(%u): ", buff[0]);
@@ -125,7 +123,7 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		{
 			buff[0] &= 0x3f;
 			dcb_lprintf(2, "got a copy at %u, fh_pos(%llu): ",
-					 (off_u32)ctell(patchf, CSEEK_FSTART), (act_off_u64)fh_pos);
+						(off_u32)ctell(patchf, CSEEK_FSTART), (act_off_u64)fh_pos);
 			if (4 != cread(patchf, buff + 1, 4))
 			{
 				return EOF_ERROR;
@@ -145,13 +143,13 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 			}
 			fh_pos += len;
 			dcb_lprintf(2, " offset(%llu), len=%u\n", (act_off_u64)offset, len);
-			DCB_add_copy(dcbuff, offset, 0, len, ref_id);
+			DCB_add_copy(dcbuff, offset, 0, len, src_id);
 		}
 		else if ((buff[0] >> 6) == 2)
 		{
 			buff[0] &= 0x3f;
 			dcb_lprintf(2, "got an add at %u, fh_pos(%llu):",
-					 (off_u32)ctell(patchf, CSEEK_FSTART), (act_off_u64)fh_pos);
+						(off_u32)ctell(patchf, CSEEK_FSTART), (act_off_u64)fh_pos);
 
 			if (buff[0])
 			{

@@ -133,7 +133,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	//  once a reference file option is added to convert_delta (if ever)
 	//  note, this functionality is removed right now.  pull it from cvs when needed
 
-	EDCB_SRC_ID diff_id, extra_id = -1, ref_id;
+	EDCB_SRC_ID diff_id = -1, extra_id = -1;
 	unsigned char ver;
 	unsigned char buff[32];
 	off_u32 len1, len2, diff_offset, extra_offset;
@@ -175,7 +175,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	ver_size = readUBytesLE(buff + 24, 4);
 	dcbuff->ver_size = ver_size;
 	dcb_lprintf(1, "start=32, ctrl_len=%u, diff_len=%u, ver_size=%llu\n",
-			 ctrl_len, diff_len, (act_off_u64)ver_size);
+				ctrl_len, diff_len, (act_off_u64)ver_size);
 	if (copen_child_cfh(&ctrl_cfh, patchf, 32, ctrl_len + 32,
 						BZIP2_COMPRESSOR, CFILE_RONLY))
 	{
@@ -194,7 +194,6 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		return MEM_ERROR;
 	}
 
-	ref_id = src_id;
 	diff_id = DCB_register_overlay_src(dcbuff, diff_cfh, &bsdiff_overlay_read,
 									   &bsdiff_overlay_copy, NULL, (unsigned char)DCB_FREE_SRC_CFH);
 	if (ver == 4)
@@ -230,7 +229,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		}
 		if (len1)
 		{
-			DCB_add_overlay(dcbuff, diff_offset, len1, diff_id, src_pos, ref_id);
+			DCB_add_overlay(dcbuff, diff_offset, len1, diff_id, src_pos, src_id);
 
 			diff_offset += len1;
 			src_pos += len1;
@@ -247,8 +246,8 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		assert(ver_pos <= ver_size);
 	}
 	dcb_lprintf(1, "ver_pos=%llu, size=%llu, extra_pos=%u, diff_pos=%u, ctrl_pos=%llu, recon=%llu\n", (act_off_u64)ver_pos, (act_off_u64)ver_size,
-			 extra_offset, diff_offset, (act_off_u64)ctrl_cfh.data.pos + ctrl_cfh.data.offset,
-			 (act_off_u64)dcbuff->reconstruct_pos);
+				extra_offset, diff_offset, (act_off_u64)ctrl_cfh.data.pos + ctrl_cfh.data.offset,
+				(act_off_u64)dcbuff->reconstruct_pos);
 	if (ver_pos != ver_size)
 	{
 		printf("error detected, aborting...\n");

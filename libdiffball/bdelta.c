@@ -61,7 +61,7 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	intsize = 4;
 
 	dcb_lprintf(2, "size1=%llu, size2=%llu, matches=%u, intsize=%u\n", (act_off_u64)dcbuff->src_size,
-			 (act_off_u64)(dcbuff->ver_size ? dcbuff->ver_size : ver_size), matches, intsize);
+				(act_off_u64)(dcbuff->ver_size ? dcbuff->ver_size : ver_size), matches, intsize);
 
 	buff[0] = intsize;
 	cwrite(patchf, buff, 1);
@@ -95,18 +95,18 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 			if (dc_pos > dc.data.src_pos)
 			{
 				dcb_lprintf(2, "negative offset, dc_pos(%u), offset(%llu)\n",
-						 dc_pos, (act_off_u64)dc.data.src_pos);
+							dc_pos, (act_off_u64)dc.data.src_pos);
 				copy_offset = dc.data.src_pos + (~dc_pos + 1);
 			}
 			else
 			{
 				dcb_lprintf(2, "positive offset, dc_pos(%u), offset(%llu)\n",
-						 dc_pos, (act_off_u64)dc.data.src_pos);
+							dc_pos, (act_off_u64)dc.data.src_pos);
 				copy_offset = dc.data.src_pos - dc_pos;
 			}
 			dc_pos = dc.data.src_pos + dc.data.len;
 			dcb_lprintf(2, "writing copy_len=%u, offset=%llu, dc_pos=%u\n",
-					 copy_len, (act_off_u64)dc.data.src_pos, dc_pos);
+						copy_len, (act_off_u64)dc.data.src_pos, dc_pos);
 		}
 		else
 		{
@@ -142,7 +142,6 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	unsigned int int_size;
 #define BUFF_SIZE 12
 	unsigned int ver;
-	EDCB_SRC_ID ref_id, add_id;
 	unsigned char buff[BUFF_SIZE];
 	off_s64 copy_offset;
 	off_u32 match_orig, matches, add_len, copy_len;
@@ -189,8 +188,7 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	/* add block starts after control data. */
 	add_pos += (matches * (3 * int_size));
 	add_start = add_pos;
-	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
-	ref_id = src_id;
+	EDCB_SRC_ID add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	dcb_lprintf(2, "add block starts at %u\nprocessing commands\n", add_pos);
 	match_orig = matches;
 	if (size1 == 0)
@@ -231,8 +229,8 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		if (copy_len)
 		{
 			dcb_lprintf(2, "copy len(%u), off(%lld), pos(%llu)\n",
-					 copy_len, (act_off_s64)copy_offset, (act_off_u64)ver_pos);
-			DCB_add_copy(dcbuff, ver_pos, 0, copy_len, ref_id);
+						copy_len, (act_off_s64)copy_offset, (act_off_u64)ver_pos);
+			DCB_add_copy(dcbuff, ver_pos, 0, copy_len, src_id);
 			ver_pos += copy_len;
 		}
 		processed_size += add_len + copy_len;
@@ -245,7 +243,7 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	}
 	dcbuff->ver_size = dcbuff->reconstruct_pos;
 	dcb_lprintf(2, "finished reading.  ver_pos=%llu, add_pos=%u\n",
-			 (act_off_u64)ver_pos, add_pos);
+				(act_off_u64)ver_pos, add_pos);
 	return 0;
 
 truncated_patch:

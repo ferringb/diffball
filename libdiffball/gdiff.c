@@ -220,7 +220,6 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 	off_u64 ver_pos = 0;
 	off_u64 u_off = 0;
 	off_s64 s_off = 0;
-	EDCB_SRC_ID add_id, ref_id;
 	int off_is_sbytes, ob = 0, lb = 0;
 
 	dcbuff->ver_size = 0;
@@ -230,8 +229,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 		off_is_sbytes = 0;
 	cseek(patchf, 5, CSEEK_FSTART);
 
-	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
-	ref_id = src_id;
+	EDCB_SRC_ID add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	while (cread(patchf, buff, 1) == 1 && *buff != 0)
 	{
 		if (*buff > 0 && *buff <= 248)
@@ -291,7 +289,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 			{
 				s_off = readSBytesBE(buff + 1, ob);
 				dcb_lprintf(2, "s_off=%lld, computed_pos(%llu)\n", (act_off_s64)s_off,
-						 (act_off_u64)(dc_pos + s_off));
+							(act_off_u64)(dc_pos + s_off));
 			}
 			else
 			{
@@ -303,7 +301,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 				dc_pos = u_off = dc_pos + s_off;
 			}
 			dcb_lprintf(2, "offset(%llu), len(%u)\n", (act_off_u64)u_off, len);
-			DCB_add_copy(dcbuff, u_off, 0, len, ref_id);
+			DCB_add_copy(dcbuff, u_off, 0, len, src_id);
 			ver_pos += len;
 		}
 	}

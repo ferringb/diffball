@@ -201,8 +201,8 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 				s_off = dcc.commands[commands_processed].data.src_pos - dc_pos;
 				u_off = abs(s_off);
 				dcb_lprintf(2, "off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ",
-						 (act_off_u64)dcc.commands[commands_processed].data.src_pos,
-						 dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
+							(act_off_u64)dcc.commands[commands_processed].data.src_pos,
+							dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
 			}
 			else
 			{
@@ -283,8 +283,8 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 				return IO_ERROR;
 			}
 			dcb_lprintf(2, "writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
-					 delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
-					 dcc.commands[commands_processed].data.len);
+						delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
+						dcc.commands[commands_processed].data.len);
 			fh_pos += dcc.commands[commands_processed].data.len;
 			delta_pos += lb + temp + 1;
 			last_com = DC_COPY;
@@ -321,7 +321,6 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 {
 	const unsigned int buff_size = 4096;
 	unsigned char buff[buff_size];
-	EDCB_SRC_ID ref_id, add_id;
 	off_u32 len;
 	off_u32 dc_pos = 0;
 	off_u64 u_off;
@@ -359,15 +358,14 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 	cseek(patchf, com_start, CSEEK_CUR);
 	add_off = SWITCHING_MAGIC_LEN + SWITCHING_VERSION_LEN + 4;
 	last_com = DC_COPY;
-	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
+	EDCB_SRC_ID add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	if (add_id < 0)
 	{
 		eprintf("Internal error: failed registering the patch into the command buffer: %i\n", add_id);
 		return add_id;
 	}
-	ref_id = src_id;
 	dcb_lprintf(2, "add data block size(%u), starting commands at pos(%u)\n", com_start,
-			 (off_u32)ctell(patchf, CSEEK_ABS));
+				(off_u32)ctell(patchf, CSEEK_ABS));
 
 	while (end_of_patch == 0 && cread(patchf, buff, 1) == 1)
 	{
@@ -433,7 +431,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 			}
 			if (len)
 			{
-				DCB_add_copy(dcbuff, u_off, 0, len, ref_id);
+				DCB_add_copy(dcbuff, u_off, 0, len, src_id);
 			}
 			last_com = DC_COPY;
 			dcb_lprintf(2, "copy off(%llu), len(%u)\n", (act_off_u64)u_off, len);

@@ -59,7 +59,6 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	unsigned long len, offset, x, count, proc_count;
 	unsigned long add_start, add_pos;
 	unsigned char buff[32];
-	EDCB_SRC_ID ref_id, add_id;
 	unsigned char add_is_sequential, copy_is_sequential;
 	cseek(patchf, XDELTA_MAGIC_LEN, CSEEK_FSTART);
 	cread(patchf, buff, 4);
@@ -134,7 +133,8 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	proc_count = 0;
 	/* so starts the commands... */
 	dcb_lprintf(2, "supposedly %lu commands...\nstarting command processing at %zi\n",
-			 count, ctell(ctrl_cfh, CSEEK_FSTART));
+				count, ctell(ctrl_cfh, CSEEK_FSTART));
+	EDCB_SRC_ID add_id;
 	if (flags & XD_COMPRESSED_FLAG)
 	{
 		add_pos = 0;
@@ -156,7 +156,6 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 		add_pos = add_start;
 		add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	}
-	ref_id = src_id;
 	while (proc_count++ != count)
 	{
 		x = creadHighBitVariableIntLE(ctrl_cfh);
@@ -164,7 +163,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 		len = creadHighBitVariableIntLE(ctrl_cfh);
 		if (x == XD_INDEX_COPY)
 		{
-			DCB_add_copy(dcbuff, offset, 0, len, ref_id);
+			DCB_add_copy(dcbuff, offset, 0, len, src_id);
 		}
 		else
 		{
