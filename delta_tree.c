@@ -7,7 +7,7 @@
 #include <cfile.h>
 #include <fcntl.h>
 #include <fnmatch.h>
-#include "string-misc.h"
+#include <string.h>
 #include <diffball/formats.h>
 #include <diffball/defs.h>
 #include <diffball/api.h>

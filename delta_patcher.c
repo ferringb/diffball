@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include "string-misc.h"
+#include <string.h>
 #include <cfile.h>
 #include <diffball/formats.h>
 #include <diffball/defs.h>

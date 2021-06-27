@@ -23,7 +23,6 @@ delta_patcher_SOURCES = 	delta_patcher.c	\
 
 diffball_LDADD	= 	${DIFF_LIBS} ${CFILE_LIBS}
 diffball_SOURCES = 	diffball.c	\
-					string-misc.c	\
 					tar.c 		\
 					options.c
 
@@ -43,7 +42,7 @@ delta_tree_SOURCES = 	delta_tree.c 	\
 #EXTRA_DIST = $(man_MANS)
 
 # line-util.h is left out, as is udiff.h
-noinst_HEADERS = string-misc.h tar.h options.h
+noinst_HEADERS = tar.h options.h
 
 dist-hook:
 	git log --format=short > $(distdir)/ChangeLog

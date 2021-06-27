@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
-#include "string-misc.h"
+#include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>

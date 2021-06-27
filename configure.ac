@@ -94,7 +94,7 @@ AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_STAT
-AC_CHECK_FUNCS([dup2 memmove strnlen strtol memset realloc])
+AC_CHECK_FUNCS([dup2 memmove strtol memset realloc])
 
 CFLAGS="$CFLAGS -Wall"
 CXXFLAGS="$CXXFLAGS -Wall"

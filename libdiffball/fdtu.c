@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <diffball/defs.h>
-#include "string-misc.h"
+#include <string.h>
 #include <diffball/dcbuffer.h>
 #include <cfile.h>
 #include <diffball/bit-functions.h>

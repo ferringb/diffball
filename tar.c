@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // Copyright (C) 2003-2011 Brian Harring <ferringb@gmail.com>
 #include <stdio.h>
-#include "string-misc.h"
+#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
