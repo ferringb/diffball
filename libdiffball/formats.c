@@ -32,10 +32,11 @@ check_for_format(char *format_name, unsigned int len)
 	else if (5 == len && strncasecmp(format_name, "BDIFF", 5) == 0)
 	{
 		return BDIFF_FORMAT;
-/*   } else if((6==len && strncasecmp(format_name, "BSDIFF", 6)==0) || 
+/* should someday bsdiff output be supported, uncomment this.
+   } else if((6==len && strncasecmp(format_name, "BSDIFF", 6)==0) ||
 		(7==len && strncasecmp(format_name, "BSDIFF4", 7)==0)) {
 		return BSDIFF4_FORMAT;
-   } else if((7==len && strncasecmp(format_name, "BSDIFF3", 7)==0) || 
+   } else if((7==len && strncasecmp(format_name, "BSDIFF3", 7)==0) ||
 		(8==len && strncasecmp(format_name, "QSUFDIFF", 8)==0)) {
 		return BSDIFF3_FORMAT;
 */   }
@@ -86,19 +87,3 @@ identify_format(cfile *patchf)
 	}
 	return ((format << 16) | val);
 }
-/*
-unsigned long
-detect_compressor(cfile *cfh)
-{
-	unsigned char buff[12];
-	if(cread(cfh, buff, 2)!=2) {
-		return UNDETECTED_COMPRESSOR;
-	}
-	if(memcmp(buff, "BZ", 2)==0) {
-		return BZIP2_COMPRESSOR;
-	} else if(0x31==buff[0] && 0x139==buff[1]) {
-		return GZIP_COMPRESSOR;
-	}
-	return UNDETECTED_COMPRESSOR;
-}
-*/

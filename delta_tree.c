@@ -182,7 +182,6 @@ int main(int argc, char **argv)
 	unsigned long sample_rate = 0;
 	unsigned long seed_len = 0;
 	unsigned long hash_size = 0;
-	//	unsigned int patch_compressor = 0;
 	unsigned int patch_to_stdout = 0;
 
 #define DUMP_USAGE(exit_code) \
@@ -308,7 +307,7 @@ int main(int argc, char **argv)
 			exit(EXIT_FAILURE);
 		}
 	}
-	if (copen_dup_fd(&out_cfh, out_fh, 0, 0, NO_COMPRESSOR /* patch_compressor */, CFILE_WONLY))
+	if (copen_dup_fd(&out_cfh, out_fh, 0, 0, NO_COMPRESSOR, CFILE_WONLY))
 	{
 		v0printf("error allocing needed memory for output, exiting\n");
 		exit(EXIT_FAILURE);

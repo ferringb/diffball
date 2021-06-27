@@ -28,10 +28,6 @@ int main(int argc, char **argv)
 		abort();
 	}
 	copen(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
-	/*if(fstat.st_size!=cread(cfh, buff, fstat.st_size)) {
-		printf("didn't read all of the file..\n");
-		abort();
-	}*/
 	assert(0 == cseek(cfh, 0, CSEEK_FSTART));
 	cread(cfh, buff, 1);
 	assert(48 == buff[0]);
@@ -67,7 +63,6 @@ int main(int argc, char **argv)
 	assert(cseek(cfh, -3, CSEEK_CUR) == 0);
 	assert(cfh->data.pos == 0);
 	assert(cfh->data.offset == 0);
-	//	assert(cfh->state_flags & CFILE_SEEK_NEEDED);
 	assert(2 == cread(cfh, buff, 2));
 	assert('0' == buff[0]);
 	assert('1' == buff[1]);
@@ -77,7 +72,6 @@ int main(int argc, char **argv)
 	assert('4' == buff[0]);
 	printf("past all read tests that I've coded so far...\n");
 	cclose(cfh);
-	//close(fh);
 	printf("so starts write.\n");
 	strcpy(buff, "write-test");
 	if ((wfh = open(buff, O_WRONLY | O_TRUNC | O_CREAT, 0644)) == -1)
@@ -122,7 +116,6 @@ int main(int argc, char **argv)
 	assert(0 == cseek(cfh, 0, CSEEK_FSTART));
 	assert(2 == cread(cfh, buff, 2));
 	assert(cfh->data_md5_pos == cfh->data.end);
-	//assert(fstat.st_size==cread(cfh, buff, fstat.st_size));
 	cfile_finalize_md5(cfh);
 	memcpy(buff, cfh->data_md5, 16);
 	unsigned int x;

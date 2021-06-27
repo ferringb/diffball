@@ -7,9 +7,6 @@
 
 //move this. but to where?
 #define EXIT_USAGE -2
-
-//enum {OVERSION=100, OVERBOSE,OUSAGE,OHELP,OFORMAT,OSEED,OSAMPLE,OSTDOUT,OBZIP2,OGZIP};
-
 struct usage_options
 {
 	char short_arg;
@@ -53,11 +50,6 @@ struct usage_options
 #define STD_SHORT_OPTIONS \
 	"Vvcuh"
 
-/*
-{"bzip2-compress",		'j', POPT_ARG_NONE,0, OBZIP2,0,0},		\
-{"gzip-compress",		'z', POPT_ARG_NONE,0, OGZIP,0,0}
-*/
-
 #define STD_LONG_OPTIONS              \
 	{"version", 0, 0, OVERSION},      \
 		{"verbose", 0, 0, OVERBOSE},  \
@@ -97,9 +89,6 @@ struct usage_options
 		0, 0, 0, 0    \
 	}
 
-/*#define get_next_arg(argc, argv)								\
-(((argc) > optind && (argv)[optind++]) || NULL)
-*/
 // refresher for those who're going wtf, optind is an external (ab)used by getopt
 char *get_next_arg(int argc, char **argv);
 void print_version(const char *prog);

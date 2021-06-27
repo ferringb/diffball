@@ -207,9 +207,6 @@ int main(int argc, char **argv)
 			v0printf("Sorry, unwilling to do bsdiff conversion in this version.\n");
 			v0printf("Try a newer version.\n");
 			exit(2);
-			//			recon_val = bsdiffReconstructDCBuff(&in_cfh[x], &dcbuff[x % 2]);
-			//		} else if(UDIFF_FORMAT == src_format_id[x]) {
-			//		  recon_val = udiffReconstructDCBuff(&in_cfh[x], &src_cfh, NULL, &dcbuff[x % 2]);
 		}
 		v1printf("%u: resultant ver_size was %llu\n", x, (act_off_u64)dcbuff[x].ver_size);
 		if (recon_val)

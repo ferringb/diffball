@@ -110,8 +110,8 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	/* read the damned segment patch len. */
 	x = creadHighBitVariableIntLE(ctrl_cfh);
 
-	/* skip the seq/has data bytes */
-	/* handle sequential/has_data info */
+	// skip the seq/has data bytes
+	// handle sequential/has_data info
 	cread(ctrl_cfh, buff, 2);
 	add_is_sequential = buff[1];
 

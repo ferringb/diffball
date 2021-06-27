@@ -47,28 +47,12 @@ creadUBytesLE(cfile *cfh, unsigned int l)
 	return readUBytesLE(buff, l);
 }
 
-/*
-signed long 
-readSBytesLE(const unsigned char *buff, unsigned int l)
-{
-	unsigned long num = 0;
-	num |= (buff[l-1] & 0x7f);
-	for(; l > 1; l--)
-		num |= (num << 8) + buff[l -1];
-
-	num = *buff & 0x7f;  //strip the leading bit.
-	for(p = buff -l -1; p != buff; p--) 
-		num = (num << 8) + *p;
-	return (signed long)(num * (*buff & 0x80 ? -1 : 1));
-}
-*/
-
 signed long
 readSBytesBE(const unsigned char *buff, unsigned int l)
 {
 	unsigned long num;
 	unsigned const char *p;
-	num = *buff & 0x7f; //strpi the leading bit.
+	num = *buff & 0x7f; //strip the leading bit.
 	for (p = buff + 1; p - buff < l; p++)
 	{
 		num = (num << 8) + *p;

@@ -30,5 +30,4 @@
 
 unsigned long int check_for_format(char *format_name, unsigned int len);
 unsigned long int identify_format(cfile *patchf);
-//unsigned long int detect_compressor(cfile *cfh);
 #endif

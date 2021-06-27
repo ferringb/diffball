@@ -48,7 +48,6 @@ int main(int argc, char **argv)
 	char **patch_name;
 	unsigned long format_id;
 	signed long int recon_val = 0;
-	//	unsigned int out_compressor = 0;
 	unsigned int output_to_stdout = 0;
 	char *patch_format = NULL;
 	int optr = 0, err;
@@ -76,19 +75,6 @@ int main(int argc, char **argv)
 		case 'f':
 			patch_format = optarg;
 			break;
-		/*		case OBZIP2:
-			if(out_compressor) {
-				// bitch at em.
-			} else
-				out_compressor = BZIP2_COMPRESSOR;
-			break;
-		case OGZIP:
-			if(out_compressor) {
-				// bitch at em.
-			} else 
-				out_compressor = GZIP_COMPRESSOR;
-			break;
-*/
 		case 'b':
 			reconst_size = atol(optarg);
 			if (reconst_size > 0x4000000 || reconst_size == 0)

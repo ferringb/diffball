@@ -44,7 +44,6 @@ signed int gdiffEncodeDCBuffer(CommandBuffer *buffer,
 #define gdiff5EncodeDCBuffer(buff, ocfh) \
 	gdiffEncodeDCBuffer((buff), ENCODING_OFFSET_DC_POS, (ocfh))
 
-//signed int gdiffReconstructDCBuff(cfile *ref_cfh, cfile *patchf, CommandBuffer *dcbuff,
 signed int gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 								  unsigned int offset_type);
 #define gdiff4ReconstructDCBuff(rcfh, pcfh, buff) \

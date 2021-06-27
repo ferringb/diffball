@@ -302,11 +302,7 @@ int internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 	{
 		cfh->access_flags |= CFILE_SEEKABLE;
 	}
-	/*	if(! ((cfh->access_flags & CFILE_WONLY) &&
-		(compressor_type != NO_COMPRESSOR)) ){
-		cfh->access_flags |= CFILE_SEEKABLE;
-	}
-*/
+
 	int result = 0;
 	cfh->io.open = NULL;
 	cfh->io.close = NULL;
@@ -348,9 +344,6 @@ int internal_copen(cfile *cfh, int fh, size_t raw_fh_start, size_t raw_fh_end,
 		result = internal_copen_xz(cfh);
 		break;
 	}
-	/* no longer in use.  leaving it as a reminder for updating when
-		switching over to the full/correct sub-window opening */
-	//	cfh->state_flags |= CFILE_SEEK_NEEDED;
 
 	return result;
 }
@@ -593,34 +586,6 @@ cflush(cfile *cfh)
 		}
 		assert(cfh->io.flush != NULL);
 		result = cfh->io.flush(cfh, cfh->io.data);
-		/*
-		case BZIP2_COMPRESSOR:
-			// fairly raw, if working at all //
-			if(cfh->raw.pos == cfh->raw.end) {
-				if(cfh->raw.pos != write(cfh->raw_fh, cfh->raw.buff,
-					cfh->raw.size))
-					return IO_ERROR;
-				cfh->raw.offset += cfh->raw.end;
-				cfh->raw.pos = 0;
-			}
-			cfh->bz_stream->next_in = cfh->data.buff;
-			cfh->bz_stream->avail_in = cfh->data.end;
-			if(cfh->bz_stream->avail_out==0) {
-				cfh->bz_stream->next_out = cfh->raw.buff;
-				cfh->bz_stream->avail_out = cfh->raw.size;
-			}
-			if(BZ_RUN_OK != BZ2_bzCompress(cfh->bz_stream, BZ_RUN)) {
-				return IO_ERROR;
-			}
-			break;
-		case GZIP_COMPRESSOR:
-			if(cfh->data.pos != gzwrite(cfh->gz_handle, cfh->data.buff,
-				cfh->data.pos))
-				return IO_ERROR;
-			cfh->data.offset += cfh->data.pos;
-			cfh->data.pos=0;
-			break;
-*/
 	}
 	return result;
 }

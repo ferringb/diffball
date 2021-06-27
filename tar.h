@@ -46,7 +46,6 @@
 
 typedef struct
 {
-	//	unsigned long		file_loc;
 	off_u64 start;
 	off_u64 end;
 	unsigned int entry_num;

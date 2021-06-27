@@ -52,7 +52,6 @@ int main(int argc, char **argv)
 	unsigned long sample_rate = 0;
 	unsigned long seed_len = 0;
 	unsigned long hash_size = 0;
-	//	unsigned int patch_compressor = 0;
 	unsigned int patch_to_stdout = 0;
 
 #define DUMP_USAGE(exit_code) \

@@ -883,10 +883,6 @@ int DCB_rec_copy_from_DCB_src(CommandBuffer *tdcb, command_list *tcl,
 					}
 					else
 					{
-						//						x = DCB_register_src(tdcb, dcb_s->src_ptr.cfh,
-						//									dcb_s->read_func, dcb_s->copy_func,
-						//									dcb_s->flags, (dcb_s->type & 0x1));
-
 						x = DCB_dumb_clone_src(tdcb, dcb_s, (dcb_s->type & DC_COPY));
 					}
 					if (x < 0)
@@ -1253,36 +1249,6 @@ internal_DCB_llm_resize(DCB_llm *buff)
 		buff->buff[x].src_pos = buff->buff[x].ver_pos = 0;
 	}
 	return 0;
-}
-
-void DCB_full_collapse_adds(DCB_full *dcb)
-{
-	/*	unsigned long count, *plen;
-	unsigned int continued_add;
-	count = buffer->DCB.full.buffer_count;
-	buffer->DCB.full.lb_tail = buffer->DCB.full.lb_start;
-	buffer->DCB.full.cb_tail = buffer->DCB.full.cb_head;
-	buffer->DCB.full.cb_tail_bit = buffer->DCB.full.cb_head_bit;
-	continued_add=0;
-	plen = NULL;
-	if(buffer->DCBtype==DCBUFFER_FULL_TYPE){
-		while(count--) {
-			if((*buffer->DCB.full.cb_tail & (1 << 
-				buffer->DCB.full.cb_tail_bit))==DC_ADD) {
-				if(continued_add) {
-					*plen += buffer->DCB.full.lb_tail->len;
-					buffer->DCB.full.lb_tail->len = 0;
-				} else {
-					continued_add = 1;
-					plen = &buffer->DCB.full.lb_tail->len;
-				}
-			} else {
-				continued_add=0;
-			}
-			DCBufferIncr(buffer);
-		}
-	}
-*/
 }
 
 void DCB_full_reset(void *dcb)

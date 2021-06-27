@@ -1777,9 +1777,6 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 	}
 	unsigned int ver = readUBytesLE(buff, TREE_VERSION_LEN);
 	v2printf("patch format ver=%u\n", ver);
-
-	//	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
-	//	ref_id = src_id;
 	v3printf("Reading src file manifest\n");
 
 	pe = relative_encoder_new();

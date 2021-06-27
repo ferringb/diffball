@@ -268,8 +268,6 @@ int DCB_no_buff_init(CommandBuffer *, unsigned long, off_u64, off_u64, cfile *);
 unsigned int DCB_get_next_gap(CommandBuffer *buff, unsigned long gap_req,
 							  DCLoc *dc);
 
-//unsigned int DCB_commands_remain(CommandBuffer *buffer);
-
 #define DCB_commands_remain(buff)                                                 \
 	(((buff)->commands_remain != NULL && (buff)->commands_remain((buff)->DCB)) || \
 	 ((buff)->reconstruct_pos != (buff)->ver_size))

@@ -263,9 +263,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 					}
 					else
 					{
-						//						v2printf("s_off(%lld): ", (act_off_s64)s_off);
 						s_off += copy_off_array[temp];
-						//						v2printf("s_off(%lld): ", (act_off_s64)s_off);
 						is_neg = 1;
 					}
 				}
@@ -401,7 +399,6 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 			{
 				cread(patchf, buff, lb);
 				len = (len << (lb * 8)) + readUBytesBE(buff, lb);
-				//v2printf("adding(%u): ", copy_len_start[lb]);
 				len += copy_len_start[lb];
 			}
 			v2printf("ob(%u): ", ob);

@@ -30,7 +30,6 @@ signed int
 bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 {
 #define BUFFER_SIZE 1024
-	//	unsigned char src_md5[16], ver_md5[16];
 	unsigned char buff[BUFFER_SIZE];
 	off_u32 delta_pos;
 	off_u64 fh_pos;
@@ -52,7 +51,6 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 	fh_pos = 0;
 	while (DCB_commands_remain(buffer))
 	{
-		//	while(count--) {
 		DCB_get_next_command(buffer, &dc);
 		if (DC_COPY == dc.type)
 		{
@@ -119,7 +117,6 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	readUBytesBE(buff, 4);
 	fh_pos = 0;
 	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
-	//	ref_id = DCB_REGISTER_COPY_SRC(dcbuff, ref_cfh, NULL, 0);
 	ref_id = src_id;
 	while (1 == cread(patchf, buff, 1))
 	{

@@ -179,8 +179,6 @@ int read_seq_write_rand(command_list *cl, DCB_registered_src *r_src, unsigned ch
 		{
 			len = MIN(max_pos - pos, buf_size);
 			x = read_func(u_src, pos, buf, len);
-			//			if(len < max_pos - pos)
-			//				v0printf("buffered %lu, max was %lu\n", len, max_pos - pos);
 			if (len != x)
 			{
 				ap_printf("x=%lu, pos=%lu, len=%lu\n", x, pos, len);

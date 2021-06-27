@@ -227,9 +227,6 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 			/* wrapped xdelta format, same reasoning applies */
 			if (patch_count > 1)
 				reorder_commands = 1;
-
-			//		} else if(UDIFF_FORMAT == patch_id[x]) {
-			//			recon_val = udiffReconstructDCBuff(src_id, &patch_cfh[x], src_cfh, NULL, &dcbuff[x % 2]);
 		}
 
 		v1printf("reconstruction return=%ld", recon_val);

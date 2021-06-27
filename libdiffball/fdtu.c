@@ -95,7 +95,6 @@ fdtuReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcb)
 		return -1;
 	start += 16;
 	p_len = readUBytesLE(buff, 4);
-	//	start = ctell(patchf, CSEEK_FSTART);
 	if (copen_child_cfh(cfh, patchf, start, p_len + start,
 						NO_COMPRESSOR, CFILE_RONLY))
 		return MEM_ERROR;

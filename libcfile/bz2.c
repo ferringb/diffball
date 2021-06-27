@@ -180,19 +180,12 @@ int internal_copen_bzip2(cfile *cfh)
 	bzs->bzalloc = NULL;
 	bzs->bzfree = NULL;
 	bzs->opaque = NULL;
-	/*	
-	if(cfh->access_flags & CFILE_WONLY)
-		BZ2_bzCompressInit(bzs, BZIP2_DEFAULT_COMPRESS_LEVEL, 
-			BZIP2_VERBOSITY_LEVEL, BZIP2_DEFAULT_WORK_LEVEL);
-		bzs->next_in = cfh->data.buff;
-		bzs->next_out = cfh->raw.buff;
-	else {
-*/
+
 	BZ2_bzDecompressInit(bzs, BZIP2_VERBOSITY_LEVEL, 0);
 	bzs->next_in = (char *)cfh->raw.buff;
 	bzs->next_out = (char *)cfh->data.buff;
 	bzs->avail_in = bzs->avail_out = 0;
-	//	}
+
 	cfh->access_flags |= CFILE_SEEK_IS_COSTLY;
 	cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->data.pos =
 		cfh->data.offset = cfh->data.end = cfh->raw.write_end = cfh->raw.write_start = 0;

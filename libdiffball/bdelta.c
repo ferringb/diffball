@@ -92,7 +92,6 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		if (count != 0)
 		{
 			copy_len = dc.data.len;
-			//			if(dc_pos > dc.loc.offset) {
 			if (dc_pos > dc.data.src_pos)
 			{
 				v2printf("negative offset, dc_pos(%u), offset(%llu)\n",
@@ -154,7 +153,6 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	off_u32 add_start __attribute__((unused));
 
 	dcbuff->ver_size = 0;
-	//	assert(DCBUFFER_FULL_TYPE == dcbuff->DCBtype);
 	if (3 != cseek(patchf, BDELTA_MAGIC_LEN, CSEEK_FSTART))
 		goto truncated_patch;
 	if (2 != cread(patchf, buff, BDELTA_VERSION_LEN))
@@ -192,7 +190,6 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	add_pos += (matches * (3 * int_size));
 	add_start = add_pos;
 	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
-	//	ref_id = DCB_REGISTER_ADD_SRC(dcbuff, ref_cfh, NULL, 0);
 	ref_id = src_id;
 	v2printf("add block starts at %u\nprocessing commands\n", add_pos);
 	match_orig = matches;

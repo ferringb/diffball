@@ -17,7 +17,6 @@ typedef struct _ADLER32_SEED_CTX
 int init_adler32_seed(ADLER32_SEED_CTX *ads, unsigned int seed_len);
 #define get_checksum(ptr) \
         (((ADLER32_SEED_CTX *)ptr)->s2)
-//unsigned long get_checksum(ADLER32_SEED_CTX *ads);
 
 unsigned int free_adler32_seed(ADLER32_SEED_CTX *ads);
 
@@ -29,7 +28,6 @@ update_adler32_seed(ADLER32_SEED_CTX *ads, unsigned char *buff,
         int x;
         if (len == ads->seed_len)
         {
-                //printf("computing seed fully\n");
                 ads->s1 = ads->s2 = ads->tail = 0;
                 for (x = 0; x < ads->seed_len; x++)
                 {
