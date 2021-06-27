@@ -135,7 +135,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 	if (count < 0)
 		return count;
 
-	//	v1printf("output add block, len(%u)\n", delta_pos);
+	//	dcb_lprintf(1, "output add block, len(%u)\n", delta_pos);
 	DCBufferReset(buffer);
 	last_com = DC_COPY;
 	dc_pos = 0;
@@ -175,7 +175,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 				eprintf("Failed writing %u to the patch fileu\n", temp + 1);
 				return IO_ERROR;
 			}
-			v2printf("writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
+			dcb_lprintf(2, "writing add, pos(%u), len(%u)\n", delta_pos, dcc.len);
 			delta_pos += temp + 1;
 			fh_pos += dcc.len;
 			last_com = DC_ADD;
@@ -185,7 +185,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 		{
 			if (last_com == DC_COPY)
 			{
-				v2printf("last command was a copy, outputing blank add\n");
+				dcb_lprintf(2, "last command was a copy, outputing blank add\n");
 				out_buff[0] = 0;
 				if (1 != cwrite(out_cfh, out_buff, 1))
 				{
@@ -200,7 +200,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 			{
 				s_off = dcc.commands[commands_processed].data.src_pos - dc_pos;
 				u_off = abs(s_off);
-				v2printf("off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ",
+				dcb_lprintf(2, "off(%llu), dc_pos(%u), u_off(%llu), s_off(%lld): ",
 						 (act_off_u64)dcc.commands[commands_processed].data.src_pos,
 						 dc_pos, (act_off_u64)u_off, (act_off_s64)s_off);
 			}
@@ -282,7 +282,7 @@ signed int switchingEncodeDCBuffer(CommandBuffer *buffer,
 				eprintf("Failed writing to the patch file\n");
 				return IO_ERROR;
 			}
-			v2printf("writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
+			dcb_lprintf(2, "writing copy delta_pos(%u), fh_pos(%llu), offset(%lld), len(%u)\n",
 					 delta_pos, (act_off_u64)fh_pos, (act_off_s64)ENCODING_OFFSET_DC_POS,
 					 dcc.commands[commands_processed].data.len);
 			fh_pos += dcc.commands[commands_processed].data.len;
@@ -337,12 +337,12 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 
 	if (offset_type == ENCODING_OFFSET_DC_POS)
 	{
-		v2printf("using ENCODING_OFFSET_DC_POS\n");
+		dcb_lprintf(2, "using ENCODING_OFFSET_DC_POS\n");
 		copy_off_array = copy_soff_start;
 	}
 	else if (offset_type == ENCODING_OFFSET_START)
 	{
-		v2printf("using ENCODING_OFFSET_START\n");
+		dcb_lprintf(2, "using ENCODING_OFFSET_START\n");
 		copy_off_array = copy_off_start;
 	}
 	else
@@ -353,7 +353,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 	assert(ctell(patchf, CSEEK_FSTART) == SWITCHING_MAGIC_LEN +
 											  SWITCHING_VERSION_LEN);
 	dc_pos = 0;
-	v2printf("starting pos=%llu\n", (act_off_u64)ctell(patchf, CSEEK_ABS));
+	dcb_lprintf(2, "starting pos=%llu\n", (act_off_u64)ctell(patchf, CSEEK_ABS));
 	cread(patchf, buff, 4);
 	com_start = readUBytesBE(buff, 4);
 	cseek(patchf, com_start, CSEEK_CUR);
@@ -366,12 +366,12 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 		return add_id;
 	}
 	ref_id = src_id;
-	v2printf("add data block size(%u), starting commands at pos(%u)\n", com_start,
+	dcb_lprintf(2, "add data block size(%u), starting commands at pos(%u)\n", com_start,
 			 (off_u32)ctell(patchf, CSEEK_ABS));
 
 	while (end_of_patch == 0 && cread(patchf, buff, 1) == 1)
 	{
-		v2printf("processing(%u) at pos(%u): ", buff[0], (off_u32)ctell(patchf, CSEEK_ABS) - 1);
+		dcb_lprintf(2, "processing(%u) at pos(%u): ", buff[0], (off_u32)ctell(patchf, CSEEK_ABS) - 1);
 		if (last_com != DC_ADD)
 		{
 			lb = (buff[0] >> 6) & 0x3;
@@ -388,7 +388,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 				add_off += len;
 			}
 			last_com = DC_ADD;
-			v2printf("add len(%u)\n", len);
+			dcb_lprintf(2, "add len(%u)\n", len);
 		}
 		else if (last_com != DC_COPY)
 		{
@@ -401,7 +401,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 				len = (len << (lb * 8)) + readUBytesBE(buff, lb);
 				len += copy_len_start[lb];
 			}
-			v2printf("ob(%u): ", ob);
+			dcb_lprintf(2, "ob(%u): ", ob);
 			cread(patchf, buff, ob + 1);
 			if (offset_type == ENCODING_OFFSET_DC_POS)
 			{
@@ -417,7 +417,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 					s_off += copy_off_array[ob];
 				}
 				u_off = dc_pos + s_off;
-				v2printf("u_off(%llu), dc_pos(%u), s_off(%lld): ", (act_off_u64)u_off, dc_pos, (act_off_s64)s_off);
+				dcb_lprintf(2, "u_off(%llu), dc_pos(%u), s_off(%lld): ", (act_off_u64)u_off, dc_pos, (act_off_s64)s_off);
 				dc_pos = u_off;
 			}
 			else
@@ -427,7 +427,7 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 			}
 			if (lb == 0 && ob == 0 && len == 0 && u_off == 0)
 			{
-				v2printf("zero length, zero offset copy found.\n");
+				dcb_lprintf(2, "zero length, zero offset copy found.\n");
 				end_of_patch = 1;
 				continue;
 			}
@@ -436,13 +436,13 @@ switchingReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbu
 				DCB_add_copy(dcbuff, u_off, 0, len, ref_id);
 			}
 			last_com = DC_COPY;
-			v2printf("copy off(%llu), len(%u)\n", (act_off_u64)u_off, len);
+			dcb_lprintf(2, "copy off(%llu), len(%u)\n", (act_off_u64)u_off, len);
 		}
 	}
 	dcbuff->ver_size = dcbuff->reconstruct_pos;
-	v2printf("closing command was (%u)\n", *buff);
-	v2printf("cread fh_pos(%zi)\n", ctell(patchf, CSEEK_ABS));
-	v2printf("ver_pos(%llu)\n", (act_off_u64)dcbuff->reconstruct_pos);
+	dcb_lprintf(2, "closing command was (%u)\n", *buff);
+	dcb_lprintf(2, "cread fh_pos(%zi)\n", ctell(patchf, CSEEK_ABS));
+	dcb_lprintf(2, "ver_pos(%llu)\n", (act_off_u64)dcbuff->reconstruct_pos);
 
 	return 0;
 }

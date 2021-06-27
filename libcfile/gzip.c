@@ -220,7 +220,7 @@ int crefill_gzip(cfile *cfh, void *data)
 				dcprintf("crefill: %u: zs, refilling raw: ", cfh->cfh_id);
 				if (ensure_lseek_position(cfh))
 				{
-					v1printf("encountered IO_ERROR in gz crefill: %u\n", __LINE__);
+					cfile_lprintf(1, "encountered IO_ERROR in gz crefill: %u\n", __LINE__);
 					return IO_ERROR;
 				}
 				cfh->raw.offset += cfh->raw.end;
@@ -234,7 +234,7 @@ int crefill_gzip(cfile *cfh, void *data)
 
 			if (err != Z_OK && err != Z_STREAM_END)
 			{
-				v1printf("encountered err(%i) in gz crefill:%u\n", err, __LINE__);
+				cfile_lprintf(1, "encountered err(%i) in gz crefill:%u\n", err, __LINE__);
 				return IO_ERROR;
 			}
 			if (err == Z_STREAM_END)

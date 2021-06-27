@@ -24,7 +24,7 @@ int DCB_llm_finalize(void *);
 unsigned long
 bail_if_called_func()
 {
-	v0printf("err, wtf\n");
+	dcb_lprintf(0, "err, wtf\n");
 	abort();
 }
 
@@ -319,7 +319,7 @@ DCB_register_fake_src(CommandBuffer *dcb, unsigned char type)
 EDCB_SRC_ID
 DCB_dumb_clone_src(CommandBuffer *dcb, DCB_registered_src *drs, unsigned char type)
 {
-	v3printf("registering cloned src as buffer id(%u)\n", dcb->src_count);
+	dcb_lprintf(3, "registering cloned src as buffer id(%u)\n", dcb->src_count);
 
 	if (dcb->src_count == dcb->src_array_size && internal_DCB_resize_srcs(dcb))
 	{
@@ -360,7 +360,7 @@ internal_DCB_register_volatile_cfh_src(CommandBuffer *dcb, cfile *cfh,
 
 	if (DCBUFFER_BUFFERLESS_TYPE == dcb->DCBtype)
 	{
-		v2printf("registering volatile handle, free(%u)\n", flags);
+		dcb_lprintf(2, "registering volatile handle, free(%u)\n", flags);
 		dup = copen_dup_cfh(cfh);
 		if (dup == NULL)
 			return MEM_ERROR;
@@ -393,14 +393,14 @@ internal_DCB_register_cfh_src(CommandBuffer *dcb, cfile *cfh,
 							  dcb_src_copy_func copy_func,
 							  unsigned char type, unsigned char flags)
 {
-	v3printf("registering cfh_id(%u), as buffer id(%u)\n", cfh->cfh_id, dcb->src_count);
+	dcb_lprintf(3, "registering cfh_id(%u), as buffer id(%u)\n", cfh->cfh_id, dcb->src_count);
 
 	if (dcb->src_count == dcb->src_array_size && internal_DCB_resize_srcs(dcb))
 	{
 		return MEM_ERROR;
 	}
 
-	v2printf("registering %u src\n", dcb->src_count);
+	dcb_lprintf(2, "registering %u src\n", dcb->src_count);
 	dcb->srcs[dcb->src_count].src_ptr.cfh = cfh;
 	dcb->srcs[dcb->src_count].flags = flags;
 	dcb->srcs[dcb->src_count].type = ((type & 0x1) | DCB_CFH_SRC);
@@ -451,7 +451,7 @@ void DCB_test_total_copy_len(CommandBuffer *buff)
 			computed_len += dc.data.len;
 	}
 
-	v0printf("dcbuffer test: copy_len(%u==%lu)\n", buff->total_copy_len,
+	dcb_lprintf(0, "dcbuffer test: copy_len(%u==%lu)\n", buff->total_copy_len,
 			 computed_len);
 	DCBufferReset(buff);
 #endif
@@ -874,7 +874,7 @@ int DCB_rec_copy_from_DCB_src(CommandBuffer *tdcb, command_list *tcl,
 				// we're not working on the same version, so the map must be used, and updated.
 				if (translation_map[scl->src_id[com_offset]] == DCB_SRC_NOT_TRANSLATED)
 				{
-					v2printf("registering %u translated ", scl->src_id[com_offset]);
+					dcb_lprintf(2, "registering %u translated ", scl->src_id[com_offset]);
 					if (dcb_s->ov)
 					{
 						x = DCB_register_overlay_src(tdcb, dcb_s->src_ptr.cfh,
@@ -887,7 +887,7 @@ int DCB_rec_copy_from_DCB_src(CommandBuffer *tdcb, command_list *tcl,
 					}
 					if (x < 0)
 						return x;
-					v2printf("as %u\n", x);
+					dcb_lprintf(2, "as %u\n", x);
 
 					translation_map[scl->src_id[com_offset]] = x;
 
@@ -1033,7 +1033,7 @@ int DCB_add_overlay(CommandBuffer *dcb, off_u64 diff_src_pos, off_u32 len, DCB_S
 		dcbnb->dc.ov_offset = 0;
 		if (len != copyDCB_add_src(dcb, &dcbnb->dc, dcbnb->out_cfh))
 		{
-			v1printf("error executing add_overlay during bufferless mode\n");
+			dcb_lprintf(1, "error executing add_overlay during bufferless mode\n");
 			return IO_ERROR;
 		}
 		dcb->reconstruct_pos += len;
@@ -1050,7 +1050,7 @@ int DCB_add_overlay(CommandBuffer *dcb, off_u64 diff_src_pos, off_u32 len, DCB_S
 #ifdef DEV_VERSION
 int DCB_add_add(CommandBuffer *buffer, off_u64 src_pos, off_u32 len, DCB_SRC_ID src_id)
 {
-	v3printf("add src_offset(%llu), len(%u), src_id(%u), reconstruct_position(%llu)\n", (act_off_u64)src_pos, len, src_id,
+	dcb_lprintf(3, "add src_offset(%llu), len(%u), src_id(%u), reconstruct_position(%llu)\n", (act_off_u64)src_pos, len, src_id,
 			 (act_off_u64)buffer->reconstruct_pos);
 	if (buffer->add_add)
 		return buffer->add_add(buffer, src_pos, len, src_id);
@@ -1079,7 +1079,7 @@ int DCB_no_buff_add_add(CommandBuffer *buffer, off_u64 src_pos, off_u32 len, DCB
 	dcb->dc.dcb_src = buffer->srcs + src_id;
 	if (len != copyDCB_add_src(buffer, &dcb->dc, dcb->out_cfh))
 	{
-		v0printf("error executing add_add during bufferless mode\n");
+		dcb_lprintf(0, "error executing add_add during bufferless mode\n");
 		return IO_ERROR;
 	}
 	buffer->reconstruct_pos += len;
@@ -1109,7 +1109,7 @@ int DCB_add_copy(CommandBuffer *buffer, off_u64 src_pos, off_u64 ver_pos, off_u3
 	buffer->total_copy_len += len;
 #endif
 
-	v3printf("copy src_offset(%llu), version_offset(%llu), len(%u), reconstruct_position(%llu)\n", (act_off_u64)src_pos, (act_off_u64)ver_pos,
+	dcb_lprintf(3, "copy src_offset(%llu), version_offset(%llu), len(%u), reconstruct_position(%llu)\n", (act_off_u64)src_pos, (act_off_u64)ver_pos,
 			 len, (act_off_u64)buffer->reconstruct_pos);
 	return buffer->add_copy(buffer, src_pos, ver_pos, len, src_id);
 }
@@ -1127,7 +1127,7 @@ int DCB_no_buff_add_copy(CommandBuffer *buffer, off_u64 src_pos, off_u64 ver_pos
 	dcb->dc.dcb_src = buffer->srcs + src_id;
 	if (len != copyDCB_add_src(buffer, &dcb->dc, dcb->out_cfh))
 	{
-		v1printf("error executing add_copy during bufferless mode\n");
+		dcb_lprintf(1, "error executing add_copy during bufferless mode\n");
 		return IO_ERROR;
 	}
 	buffer->reconstruct_pos += len;
@@ -1235,7 +1235,7 @@ internal_DCB_llm_resize(DCB_llm *buff)
 {
 	unsigned long x;
 	assert(buff->buff_count <= buff->buff_size);
-	v3printf("resizing ll_matches buffer from %u to %u\n", buff->buff_size, buff->buff_size * 2);
+	dcb_lprintf(3, "resizing ll_matches buffer from %u to %u\n", buff->buff_size, buff->buff_size * 2);
 	buff->buff_size *= 2;
 	if ((buff->buff = (LL_DCLmatch *)realloc(buff->buff, buff->buff_size * sizeof(LL_DCLmatch))) == NULL)
 	{
@@ -1306,9 +1306,9 @@ void DCBufferFree(CommandBuffer *buffer)
 	{
 		if (buffer->srcs[x].flags & DCB_FREE_SRC_CFH)
 		{
-			v2printf("cclosing src_cfh(%lu)\n", x);
+			dcb_lprintf(2, "cclosing src_cfh(%lu)\n", x);
 			cclose(buffer->srcs[x].src_ptr.cfh);
-			v2printf("freeing  src_cfh(%lu)\n", x);
+			dcb_lprintf(2, "freeing  src_cfh(%lu)\n", x);
 			free(buffer->srcs[x].src_ptr.cfh);
 		}
 		if (buffer->srcs[x].type & DCB_DCB_SRC)
@@ -1495,7 +1495,7 @@ int DCB_llm_init(CommandBuffer *buffer, unsigned long buffer_size, off_u64 src_s
 static int
 internal_DCB_matches_resize(DCB_matches *dcb)
 {
-	v1printf("resizing matches buffer from %u to %u\n", dcb->buff_size, dcb->buff_size * 2);
+	dcb_lprintf(1, "resizing matches buffer from %u to %u\n", dcb->buff_size, dcb->buff_size * 2);
 	dcb->buff_size *= 2;
 	if ((dcb->buff = (DCLoc_match *)realloc(dcb->buff, dcb->buff_size * sizeof(DCLoc_match))) == NULL)
 	{
@@ -1536,7 +1536,7 @@ DCB_test_llm_main(CommandBuffer *buff)
 			count++;
 		}
 	} else {
-		v1printf("main_head is empty, can't test it...\n");
+		dcb_lprintf(1, "main_head is empty, can't test it...\n");
 	}
 */
 	return 1;
@@ -1564,7 +1564,7 @@ int DCB_llm_finalize(void *d_ptr)
 	if (dcb->buff_count > 0)
 	{
 		dcb->cur--;
-		v2printf("inserting a segment %llu:%llu, commands(%u)\n",
+		dcb_lprintf(2, "inserting a segment %llu:%llu, commands(%u)\n",
 				 (act_off_u64)dcb->buff->ver_pos, (act_off_u64)(LLM_VEND(dcb->cur)),
 				 dcb->buff_count);
 
@@ -1582,7 +1582,7 @@ int DCB_llm_finalize(void *d_ptr)
 		if (dcb->main_head == NULL)
 		{
 			//no commands exist yet
-			v2printf("main is empty\n");
+			dcb_lprintf(2, "main is empty\n");
 			dcb->main_head = dcb->buff;
 			dcb->main = dcb->cur;
 			dcb->main->next = NULL;
@@ -1590,13 +1590,13 @@ int DCB_llm_finalize(void *d_ptr)
 		else if (dcb->main_head->ver_pos >= dcb->cur->ver_pos)
 		{
 			// prepending it
-			v2printf("prepending commands\n");
+			dcb_lprintf(2, "prepending commands\n");
 			dcb->cur->next = dcb->main;
 			dcb->main_head = dcb->buff;
 		}
 		else
 		{
-			v2printf("gen. insert\n");
+			dcb_lprintf(2, "gen. insert\n");
 			dcb->cur->next = dcb->main->next;
 			dcb->main->next = dcb->buff;
 			dcb->main = dcb->cur;
@@ -1621,7 +1621,7 @@ int DCB_llm_finalize(void *d_ptr)
 int DCB_llm_init_buff(CommandBuffer *buff, unsigned int buff_size)
 {
 	DCB_llm *dcb = (DCB_llm *)buff->DCB;
-	v3printf("llm_init_buff called\n");
+	dcb_lprintf(3, "llm_init_buff called\n");
 	assert(DCBUFFER_LLMATCHES_TYPE == buff->DCBtype);
 	assert(dcb->flags & DCB_LLM_FINALIZED);
 	if ((dcb->buff = (LL_DCLmatch *)malloc(buff_size * sizeof(LL_DCLmatch))) == NULL)
@@ -1663,7 +1663,7 @@ create_DCBSearch_index(CommandBuffer *dcb)
 	else
 		s->index_size = ceil(dcbf->cl.com_count / 2);
 
-	v1printf("index_size = %lu\n", s->index_size);
+	dcb_lprintf(1, "index_size = %lu\n", s->index_size);
 	s->quanta = ceil(dcb->ver_size / s->index_size);
 	s->index_size = ceil(dcb->ver_size / s->quanta) + 1;
 	s->index = (unsigned long *)malloc(sizeof(unsigned long) * s->index_size);

@@ -99,7 +99,7 @@ void relative_encoder_free(struct relative_encoder *p)
 {
 	if (p->last_directory)
 	{
-		v3printf("relative_encoder stats: %zi in %zi out: ratio %2.2f\n", p->total_in, p->total_out,
+		dcb_lprintf(3, "relative_encoder stats: %zi in %zi out: ratio %2.2f\n", p->total_in, p->total_out,
 				 (float)p->total_in / (float)p->total_out);
 		free(p->last_directory);
 	}
@@ -488,7 +488,7 @@ compute_and_flush_ugm_table(cfile *patchf, multifile_file_data **fs, unsigned lo
 			free_ugm_table(table);
 			ERETURN(IO_ERROR);
 		}
-		v3printf("UGM table %lu: uid(%i), gid(%i), mode(%i)\n", x, table->array[x].uid, table->array[x].gid, table->array[x].mode);
+		dcb_lprintf(3, "UGM table %lu: uid(%i), gid(%i), mode(%i)\n", x, table->array[x].uid, table->array[x].gid, table->array[x].mode);
 	}
 
 	qsort(table->array, table->count, sizeof(ugm_tuple), cmp_ugm_tuple);
@@ -521,7 +521,7 @@ consume_ugm_table(cfile *patchf, ugm_table **resultant_table)
 	}
 
 	read_or_fail(table->count, "Failed reading ugm table header\n");
-	v3printf("Reading %lu entries in the UID/GID/Mode table\n", table->count);
+	dcb_lprintf(3, "Reading %lu entries in the UID/GID/Mode table\n", table->count);
 
 	table->array = calloc(table->count, sizeof(ugm_tuple));
 	if (!table->array)
@@ -572,13 +572,13 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 	//   null delimited string written relative to the last file
 	//   8 bytes for the file size for that file.
 	//
-	v3printf("Recording %lu files in the delta manifest\n", file_count);
+	dcb_lprintf(3, "Recording %lu files in the delta manifest\n", file_count);
 	cwriteHighBitVariableIntLE(patchf, file_count);
 	for (x = 0; file_count > 0; x++)
 	{
 		if (S_ISREG(fs[x]->st->st_mode) && !fs[x]->link_target)
 		{
-			v3printf("Recording file %s length %zi in the %s manifest\n", fs[x]->filename, fs[x]->st->st_size, manifest_name);
+			dcb_lprintf(3, "Recording file %s length %zi in the %s manifest\n", fs[x]->filename, fs[x]->st->st_size, manifest_name);
 			err = relative_encoder_cwrite_path(pe, patchf, fs[x]->filename);
 			if (!err)
 			{
@@ -597,7 +597,7 @@ flush_file_manifest(cfile *patchf, multifile_file_data **fs, unsigned long fs_co
 static int
 read_file_manifest(cfile *patchf, struct relative_encoder *pe, multifile_file_data ***fs, unsigned long *fs_count, const char *manifest_name)
 {
-	v3printf("Reading %s file manifest\n", manifest_name);
+	dcb_lprintf(3, "Reading %s file manifest\n", manifest_name);
 	signed long long file_count = creadHighBitVariableIntLE(patchf);
 	if (file_count < 0)
 	{
@@ -650,7 +650,7 @@ read_file_manifest(cfile *patchf, struct relative_encoder *pe, multifile_file_da
 		results[x]->st->st_size = tmp;
 		results[x]->st->st_mode = S_IFREG | 0600;
 		position = results[x]->end = position + results[x]->st->st_size;
-		v3printf("adding to %s manifest: %s length %zu\n", manifest_name, results[x]->filename, position - results[x]->start);
+		dcb_lprintf(3, "adding to %s manifest: %s length %zu\n", manifest_name, results[x]->filename, position - results[x]->start);
 	}
 	return 0;
 
@@ -685,12 +685,12 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	cfile *ref_cfh = DCB_EXPOSE_ADD_CFH(dcbuff);
 	if (multifile_expose_content(src_cfh, &src_files, &src_count))
 	{
-		v0printf("Failed accessing multifile content for src\n");
+		dcb_lprintf(0, "Failed accessing multifile content for src\n");
 		ERETURN(DATA_ERROR);
 	}
 	if (multifile_expose_content(ref_cfh, &ref_files, &ref_count))
 	{
-		v0printf("Failed accessing multifile content for ref\n");
+		dcb_lprintf(0, "Failed accessing multifile content for ref\n");
 		ERETURN(DATA_ERROR);
 	}
 
@@ -717,7 +717,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		ERETURN(err);
 	}
 
-	v3printf("Flushed delta manifest; writing the delta now\n");
+	dcb_lprintf(3, "Flushed delta manifest; writing the delta now\n");
 	// TODO: Move to a size estimate implementation for each encoding- use that to get the size here.
 
 	err = flush_file_content_delta(dcbuff, patchf);
@@ -727,10 +727,10 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 		ERETURN(err);
 	}
 
-	v3printf("Flushed the file content delta.  Writing magic, magic then command stream\n");
+	dcb_lprintf(3, "Flushed the file content delta.  Writing magic, magic then command stream\n");
 	if (TREE_INTERFILE_MAGIC_LEN != cwrite(patchf, TREE_INTERFILE_MAGIC, TREE_INTERFILE_MAGIC_LEN))
 	{
-		v0printf("Failed flushing interfile magic\n");
+		dcb_lprintf(0, "Failed flushing interfile magic\n");
 		relative_encoder_free(pe);
 		ERETURN(IO_ERROR);
 	}
@@ -772,7 +772,7 @@ treeEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	}
 
 	// Flush the command count.  It's number of ref_count entries + # of unlinks commands.
-	v3printf("Flushing command count %lu\n", command_count);
+	dcb_lprintf(3, "Flushing command count %lu\n", command_count);
 	err = cwriteHighBitVariableIntLE(patchf, command_count);
 	if (err)
 	{
@@ -850,7 +850,7 @@ generate_unlinks(cfile *patchf, multifile_file_data **src, unsigned long *src_po
 static int
 encode_unlink(cfile *patchf, multifile_file_data *entry, struct relative_encoder *pe)
 {
-	v3printf("Writing unlink command for %s\n", entry->filename);
+	dcb_lprintf(3, "Writing unlink command for %s\n", entry->filename);
 	int err = cwriteUBytesLE(patchf, TREE_COMMAND_UNLINK, TREE_COMMAND_LEN);
 	if (!err)
 	{
@@ -894,7 +894,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		int len = strlen((value)) + 1;                       \
 		if (len != cwrite(patchf, (value), len))             \
 		{                                                    \
-			v0printf("Failed writing string len %i\n", len); \
+			dcb_lprintf(0, "Failed writing string len %i\n", len); \
 			ERETURN(IO_ERROR);                               \
 		};                                                   \
 	}
@@ -904,7 +904,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		int err = relative_encoder_cwrite_path(pe, patchf, (value)); \
 		if (err)                                                     \
 		{                                                            \
-			v0printf("Failed writing to the handle\n");              \
+			dcb_lprintf(0, "Failed writing to the handle\n");              \
 			ERETURN(err);                                            \
 		};                                                           \
 	}
@@ -915,27 +915,27 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 	{
 		if (!entry->link_target)
 		{
-			v3printf("writing manifest command for regular %s\n", entry->filename);
+			dcb_lprintf(3, "writing manifest command for regular %s\n", entry->filename);
 			write_or_return_fixed(TREE_COMMAND_REG | time_flags, TREE_COMMAND_LEN);
 			write_common_block(entry->st);
 			// xattrs
 			return 0;
 		}
-		v3printf("writing manifest command for hardlink %s -> %s\n", entry->filename, entry->link_target);
+		dcb_lprintf(3, "writing manifest command for hardlink %s -> %s\n", entry->filename, entry->link_target);
 		write_or_return_fixed(TREE_COMMAND_HARDLINK, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_PE_string(entry->link_target);
 	}
 	else if (S_ISDIR(entry->st->st_mode))
 	{
-		v3printf("writing manifest command for directory %s\n", entry->filename);
+		dcb_lprintf(3, "writing manifest command for directory %s\n", entry->filename);
 		write_or_return_fixed(TREE_COMMAND_DIR | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 	}
 	else if (S_ISLNK(entry->st->st_mode))
 	{
-		v3printf("writing manifest command for symlink %s -> %s\n", entry->filename, entry->link_target);
+		dcb_lprintf(3, "writing manifest command for symlink %s -> %s\n", entry->filename, entry->link_target);
 		write_or_return_fixed(TREE_COMMAND_SYM | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		assert(entry->link_target);
@@ -944,14 +944,14 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 	}
 	else if (S_ISFIFO(entry->st->st_mode))
 	{
-		v3printf("writing manifest command for fifo %s\n", entry->filename);
+		dcb_lprintf(3, "writing manifest command for fifo %s\n", entry->filename);
 		write_or_return_fixed(TREE_COMMAND_FIFO | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 	}
 	else if (S_ISCHR(entry->st->st_mode) || S_ISBLK(entry->st->st_mode))
 	{
-		v3printf("writing manifest command for dev %s\n", entry->filename);
+		dcb_lprintf(3, "writing manifest command for dev %s\n", entry->filename);
 		write_or_return_fixed(
 			(S_ISCHR(entry->st->st_mode) ? TREE_COMMAND_CHR : TREE_COMMAND_BLK) | time_flags,
 			TREE_COMMAND_LEN);
@@ -962,14 +962,14 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 	}
 	else if (S_ISSOCK(entry->st->st_mode))
 	{
-		v3printf("writing manifest command for socket %s\n", entry->filename);
+		dcb_lprintf(3, "writing manifest command for socket %s\n", entry->filename);
 		write_or_return_fixed(TREE_COMMAND_SOCKET | time_flags, TREE_COMMAND_LEN);
 		write_PE_string(entry->filename);
 		write_common_block(entry->st);
 	}
 	else
 	{
-		v0printf("Somehow encountered an unknown fs entry: %s: %i\n", entry->filename, entry->st->st_mode);
+		dcb_lprintf(0, "Somehow encountered an unknown fs entry: %s: %i\n", entry->filename, entry->st->st_mode);
 		ERETURN(DATA_ERROR);
 	}
 	return 0;
@@ -987,19 +987,19 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	int tmp_fd = mkstemp(tmpname);
 	if (tmp_fd < 0)
 	{
-		v0printf("Failed getting a temp file\n");
+		dcb_lprintf(0, "Failed getting a temp file\n");
 		ERETURN(IO_ERROR);
 	}
 
 	int err = copen_dup_fd(&deltaf, tmp_fd, 0, 0, NO_COMPRESSOR, CFILE_WONLY);
 	if (err)
 	{
-		v0printf("Failed opening cfile handle to the tmpfile\n");
+		dcb_lprintf(0, "Failed opening cfile handle to the tmpfile\n");
 		close(tmp_fd);
 		ERETURN(IO_ERROR);
 	}
 
-	v3printf("Invoking switching format to encode the delta\n");
+	dcb_lprintf(3, "Invoking switching format to encode the delta\n");
 	err = switchingEncodeDCBuffer(dcbuff, &deltaf);
 	if (err)
 	{
@@ -1009,16 +1009,16 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	err = cclose(&deltaf);
 	if (err)
 	{
-		v0printf("Failed closing deltaf handle\n");
+		dcb_lprintf(0, "Failed closing deltaf handle\n");
 		goto ERR_FD;
 	}
 	struct stat st;
 	fstat(tmp_fd, &st);
 
-	v3printf("File content delta is %lu bytes\n", st.st_size);
+	dcb_lprintf(3, "File content delta is %lu bytes\n", st.st_size);
 	if (cwriteHighBitVariableIntLE(patchf, st.st_size))
 	{
-		v0printf("Failed writing delta length\n");
+		dcb_lprintf(0, "Failed writing delta length\n");
 		err = IO_ERROR;
 		goto ERR_FD;
 	}
@@ -1026,14 +1026,14 @@ flush_file_content_delta(CommandBuffer *dcbuff, cfile *patchf)
 	err = copen_dup_fd(&deltaf, tmp_fd, 0, st.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	if (err)
 	{
-		v0printf("Failed reopening the tmp handle for reading\n");
+		dcb_lprintf(0, "Failed reopening the tmp handle for reading\n");
 		goto ERR_FD;
 	}
 
-	v3printf("Flushing delta to the patch\n");
+	dcb_lprintf(3, "Flushing delta to the patch\n");
 	if (st.st_size != copy_cfile_block(patchf, &deltaf, 0, st.st_size))
 	{
-		v0printf("Failed flushing in memory delta to the patch file\n");
+		dcb_lprintf(0, "Failed flushing in memory delta to the patch file\n");
 		err = IO_ERROR;
 		goto ERR_CFILE;
 	}
@@ -1115,7 +1115,7 @@ enforce_recursive_unlink(DIR *directory)
 static int
 enforce_unlink(const char *path)
 {
-	v3printf("Removing content at %s\n", path);
+	dcb_lprintf(3, "Removing content at %s\n", path);
 	int err = unlink(path);
 	if (-1 == err)
 	{
@@ -1180,7 +1180,7 @@ enforce_standard_attributes(const char *path, const struct stat *st, mode_t extr
 static int
 enforce_standard_attributes_via_path(const char *path, const struct stat *st, int skip_mode)
 {
-	v3printf("Enforcing permissions on %s via path\n", path);
+	dcb_lprintf(3, "Enforcing permissions on %s via path\n", path);
 	int err = 0;
 	if (!skip_mode)
 	{
@@ -1213,7 +1213,7 @@ enforce_standard_attributes_via_path(const char *path, const struct stat *st, in
 static int
 enforce_directory(const char *path, const struct stat *st)
 {
-	v3printf("Creating directory at %s\n", path);
+	dcb_lprintf(3, "Creating directory at %s\n", path);
 	int err = mkdir(path, st->st_mode);
 	if (-1 == err)
 	{
@@ -1227,7 +1227,7 @@ enforce_directory(const char *path, const struct stat *st)
 			}
 			else if (!S_ISDIR(ondisk_st.st_mode))
 			{
-				v3printf("Removing blocking content at %s\n", path);
+				dcb_lprintf(3, "Removing blocking content at %s\n", path);
 				err = unlink(path);
 				if (!err)
 				{
@@ -1261,11 +1261,11 @@ enforce_directory(const char *path, const struct stat *st)
 static int
 enforce_symlink(const char *path, const char *link_target, const struct stat *st)
 {
-	v3printf("Creating symlink at %s\n", path);
+	dcb_lprintf(3, "Creating symlink at %s\n", path);
 	int err = symlink(link_target, path);
 	if (-1 == err && EEXIST == errno)
 	{
-		v3printf("Removing blocking content at %s\n", path);
+		dcb_lprintf(3, "Removing blocking content at %s\n", path);
 		err = enforce_unlink(path);
 		if (!err)
 		{
@@ -1283,7 +1283,7 @@ enforce_symlink(const char *path, const char *link_target, const struct stat *st
 static int
 enforce_file_move(const char *trg, const char *src, const struct stat *st)
 {
-	v3printf("Transferring reconstructed file %s to %s\n", src, trg);
+	dcb_lprintf(3, "Transferring reconstructed file %s to %s\n", src, trg);
 	int err = rename(src, trg);
 	if (!err)
 	{
@@ -1295,7 +1295,7 @@ enforce_file_move(const char *trg, const char *src, const struct stat *st)
 static int
 enforce_hardlink(const char *path, const char *link_target)
 {
-	v3printf("Enforcing hardlink of %s -> %s\n", path, link_target);
+	dcb_lprintf(3, "Enforcing hardlink of %s -> %s\n", path, link_target);
 	int err = link(link_target, path);
 	if (-1 == err && EEXIST == errno)
 	{
@@ -1312,7 +1312,7 @@ enforce_hardlink(const char *path, const char *link_target)
 static int
 enforce_mknod(const char *path, mode_t type, unsigned long major, unsigned long minor, const struct stat *st)
 {
-	v3printf("Mknod type %i for %s\n", type, path);
+	dcb_lprintf(3, "Mknod type %i for %s\n", type, path);
 	dev_t dev = makedev(major, minor);
 	mode_t mode = st->st_mode | type;
 	int err = mknod(path, mode, dev);
@@ -1482,7 +1482,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 	switch (command_type)
 	{
 	case TREE_COMMAND_REG:
-		v3printf("command %lu: regular file\n", command_count);
+		dcb_lprintf(3, "command %lu: regular file\n", command_count);
 		if ((*ref_pos) == ref_count)
 		{
 			eprintf("Encountered a file command, but no more recontruction targets were defined by this patch.  Likely corruption or internal bug\n");
@@ -1509,7 +1509,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		break;
 
 	case TREE_COMMAND_HARDLINK:
-		v3printf("command %lu: hardlink\n", command_count);
+		dcb_lprintf(3, "command %lu: hardlink\n", command_count);
 		read_path_or_return(filename);
 		read_path_or_return(link_target);
 		char *abs_link_target = concat_path(target_directory, link_target);
@@ -1526,7 +1526,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		break;
 
 	case TREE_COMMAND_DIR:
-		v3printf("command %lu: create directory\n", command_count);
+		dcb_lprintf(3, "command %lu: create directory\n", command_count);
 		read_path_or_return(filename);
 		// Strip the trailing slash; if our enforce_directory needs to
 		// resort to lstating, a trailing '/' results in the call incorrectly
@@ -1537,7 +1537,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		break;
 
 	case TREE_COMMAND_SYM:
-		v3printf("command %lu: create symlink\n", command_count);
+		dcb_lprintf(3, "command %lu: create symlink\n", command_count);
 		read_path_or_return(filename);
 		read_string_or_return(link_target);
 		read_common_block(st);
@@ -1545,7 +1545,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		break;
 
 	case TREE_COMMAND_FIFO:
-		v3printf("command %lu: create fifo\n", command_count);
+		dcb_lprintf(3, "command %lu: create fifo\n", command_count);
 		read_path_or_return(filename);
 		read_common_block(st);
 		enforce_or_fail(enforce_mknod, S_IFIFO, 0, 0, &st);
@@ -1556,7 +1556,7 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		// intentional fall through.
 
 	case TREE_COMMAND_BLK:
-		v3printf("command %lu: mknod dev, is_chr? == %i\n", command_count, is_chr);
+		dcb_lprintf(3, "command %lu: mknod dev, is_chr? == %i\n", command_count, is_chr);
 		read_path_or_return(filename);
 		read_common_block(st);
 		unsigned long major = 0, minor = 0;
@@ -1566,14 +1566,14 @@ consume_command_chain(const char *target_directory, const char *tmpspace, cfile 
 		break;
 
 	case TREE_COMMAND_SOCKET:
-		v3printf("command %lu: socket\n", command_count);
+		dcb_lprintf(3, "command %lu: socket\n", command_count);
 		read_path_or_return(filename);
 		read_common_block(st);
 		enforce_or_fail(enforce_mknod, S_IFSOCK, 0, 0, &st);
 		break;
 
 	case TREE_COMMAND_UNLINK:
-		v3printf("command %lu: unlink\n", command_count);
+		dcb_lprintf(3, "command %lu: unlink\n", command_count);
 		read_path_or_return(filename);
 
 		abs_filepath = concat_path(target_directory, filename);
@@ -1702,7 +1702,7 @@ rebuild_files_from_delta(cfile *src_cfh, cfile *containing_patchf, cfile *out_cf
 	int err;
 	if (containing_patchf->compressor_type != NO_COMPRESSOR)
 	{
-		v1printf("libcfile doesn't support windowing through compression; pulling the delta into memory: %zi bytes\n", delta_length);
+		dcb_lprintf(1, "libcfile doesn't support windowing through compression; pulling the delta into memory: %zi bytes\n", delta_length);
 		buff = malloc(delta_length);
 		if (!buff)
 		{
@@ -1776,8 +1776,8 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		ERETURN(PATCH_TRUNCATED);
 	}
 	unsigned int ver = readUBytesLE(buff, TREE_VERSION_LEN);
-	v2printf("patch format ver=%u\n", ver);
-	v3printf("Reading src file manifest\n");
+	dcb_lprintf(2, "patch format ver=%u\n", ver);
+	dcb_lprintf(3, "Reading src file manifest\n");
 
 	pe = relative_encoder_new();
 	if (!pe)
@@ -1799,7 +1799,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
-	v3printf("Starting verification of src manifest\n");
+	dcb_lprintf(3, "Starting verification of src manifest\n");
 	err = multifile_ensure_files(&src_cfh, 0, 1);
 	if (err)
 	{
@@ -1828,7 +1828,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
-	v3printf("Creating temp file array, and on disk files\n");
+	dcb_lprintf(3, "Creating temp file array, and on disk files\n");
 	if (build_and_swap_tmpspace_array(&final_paths, ref_files, ref_count))
 	{
 		eprintf("Failed allocating tmpspace array\n");
@@ -1881,7 +1881,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		err = PATCH_CORRUPT_ERROR;
 		goto cleanup;
 	}
-	v3printf("Loading UID/GID/Mode table at %zu\n", ctell(patchf, CSEEK_FSTART));
+	dcb_lprintf(3, "Loading UID/GID/Mode table at %zu\n", ctell(patchf, CSEEK_FSTART));
 
 	err = consume_ugm_table(patchf, &table);
 	if (err)
@@ -1889,7 +1889,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		goto cleanup;
 	}
 
-	v3printf("Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
+	dcb_lprintf(3, "Starting tree command stream at %zu\n", ctell(patchf, CSEEK_FSTART));
 
 	signed long long command_count = creadHighBitVariableIntLE(patchf);
 	if (command_count < 0)
@@ -1898,7 +1898,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		err = PATCH_TRUNCATED;
 		goto cleanup;
 	}
-	v3printf("command stream is %lli commands\n", command_count);
+	dcb_lprintf(3, "command stream is %lli commands\n", command_count);
 
 	unsigned long file_pos = 0;
 	for (x = 0; x < command_count; x++)
@@ -1910,7 +1910,7 @@ treeReconstruct(const char *src_directory, cfile *patchf, const char *raw_direct
 		}
 	}
 
-	v1printf("Reconstruction completed successfully\n");
+	dcb_lprintf(1, "Reconstruction completed successfully\n");
 	err = 0;
 
 cleanup:

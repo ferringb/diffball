@@ -80,7 +80,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 
 	if (flags & XD_COMPRESSED_FLAG)
 	{
-		v2printf("compressed segments detected\n");
+		dcb_lprintf(2, "compressed segments detected\n");
 		if ((ctrl_cfh = (cfile *)calloc(1, sizeof(cfile))) == NULL)
 		{
 			return MEM_ERROR;
@@ -98,7 +98,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 
 	/* read the frigging to length, since it's variable */
 	x = creadHighBitVariableIntLE(ctrl_cfh);
-	v2printf("to_len(%lu)\n", x);
+	dcb_lprintf(2, "to_len(%lu)\n", x);
 
 	/* two bytes here I don't know about... */
 	cseek(ctrl_cfh, 2, CSEEK_CUR);
@@ -115,7 +115,7 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 	cread(ctrl_cfh, buff, 2);
 	add_is_sequential = buff[1];
 
-	v2printf("patch sequential? (%u)\n", add_is_sequential);
+	dcb_lprintf(2, "patch sequential? (%u)\n", add_is_sequential);
 
 	/* get and skip the next segment name len and md5. */
 	x = creadHighBitVariableIntLE(ctrl_cfh);
@@ -123,17 +123,17 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 
 	/* read the damned segment patch len. */
 	x = creadHighBitVariableIntLE(ctrl_cfh);
-	v2printf("seg2_len(%lu)\n", x);
+	dcb_lprintf(2, "seg2_len(%lu)\n", x);
 
 	/* handle sequential/has_data */
 	cread(ctrl_cfh, buff, 2);
 	copy_is_sequential = buff[1];
-	v2printf("copy is sequential? (%u)\n", copy_is_sequential);
+	dcb_lprintf(2, "copy is sequential? (%u)\n", copy_is_sequential);
 	/* next get the number of instructions (eg copy | adds) */
 	count = creadHighBitVariableIntLE(ctrl_cfh);
 	proc_count = 0;
 	/* so starts the commands... */
-	v2printf("supposedly %lu commands...\nstarting command processing at %zi\n",
+	dcb_lprintf(2, "supposedly %lu commands...\nstarting command processing at %zi\n",
 			 count, ctell(ctrl_cfh, CSEEK_FSTART));
 	if (flags & XD_COMPRESSED_FLAG)
 	{
@@ -180,8 +180,8 @@ xdelta1ReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff
 			DCB_add_add(dcbuff, offset, len, add_id);
 		}
 	}
-	v2printf("finishing position was %zi\n", ctell(ctrl_cfh, CSEEK_FSTART));
-	v2printf("processed %lu of %lu commands\n", proc_count, count);
+	dcb_lprintf(2, "finishing position was %zi\n", ctell(ctrl_cfh, CSEEK_FSTART));
+	dcb_lprintf(2, "processed %lu of %lu commands\n", proc_count, count);
 	dcbuff->ver_size = dcbuff->reconstruct_pos;
 	if (flags & XD_COMPRESSED_FLAG)
 	{

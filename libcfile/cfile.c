@@ -116,7 +116,7 @@ int copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 		if (compressor_type != NO_COMPRESSOR)
 		{
 			/* cfile doesn't handle this. deal. */
-			v0printf("unable to open a compressor w/in a compressor, crapping out.\n");
+			cfile_lprintf(0, "unable to open a compressor w/in a compressor, crapping out.\n");
 			return UNSUPPORTED_OPT;
 		}
 		err = internal_copen(cfh, parent->raw_fh, parent->raw.window_offset, parent->raw.window_len,
@@ -161,7 +161,8 @@ int copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compress
 	{
 		if ((access_flags & CFILE_WONLY) && buff != NULL)
 		{
-			v0printf("supplying an initial buffer for a write mem alias isn't totally supported yet, sorry") return UNSUPPORTED_OPT;
+			cfile_lprintf(0, "supplying an initial buffer for a write mem alias isn't totally supported yet, sorry");
+			return UNSUPPORTED_OPT;
 		}
 	}
 	if (access_flags & CFILE_WONLY)
@@ -656,7 +657,7 @@ copy_cfile_block(cfile *out_cfh, cfile *in_cfh, size_t in_offset, size_t len)
 		if ((lb != cread(in_cfh, buff, lb)) ||
 			(lb != cwrite(out_cfh, buff, lb)))
 		{
-			v2printf("twas copy_cfile_block2, in_offset is %zi, lb was %i, remaining len was %zi, bytes_wrote %zi, pos %zi, end %zi!\n", in_offset, lb, len, bytes_wrote, in_cfh->data.pos, in_cfh->data.end);
+			cfile_lprintf(2, "twas copy_cfile_block2, in_offset is %zi, lb was %i, remaining len was %zi, bytes_wrote %zi, pos %zi, end %zi!\n", in_offset, lb, len, bytes_wrote, in_cfh->data.pos, in_cfh->data.end);
 			return EOF_ERROR;
 		}
 		len -= lb;

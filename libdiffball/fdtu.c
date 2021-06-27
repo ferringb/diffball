@@ -98,6 +98,6 @@ fdtuReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcb)
 	if (copen_child_cfh(cfh, patchf, start, p_len + start,
 						NO_COMPRESSOR, CFILE_RONLY))
 		return MEM_ERROR;
-	v1printf("calling xdeltaReconstruct\n");
+	dcb_lprintf(1, "calling xdeltaReconstruct\n");
 	return xdelta1ReconstructDCBuff(src_id, cfh, dcb, 1);
 }

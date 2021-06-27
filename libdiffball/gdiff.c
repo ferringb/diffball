@@ -252,7 +252,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 			else
 				len = *buff;
 			DCB_add_add(dcbuff, ctell(patchf, CSEEK_FSTART), len, add_id);
-			v2printf("len(%u)\n", len);
+			dcb_lprintf(2, "len(%u)\n", len);
 			cseek(patchf, len, CSEEK_CUR);
 		}
 		else if (*buff >= 249)
@@ -290,7 +290,7 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 			if (off_is_sbytes)
 			{
 				s_off = readSBytesBE(buff + 1, ob);
-				v2printf("s_off=%lld, computed_pos(%llu)\n", (act_off_s64)s_off,
+				dcb_lprintf(2, "s_off=%lld, computed_pos(%llu)\n", (act_off_s64)s_off,
 						 (act_off_u64)(dc_pos + s_off));
 			}
 			else
@@ -302,14 +302,14 @@ gdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff,
 			{
 				dc_pos = u_off = dc_pos + s_off;
 			}
-			v2printf("offset(%llu), len(%u)\n", (act_off_u64)u_off, len);
+			dcb_lprintf(2, "offset(%llu), len(%u)\n", (act_off_u64)u_off, len);
 			DCB_add_copy(dcbuff, u_off, 0, len, ref_id);
 			ver_pos += len;
 		}
 	}
 	dcbuff->ver_size = dcbuff->reconstruct_pos;
-	v2printf("closing command was (%u)\n", *buff);
-	v2printf("cread fh_pos(%zi)\n", ctell(patchf, CSEEK_ABS));
-	v2printf("ver_pos(%llu)\n", (act_off_u64)dcbuff->ver_size);
+	dcb_lprintf(2, "closing command was (%u)\n", *buff);
+	dcb_lprintf(2, "cread fh_pos(%zi)\n", ctell(patchf, CSEEK_ABS));
+	dcb_lprintf(2, "ver_pos(%llu)\n", (act_off_u64)dcbuff->ver_size);
 	return 0;
 }

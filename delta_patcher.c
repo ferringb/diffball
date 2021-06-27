@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 		case OHELP:
 			DUMP_USAGE(0);
 		case OVERBOSE:
-			global_verbosity++;
+			diffball_increase_logging_level();
 			break;
 		case OSTDOUT:
 			output_to_stdout = 1;
@@ -76,20 +76,20 @@ int main(int argc, char **argv)
 			reconst_size = atol(optarg);
 			if (reconst_size > 0x4000000 || reconst_size == 0)
 			{
-				v0printf("requested buffer size %lu isn't sane.  Must be greater then 0, and less then %lu\n",
-						 reconst_size, 0x4000000L);
+				dcb_lprintf(0, "requested buffer size %lu isn't sane.  Must be greater then 0, and less then %lu\n",
+							reconst_size, 0x4000000L);
 				exit(EXIT_USAGE);
 			}
 			break;
 		case 't':
 			if (setenv("TMPDIR", optarg, 1))
 			{
-				v0printf("Failed setting TMPDIR to %s; does it contain a '='?\n", optarg);
+				dcb_lprintf(0, "Failed setting TMPDIR to %s; does it contain a '='?\n", optarg);
 				exit(1);
 			}
 			break;
 		default:
-			v0printf("unknown option %s\n", argv[optind]);
+			dcb_lprintf(0, "unknown option %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -100,33 +100,34 @@ int main(int argc, char **argv)
 
 	if (!src_name || !patch_name || !out_name)
 	{
-		v0printf("Wrong argument count\n");
+		dcb_lprintf(0, "Wrong argument count\n");
 		DUMP_USAGE(EXIT_USAGE);
 	}
 
 	struct stat st;
 	if (stat(src_name, &st) || !S_ISDIR(st.st_mode))
 	{
-		v0printf("source argument must be a directory: %s\n", src_name);
+		dcb_lprintf(0, "source argument must be a directory: %s\n", src_name);
 		exit(EXIT_USAGE);
 	}
 	if (stat(out_name, &st) || !S_ISDIR(st.st_mode))
 	{
-		v0printf("target %s must exist and be a directory\n", out_name);
+		dcb_lprintf(0, "target %s must exist and be a directory\n", out_name);
 		exit(EXIT_USAGE);
 	}
 
 	err = copen(&patch_cfh, patch_name, AUTODETECT_COMPRESSOR, CFILE_RONLY);
-	check_return2(err, "copen of patch")
+	check_return2(err, "copen of patch");
 
-		v1printf("verbosity level(%u)\n", global_verbosity);
+	dcb_lprintf(1, "dcb: verbosity level(%u)\n", diffball_get_logging_level());
+	dcb_lprintf(1, "cfile: verbosity level(%u)\n", cfile_get_logging_level());
 
 	if (patch_format != NULL)
 	{
 		format_id = check_for_format(patch_format, strlen(patch_format));
 		if (format_id == 0)
 		{
-			v0printf("desired forced patch format '%s' is unknown\n", patch_format);
+			dcb_lprintf(0, "desired forced patch format '%s' is unknown\n", patch_format);
 			exit(EXIT_FAILURE);
 		}
 	}

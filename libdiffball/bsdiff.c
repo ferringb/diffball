@@ -53,7 +53,7 @@ bsdiff_overlay_copy(DCommand *dc,
 	ov = dc->dcb_src->ov;
 
 	// error checking...
-	v3printf("processing src(%llu), len(%u), ver(%llu)\n", (act_off_u64)dc->data.src_pos, dc->data.len, (act_off_u64)dc->data.ver_pos);
+	dcb_lprintf(3, "processing src(%llu), len(%u), ver(%llu)\n", (act_off_u64)dc->data.src_pos, dc->data.len, (act_off_u64)dc->data.ver_pos);
 	cflush(out_cfh);
 	if (dc->data.src_pos != cseek(dc->dcb_src->src_ptr.cfh, dc->data.src_pos, CSEEK_FSTART))
 	{
@@ -174,7 +174,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	diff_len = readUBytesLE(buff + 16, 4);
 	ver_size = readUBytesLE(buff + 24, 4);
 	dcbuff->ver_size = ver_size;
-	v1printf("start=32, ctrl_len=%u, diff_len=%u, ver_size=%llu\n",
+	dcb_lprintf(1, "start=32, ctrl_len=%u, diff_len=%u, ver_size=%llu\n",
 			 ctrl_len, diff_len, (act_off_u64)ver_size);
 	if (copen_child_cfh(&ctrl_cfh, patchf, 32, ctrl_len + 32,
 						BZIP2_COMPRESSOR, CFILE_RONLY))
@@ -217,7 +217,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 			{
 				seek = -seek;
 			}
-			v2printf("len1(%u), len2(%u), seek(%u)\n", len1, len2, seek);
+			dcb_lprintf(2, "len1(%u), len2(%u), seek(%u)\n", len1, len2, seek);
 		}
 		else
 		{
@@ -226,7 +226,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 			{
 				seek = -seek;
 			}
-			v2printf("len1(%u), seek(%d)\n", len1, seek);
+			dcb_lprintf(2, "len1(%u), seek(%d)\n", len1, seek);
 		}
 		if (len1)
 		{
@@ -246,7 +246,7 @@ bsdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		assert(ver_pos == dcbuff->reconstruct_pos);
 		assert(ver_pos <= ver_size);
 	}
-	v1printf("ver_pos=%llu, size=%llu, extra_pos=%u, diff_pos=%u, ctrl_pos=%llu, recon=%llu\n", (act_off_u64)ver_pos, (act_off_u64)ver_size,
+	dcb_lprintf(1, "ver_pos=%llu, size=%llu, extra_pos=%u, diff_pos=%u, ctrl_pos=%llu, recon=%llu\n", (act_off_u64)ver_pos, (act_off_u64)ver_size,
 			 extra_offset, diff_offset, (act_off_u64)ctrl_cfh.data.pos + ctrl_cfh.data.offset,
 			 (act_off_u64)dcbuff->reconstruct_pos);
 	if (ver_pos != ver_size)

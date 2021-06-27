@@ -2,6 +2,7 @@
 // Copyright (C) 2003-2005 Brian Harring <ferringb@gmail.com>
 #ifndef _HEADER_ERRORS
 #define _HEADER_ERRORS 1
+#include "defs.h"
 
 #define check_return(err, msg, extra)                                     \
 	if (err)                                                              \
@@ -25,16 +26,16 @@
 		exit(err);                                                        \
 	}
 
-#define check_return_ret(err, level, msg) \
-	if (err)                              \
-	{                                     \
-		if (global_verbosity > level)     \
-		{                                 \
-			if (msg)                      \
-				fprintf(stderr, msg);     \
-			print_error(err);             \
-		}                                 \
-		return err;                       \
+#define check_return_ret(err, level, msg)    \
+	if (err)                                 \
+	{                                        \
+		if (_diffball_logging_level > level) \
+		{                                    \
+			if (msg)                         \
+				fprintf(stderr, msg);        \
+			print_error(err);                \
+		}                                    \
+		return err;                          \
 	}
 
 void print_error(int err);

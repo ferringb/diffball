@@ -254,7 +254,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 	if (err)
 		ERETURN(err);
 
-	v1printf("multipass, hash_size(%lu)\n", hash_size);
+	dcb_lprintf(1, "multipass, hash_size(%lu)\n", hash_size);
 	for (; seed_len >= 16; seed_len /= 2)
 	{
 		if (((DCB_llm *)buff->DCB)->main_head == NULL)
@@ -262,7 +262,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			first_run = 1;
 		}
 		gap_req = seed_len;
-		v1printf("\nseed size(%u)...\n\n", seed_len);
+		dcb_lprintf(1, "\nseed size(%u)...\n\n", seed_len);
 		gap_total_len = 0;
 		DCBufferReset(buff);
 
@@ -274,12 +274,12 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			while (DCB_get_next_gap(buff, gap_req, &dc))
 			{
 				assert(dc.len <= buff->ver_size);
-				v2printf("gap at %llu:%llu size %u\n", (act_off_u64)dc.offset, (act_off_u64)(dc.offset + dc.len), dc.len);
+				dcb_lprintf(2, "gap at %llu:%llu size %u\n", (act_off_u64)dc.offset, (act_off_u64)(dc.offset + dc.len), dc.len);
 				gap_total_len += dc.len;
 			}
 			if (gap_total_len == 0)
 			{
-				v1printf("not worth taking this pass, skipping to next.\n");
+				dcb_lprintf(1, "not worth taking this pass, skipping to next.\n");
 #ifdef DEBUG_DCBUFFER
 				assert(DCB_test_llm_main(buff));
 #endif
@@ -287,33 +287,33 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			}
 			hash_size = max_hash_size;
 			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, gap_total_len, seed_len);
-			v1printf("using hash_size(%lu), sample_rate(%lu)\n",
+			dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
 					 hash_size, sample_rate);
 			err = rh_rbucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if (err)
 				ERETURN(err);
 			DCBufferReset(buff);
-			v1printf("building hash array out of total_gap(%lu)\n",
+			dcb_lprintf(1, "building hash array out of total_gap(%lu)\n",
 					 gap_total_len);
 			while (DCB_get_next_gap(buff, gap_req, &dc))
 			{
 				RHash_insert_block(&rhash, ver_cfh, dc.offset, dc.len + dc.offset);
 			}
-			v1printf("looking for matches in reference file\n");
+			dcb_lprintf(1, "looking for matches in reference file\n");
 			err = RHash_find_matches(&rhash, ref_cfh, 0, cfile_len(ref_cfh));
 			if (err)
 			{
 				eprintf("error detected\n");
 				ERETURN(err);
 			}
-			v1printf("cleansing hash, to speed bsearch's\n");
+			dcb_lprintf(1, "cleansing hash, to speed bsearch's\n");
 			RHash_cleanse(&rhash);
 			print_RefHash_stats(&rhash);
-			v1printf("beginning gap processing...\n");
+			dcb_lprintf(1, "beginning gap processing...\n");
 			DCBufferReset(buff);
 			while (DCB_get_next_gap(buff, gap_req, &dc))
 			{
-				v2printf("handling gap %llu:%llu, size %u\n", (act_off_u64)dc.offset,
+				dcb_lprintf(2, "handling gap %llu:%llu, size %u\n", (act_off_u64)dc.offset,
 						 (act_off_u64)(dc.offset + dc.len), dc.len);
 				err = copen_child_cfh(&ver_window, ver_cfh, dc.offset, dc.len + dc.offset, NO_COMPRESSOR, CFILE_RONLY);
 				if (err)
@@ -334,10 +334,10 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 		{
 			first_run = 0;
 			DCBufferReset(buff);
-			v1printf("first run\n");
+			dcb_lprintf(1, "first run\n");
 			hash_size = MAX(MIN_RHASH_SIZE, MIN(max_hash_size, cfile_len(ref_cfh)));
 			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh), seed_len);
-			v1printf("using hash_size(%lu), sample_rate(%lu)\n",
+			dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
 					 hash_size, sample_rate);
 			err = rh_bucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if (err)
@@ -346,7 +346,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			if (err)
 				ERETURN(err);
 			print_RefHash_stats(&rhash);
-			v1printf("making initial run...\n");
+			dcb_lprintf(1, "making initial run...\n");
 			err = DCB_llm_init_buff(buff, 128);
 			if (err)
 				ERETURN(err);

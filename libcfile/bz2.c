@@ -166,7 +166,7 @@ int internal_copen_bzip2(cfile *cfh)
 	cfh->io.data = (void *)bzs;
 	if (!bzs)
 	{
-		v1printf("mem error for bz2 stream\n");
+		cfile_lprintf(1, "mem error for bz2 stream\n");
 		return MEM_ERROR;
 	}
 	else if ((cfh->data.buff = (unsigned char *)malloc(cfh->data.size)) == NULL)

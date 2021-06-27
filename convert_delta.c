@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 		case OHELP:
 			DUMP_USAGE(0);
 		case OVERBOSE:
-			global_verbosity++;
+			diffball_increase_logging_level();
 			break;
 		case 'f':
 			src_format = optarg;
@@ -80,7 +80,7 @@ int main(int argc, char **argv)
 			output_to_stdout = 1;
 			break;
 		default:
-			v0printf("unknown option %s\n", argv[optind]);
+			dcb_lprintf(0, "unknown option %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -95,23 +95,23 @@ int main(int argc, char **argv)
 	{
 		if (patch_count <= 1)
 		{
-			v0printf("you must specify at least a patch\n");
+			dcb_lprintf(0, "you must specify at least a patch\n");
 			DUMP_USAGE(EXIT_USAGE);
 		}
 		trg_file = patch_name[patch_count - 1];
 		if ((out_fh = open(trg_file, O_WRONLY | O_TRUNC | O_CREAT, 0644)) == -1)
 		{
-			v0printf("error creating output file '%s'\n", trg_file);
+			dcb_lprintf(0, "error creating output file '%s'\n", trg_file);
 			exit(1);
 		}
 		patch_count--;
 	}
 
-	v1printf("patch_count is %u\n", patch_count);
+	dcb_lprintf(1, "patch_count is %u\n", patch_count);
 
 	if (trg_format == NULL)
 	{
-		v0printf("new files format is required\n");
+		dcb_lprintf(0, "new files format is required\n");
 		DUMP_USAGE(EXIT_USAGE);
 	}
 	else
@@ -119,7 +119,7 @@ int main(int argc, char **argv)
 		trg_format_id = check_for_format(trg_format, strlen(trg_format));
 		if (trg_format_id == 0)
 		{
-			v0printf("Unknown format '%s'\n", trg_format);
+			dcb_lprintf(0, "Unknown format '%s'\n", trg_format);
 			exit(1);
 		}
 	}
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
 		src_format_id[0] = check_for_format(src_format, strlen(src_format));
 		if (src_format_id[0] == 0)
 		{
-			v0printf("Unknown format '%s'\n", src_format);
+			dcb_lprintf(0, "Unknown format '%s'\n", src_format);
 			exit(EXIT_FAILURE);
 		}
 		for (x = 1; x < patch_count; x++)
@@ -138,10 +138,10 @@ int main(int argc, char **argv)
 
 	for (x = 0; x < patch_count; x++)
 	{
-		v1printf("%u, opening %s\n", x, patch_name[x]);
+		dcb_lprintf(1, "%u, opening %s\n", x, patch_name[x]);
 		if ((err = copen(in_cfh + x, patch_name[x], NO_COMPRESSOR, CFILE_RONLY)) != 0)
 		{
-			v0printf("error opening patch '%s', %d\n", patch_name[x], err);
+			dcb_lprintf(0, "error opening patch '%s', %d\n", patch_name[x], err);
 			exit(EXIT_FAILURE);
 		}
 		if (src_format == NULL)
@@ -149,12 +149,12 @@ int main(int argc, char **argv)
 			src_format_id[x] = identify_format(in_cfh + x);
 			if (src_format_id[x] == 0)
 			{
-				v0printf("Couldn't identify the patch format, aborting\n");
+				dcb_lprintf(0, "Couldn't identify the patch format, aborting\n");
 				exit(EXIT_FAILURE);
 			}
 			else if ((src_format_id[x] >> 16) == 1)
 			{
-				v0printf("Unsupported format version\n");
+				dcb_lprintf(0, "Unsupported format version\n");
 				exit(EXIT_FAILURE);
 			}
 			src_format_id[x] >>= 16;
@@ -204,14 +204,14 @@ int main(int argc, char **argv)
 		}
 		else if (BSDIFF_FORMAT == src_format_id[x])
 		{
-			v0printf("Sorry, unwilling to do bsdiff conversion in this version.\n");
-			v0printf("Try a newer version.\n");
+			dcb_lprintf(0, "Sorry, unwilling to do bsdiff conversion in this version.\n");
+			dcb_lprintf(0, "Try a newer version.\n");
 			exit(2);
 		}
-		v1printf("%u: resultant ver_size was %llu\n", x, (act_off_u64)dcbuff[x].ver_size);
+		dcb_lprintf(1, "%u: resultant ver_size was %llu\n", x, (act_off_u64)dcbuff[x].ver_size);
 		if (recon_val)
 		{
-			v0printf("error detected while processing patch-quitting\n");
+			dcb_lprintf(0, "error detected while processing patch-quitting\n");
 			print_error(recon_val);
 			exit(EXIT_FAILURE);
 		}
@@ -221,12 +221,12 @@ int main(int argc, char **argv)
 		}
 	}
 
-	v1printf("reconstruction return=%ld\n", recon_val);
+	dcb_lprintf(1, "reconstruction return=%ld\n", recon_val);
 	copen_dup_fd(&out_cfh, out_fh, 0, 0, NO_COMPRESSOR, CFILE_WONLY);
-	v1printf("outputing patch...\n");
+	dcb_lprintf(1, "outputing patch...\n");
 	if (DCBUFFER_FULL_TYPE == dcbuff[(patch_count - 1) % 2].DCBtype)
 	{
-		v1printf("there were %lu commands\n", ((DCB_full *)dcbuff[(patch_count - 1) % 2].DCB)->cl.com_count);
+		dcb_lprintf(1, "there were %lu commands\n", ((DCB_full *)dcbuff[(patch_count - 1) % 2].DCB)->cl.com_count);
 	}
 	if (GDIFF4_FORMAT == trg_format_id)
 	{
@@ -248,8 +248,8 @@ int main(int argc, char **argv)
 	{
 		encode_result = bdeltaEncodeDCBuffer(&dcbuff[(patch_count - 1) % 2], &out_cfh);
 	}
-	v1printf("encoding return=%ld\n", encode_result);
-	v1printf("finished.\n");
+	dcb_lprintf(1, "encoding return=%ld\n", encode_result);
+	dcb_lprintf(1, "finished.\n");
 	DCBufferFree(&dcbuff[(patch_count - 1) % 2]);
 	for (x = 0; x < patch_count; x++)
 	{
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 	cclose(&out_cfh);
 	if (encode_result)
 	{
-		v0printf("Failed converting patch\n");
+		dcb_lprintf(0, "Failed converting patch\n");
 	}
 	return encode_result;
 }

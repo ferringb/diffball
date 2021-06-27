@@ -54,7 +54,7 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 		DCB_get_next_command(buffer, &dc);
 		if (DC_COPY == dc.type)
 		{
-			v2printf("copy command, out_cfh(%u), fh_pos(%llu), offset(%llu), len(%u)\n",
+			dcb_lprintf(2, "copy command, out_cfh(%u), fh_pos(%llu), offset(%llu), len(%u)\n",
 					 delta_pos, (act_off_u64)fh_pos, (act_off_u64)dc.data.src_pos, dc.data.len);
 			fh_pos += dc.data.len;
 			lb = 5;
@@ -74,7 +74,7 @@ bdiffEncodeDCBuffer(CommandBuffer *buffer, cfile *out_cfh)
 		}
 		else
 		{
-			v2printf("add  command, out_cfh(%u), fh_pos(%llu), len(%u)\n",
+			dcb_lprintf(2, "add  command, out_cfh(%u), fh_pos(%llu), len(%u)\n",
 					 delta_pos, (act_off_u64)fh_pos, dc.data.len);
 			fh_pos += dc.data.len;
 			buff[0] = 0x80;
@@ -120,11 +120,11 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	ref_id = src_id;
 	while (1 == cread(patchf, buff, 1))
 	{
-		v2printf("got command(%u): ", buff[0]);
+		dcb_lprintf(2, "got command(%u): ", buff[0]);
 		if ((buff[0] >> 6) == 00)
 		{
 			buff[0] &= 0x3f;
-			v2printf("got a copy at %u, fh_pos(%llu): ",
+			dcb_lprintf(2, "got a copy at %u, fh_pos(%llu): ",
 					 (off_u32)ctell(patchf, CSEEK_FSTART), (act_off_u64)fh_pos);
 			if (4 != cread(patchf, buff + 1, 4))
 			{
@@ -144,13 +144,13 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 				len = readUBytesBE(buff, 4);
 			}
 			fh_pos += len;
-			v2printf(" offset(%llu), len=%u\n", (act_off_u64)offset, len);
+			dcb_lprintf(2, " offset(%llu), len=%u\n", (act_off_u64)offset, len);
 			DCB_add_copy(dcbuff, offset, 0, len, ref_id);
 		}
 		else if ((buff[0] >> 6) == 2)
 		{
 			buff[0] &= 0x3f;
-			v2printf("got an add at %u, fh_pos(%llu):",
+			dcb_lprintf(2, "got an add at %u, fh_pos(%llu):",
 					 (off_u32)ctell(patchf, CSEEK_FSTART), (act_off_u64)fh_pos);
 
 			if (buff[0])
@@ -167,7 +167,7 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 			}
 			fh_pos += len;
 
-			v2printf(" len=%u\n", len);
+			dcb_lprintf(2, " len=%u\n", len);
 
 			DCB_add_add(dcbuff, ctell(patchf, CSEEK_FSTART), len, add_id);
 			cseek(patchf, len, CSEEK_CUR);
@@ -176,7 +176,7 @@ bdiffReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		{
 
 			buff[0] &= 0x3f;
-			v2printf("got a checksum at %u\n", (off_u32)ctell(patchf, CSEEK_FSTART));
+			dcb_lprintf(2, "got a checksum at %u\n", (off_u32)ctell(patchf, CSEEK_FSTART));
 
 			if (buff[0] <= 1)
 			{

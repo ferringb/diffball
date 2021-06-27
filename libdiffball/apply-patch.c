@@ -35,7 +35,7 @@ int reconstructFile(CommandBuffer *dcbuff, cfile *out_cfh, int reorder_for_seq_a
 	if (reorder_for_seq_access)
 	{
 
-		v1printf("collapsing\n");
+		dcb_lprintf(1, "collapsing\n");
 		if ((cl = DCB_collapse_commands(dcbuff)) == NULL)
 			return MEM_ERROR;
 
@@ -62,7 +62,7 @@ int reconstructFile(CommandBuffer *dcbuff, cfile *out_cfh, int reorder_for_seq_a
 
 		for (x = 0; x < norm_count; x++)
 		{
-			v1printf("processing src %lu: %lu commands.\n", (unsigned long)(norm_cl[x] - cl), norm_cl[x]->com_count);
+			dcb_lprintf(1, "processing src %lu: %lu commands.\n", (unsigned long)(norm_cl[x] - cl), norm_cl[x]->com_count);
 			if (norm_cl[x]->com_count)
 			{
 				qsort(norm_cl[x]->full_command, norm_cl[x]->com_count, sizeof(DCLoc_match), cmp_dcloc_match);
@@ -74,7 +74,7 @@ int reconstructFile(CommandBuffer *dcbuff, cfile *out_cfh, int reorder_for_seq_a
 
 		for (x = 0; x < ov_count; x++)
 		{
-			v1printf("processing overlay src %lu: %lu commands.\n", (unsigned long)(ov_cl[x] - cl), ov_cl[x]->com_count);
+			dcb_lprintf(1, "processing overlay src %lu: %lu commands.\n", (unsigned long)(ov_cl[x] - cl), ov_cl[x]->com_count);
 			if (ov_cl[x]->com_count)
 			{
 				qsort(ov_cl[x]->full_command, ov_cl[x]->com_count, sizeof(DCLoc_match), cmp_dcloc_match);

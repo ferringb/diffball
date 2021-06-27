@@ -115,7 +115,7 @@ int crefill_xz(cfile *cfh, void *data)
 				dcprintf("crefill: %u: xzs, refilling raw: ", cfh->cfh_id);
 				if (ensure_lseek_position(cfh))
 				{
-					v1printf("encountered IO_ERROR in xz crefill: %u\n", __LINE__);
+					cfile_lprintf(1, "encountered IO_ERROR in xz crefill: %u\n", __LINE__);
 					return IO_ERROR;
 				}
 				cfh->raw.offset += cfh->raw.end;
@@ -128,7 +128,7 @@ int crefill_xz(cfile *cfh, void *data)
 			xz_err = lzma_code(xzs, LZMA_RUN);
 			if (LZMA_OK != xz_err && LZMA_STREAM_END != xz_err)
 			{
-				v1printf("encountered err(%i) in xz crefill:%u\n", xz_err, __LINE__);
+				cfile_lprintf(1, "encountered err(%i) in xz crefill:%u\n", xz_err, __LINE__);
 				return IO_ERROR;
 			}
 			if (LZMA_STREAM_END == xz_err)

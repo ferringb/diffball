@@ -80,7 +80,7 @@ identify_format(cfile *patchf)
 	{
 		format = FDTU_FORMAT;
 	}
-	v2printf("identify_format, val=%lu, format=%lu\n", val, format);
+	dcb_lprintf(2, "identify_format, val=%lu, format=%lu\n", val, format);
 	if (format == 0)
 	{
 		return 0;

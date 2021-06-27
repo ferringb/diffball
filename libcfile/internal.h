@@ -19,25 +19,12 @@
 #endif
 #define eprintf(expr...) fprintf(stderr, expr);
 
-#define v1printf(expr...)              \
-        if (cfile_verbosity > 0)       \
-        {                              \
-                fprintf(stderr, expr); \
-        }
-#define v2printf(expr...)              \
-        if (cfile_verbosity > 1)       \
-        {                              \
-                fprintf(stderr, expr); \
-        }
-#define v3printf(expr...)              \
-        if (cfile_verbosity > 2)       \
-        {                              \
-                fprintf(stderr, expr); \
-        }
-#define v4printf(expr...)              \
-        if (cfile_verbosity > 3)       \
-        {                              \
-                fprintf(stderr, expr); \
+#define cfile_lprintf(level, expr...)                \
+        {                                      \
+                if (level <= cfile_verbosity)  \
+                {                              \
+                        fprintf(stderr, expr); \
+                };                             \
         }
 
 #ifdef DEBUG_CFILE

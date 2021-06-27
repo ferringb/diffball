@@ -94,4 +94,6 @@ char *get_next_arg(int argc, char **argv);
 void print_version(const char *prog);
 void print_usage(const char *prog, const char *usage_portion, struct usage_options *textq, int exit_code);
 
+// just reuse dcbuffer's logging level.
+#define lprintf(level, expr...) dcb_lprintf(level, expr)
 #endif

@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 		case OHELP:
 			DUMP_USAGE(0);
 		case OVERBOSE:
-			global_verbosity++;
+			diffball_increase_logging_level();
 			break;
 		case OSTDOUT:
 			output_to_stdout = 1;
@@ -79,13 +79,13 @@ int main(int argc, char **argv)
 			reconst_size = atol(optarg);
 			if (reconst_size > 0x4000000 || reconst_size == 0)
 			{
-				v0printf("requested buffer size %lu isn't sane.  Must be greater then 0, and less then %lu\n",
-						 reconst_size, 0x4000000L);
+				dcb_lprintf(0, "requested buffer size %lu isn't sane.  Must be greater then 0, and less then %lu\n",
+						reconst_size, 0x4000000L);
 				exit(EXIT_USAGE);
 			}
 			break;
 		default:
-			v0printf("unknown option %s\n", argv[optind]);
+			dcb_lprintf(0, "unknown option %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -93,14 +93,14 @@ int main(int argc, char **argv)
 	{
 		if (src_name)
 		{
-			v0printf("Must specify an existing source file!- %s not found\n", src_name);
+			dcb_lprintf(0, "Must specify an existing source file!- %s not found\n", src_name);
 			exit(EXIT_USAGE);
 		}
 		DUMP_USAGE(EXIT_USAGE);
 	}
 	else if (optind >= argc)
 	{
-		v0printf("Must specify a patch file!\n");
+		dcb_lprintf(0, "Must specify a patch file!\n");
 		DUMP_USAGE(EXIT_USAGE);
 	}
 	patch_count = argc - optind;
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
 	{
 		if (patch_count == 0)
 		{
-			v0printf("Must specify an existing patch file!\n");
+			dcb_lprintf(0, "Must specify an existing patch file!\n");
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
 	{
 		if (patch_count == 1)
 		{
-			v0printf("Must specify a name for the reconstructed file!\n");
+			dcb_lprintf(0, "Must specify a name for the reconstructed file!\n");
 			DUMP_USAGE(EXIT_USAGE);
 		}
 		out_name = patch_name[patch_count - 1];
@@ -135,17 +135,18 @@ int main(int argc, char **argv)
 			patch_array[x] = &patch_cfh[x];
 	}
 
-	v1printf("verbosity level(%u)\n", global_verbosity);
+	dcb_lprintf(1, "dcb verbosity level(%u)\n", diffball_get_logging_level());
+	dcb_lprintf(1, "cfile verbosity level(%u)\n", cfile_get_logging_level());
 
 	if ((err = copen(&src_cfh, src_name, AUTODETECT_COMPRESSOR, CFILE_RONLY)) != 0)
 	{
-		v0printf("error opening source file '%s': %i\n", src_name, err);
+		dcb_lprintf(0, "error opening source file '%s': %i\n", src_name, err);
 		exit(EXIT_FAILURE);
 	}
 
 	if ((err = copen(&out_cfh, out_name, NO_COMPRESSOR, CFILE_WONLY | CFILE_NEW)) != 0)
 	{
-		v0printf("error opening output file, exitting %i\n", err);
+		dcb_lprintf(0, "error opening output file, exitting %i\n", err);
 		exit(EXIT_FAILURE);
 	}
 
@@ -154,7 +155,7 @@ int main(int argc, char **argv)
 		format_id = check_for_format(patch_format, strlen(patch_format));
 		if (format_id == 0)
 		{
-			v0printf("desired forced patch format '%s' is unknown\n", patch_format);
+			dcb_lprintf(0, "desired forced patch format '%s' is unknown\n", patch_format);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -178,7 +179,7 @@ int main(int argc, char **argv)
 	}
 	if (recon_val)
 	{
-		v0printf("Failed reconstructing the target file: error %ld\n", recon_val);
+		dcb_lprintf(0, "Failed reconstructing the target file: error %ld\n", recon_val);
 	}
 	return recon_val;
 }

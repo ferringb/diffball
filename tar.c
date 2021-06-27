@@ -45,7 +45,7 @@ int read_fh_to_tar_entry(cfile *src_cfh, tar_entry **tar_entries,
 			/* out of room, resize */
 			if ((entries = (tar_entry *)realloc(entries, (array_size += 10000) * sizeof(tar_entry))) == NULL)
 			{
-				v0printf("unable to allocate %lu tar entries (needed), bailing\n", array_size);
+				dcb_lprintf(0, "unable to allocate %lu tar entries (needed), bailing\n", array_size);
 				return MEM_ERROR;
 			}
 		}
@@ -64,7 +64,7 @@ int read_fh_to_tar_entry(cfile *src_cfh, tar_entry **tar_entries,
 
 	if ((entries = (tar_entry *)realloc(entries, count * sizeof(tar_entry))) == NULL)
 	{
-		v0printf("error reallocing tar array (specifically releasing, odd), bailing\n");
+		dcb_lprintf(0, "error reallocing tar array (specifically releasing, odd), bailing\n");
 		return MEM_ERROR;
 	}
 	*tar_entries = entries;
@@ -94,33 +94,33 @@ int read_entry(cfile *src_cfh, off_u64 start, tar_entry *entry)
 	}
 	if (!check_str_chksum(block))
 	{
-		v0printf("checksum failed on a tarfile, bailing\n");
+		dcb_lprintf(0, "checksum failed on a tarfile, bailing\n");
 		return IO_ERROR;
 	}
 	if ('L' == block[TAR_TYPEFLAG_LOC])
 	{
-		v2printf("handling longlink at %llu eg(%llu)\n", (act_off_u64)start, (act_off_u64)(start * 512));
+		dcb_lprintf(2, "handling longlink at %llu eg(%llu)\n", (act_off_u64)start, (act_off_u64)(start * 512));
 		name_len = octal_str2long(block + TAR_SIZE_LOC, TAR_SIZE_LEN);
 		if ((read_bytes = cread(src_cfh, block, 512)) != 512)
 		{
-			v0printf("unexpected EOF on tarfile, bailing\n");
+			dcb_lprintf(0, "unexpected EOF on tarfile, bailing\n");
 			return EOF_ERROR;
 		}
 		if ((entry->fullname =
 				 (unsigned char *)malloc(name_len + 1)) == NULL)
 		{
-			v0printf("unable to allocate memory for name_len, bailing\n");
+			dcb_lprintf(0, "unable to allocate memory for name_len, bailing\n");
 			return EOF_ERROR;
 		}
 		memcpy(entry->fullname, block, name_len);
 		if ((read_bytes = cread(src_cfh, block, 512)) != 512)
 		{
-			v0printf("unable to allocate memory for fullname, bailing\n");
+			dcb_lprintf(0, "unable to allocate memory for fullname, bailing\n");
 			return EOF_ERROR;
 		}
 		if (!check_str_chksum(block))
 		{
-			v0printf("tar checksum failed for tar entry at %llu, bailing\n", (act_off_u64)start);
+			dcb_lprintf(0, "tar checksum failed for tar entry at %llu, bailing\n", (act_off_u64)start);
 			// IO_ERROR? please.  add data_error.
 			return IO_ERROR;
 		}
@@ -137,7 +137,7 @@ int read_entry(cfile *src_cfh, off_u64 start, tar_entry *entry)
 		if ((entry->fullname =
 				 (unsigned char *)malloc(name_len + prefix_len + 1)) == NULL)
 		{
-			v0printf("unable to allocate needed memory, bailing\n");
+			dcb_lprintf(0, "unable to allocate needed memory, bailing\n");
 			return MEM_ERROR;
 		}
 		if (prefix_len)

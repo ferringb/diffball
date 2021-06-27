@@ -102,12 +102,12 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 			patch_id[x] = identify_format(patch_cfh[x]);
 			if (patch_id[x] == 0)
 			{
-				v1printf("Couldn't identify the patch format for patch %lu, aborting\n", patch_id[x]);
+				dcb_lprintf(1, "Couldn't identify the patch format for patch %lu, aborting\n", patch_id[x]);
 				return UNKNOWN_FORMAT;
 			}
 			else if ((patch_id[x] & 0xffff) == 1)
 			{
-				v0printf("Unsupported format version\n");
+				dcb_lprintf(0, "Unsupported format version\n");
 				return UNKNOWN_FORMAT;
 			}
 			patch_id[x] >>= 16;
@@ -116,7 +116,7 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 		{
 			patch_id[x] = force_patch_id;
 		}
-		v1printf("patch_type=%lu\n", patch_id[x]);
+		dcb_lprintf(1, "patch_type=%lu\n", patch_id[x]);
 	}
 
 	if (CFH_SEEK_IS_COSTLY(src_cfh))
@@ -127,12 +127,12 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 	if (patch_count == 1 && reorder_commands == 0)
 	{
 		bufferless = 1;
-		v1printf("enabling bufferless, patch_count(%i) == 1\n", patch_count);
+		dcb_lprintf(1, "enabling bufferless, patch_count(%i) == 1\n", patch_count);
 	}
 	else
 	{
 		bufferless = 0;
-		v1printf("disabling bufferless, patch_count(%u) == 1 || forced_reorder(%u)\n", patch_count, reorder_commands);
+		dcb_lprintf(1, "disabling bufferless, patch_count(%u) == 1 || forced_reorder(%u)\n", patch_count, reorder_commands);
 	}
 
 #define ret_error(err, msg)                     \
@@ -147,7 +147,7 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 	{
 		if (x == patch_count - 1 && reorder_commands == 0 && bufferless)
 		{
-			v1printf("not reordering, and bufferless is %u, going bufferless\n", bufferless);
+			dcb_lprintf(1, "not reordering, and bufferless is %u, going bufferless\n", bufferless);
 			if (x == 0)
 			{
 				err = DCB_no_buff_init(&dcbuff[0], 0, cfile_len(src_cfh), 0, out_cfh);
@@ -229,15 +229,15 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 				reorder_commands = 1;
 		}
 
-		v1printf("reconstruction return=%ld", recon_val);
+		dcb_lprintf(1, "reconstruction return=%ld", recon_val);
 		if (DCBUFFER_FULL_TYPE == dcbuff[x % 2].DCBtype)
 		{
-			v1printf(", commands=%ld\n", ((DCB_full *)dcbuff[x % 2].DCB)->cl.com_count);
-			v1printf("result was %lu commands\n", ((DCB_full *)dcbuff[x % 2].DCB)->cl.com_count);
+			dcb_lprintf(1, ", commands=%ld\n", ((DCB_full *)dcbuff[x % 2].DCB)->cl.com_count);
+			dcb_lprintf(1, "result was %lu commands\n", ((DCB_full *)dcbuff[x % 2].DCB)->cl.com_count);
 		}
 		else
 		{
-			v1printf("\n");
+			dcb_lprintf(1, "\n");
 		}
 		if (x)
 		{
@@ -245,25 +245,25 @@ int simple_reconstruct(cfile *src_cfh, cfile **patch_cfh, unsigned char patch_co
 		}
 		if (recon_val)
 		{
-			v1printf("error detected while processing patch- quitting\n");
+			dcb_lprintf(1, "error detected while processing patch- quitting\n");
 			DCBufferFree(&dcbuff[x % 2]);
 			check_return_ret(recon_val, 1, "reconstruct result ");
 		}
-		v1printf("versions size is %llu\n", (act_off_u64)dcbuff[x % 2].ver_size);
+		dcb_lprintf(1, "versions size is %llu\n", (act_off_u64)dcbuff[x % 2].ver_size);
 	}
-	v1printf("applied %u patches\n", patch_count);
+	dcb_lprintf(1, "applied %u patches\n", patch_count);
 
 	if (!bufferless)
 	{
-		v1printf("reordering commands? %u\n", reorder_commands);
-		v1printf("reconstructing target file based off of dcbuff commands...\n");
+		dcb_lprintf(1, "reordering commands? %u\n", reorder_commands);
+		dcb_lprintf(1, "reconstructing target file based off of dcbuff commands...\n");
 		err = reconstructFile(&dcbuff[(patch_count - 1) % 2], out_cfh, reorder_commands, max_buff_size);
 		check_return_ret(err, 1, "reconstructFile");
-		v1printf("reconstruction completed successfully\n");
+		dcb_lprintf(1, "reconstruction completed successfully\n");
 	}
 	else
 	{
-		v1printf("reconstruction completed successfully\n");
+		dcb_lprintf(1, "reconstruction completed successfully\n");
 	}
 
 	DCBufferFree(&dcbuff[(patch_count - 1) % 2]);

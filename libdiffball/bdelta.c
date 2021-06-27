@@ -60,7 +60,7 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	}
 	intsize = 4;
 
-	v2printf("size1=%llu, size2=%llu, matches=%u, intsize=%u\n", (act_off_u64)dcbuff->src_size,
+	dcb_lprintf(2, "size1=%llu, size2=%llu, matches=%u, intsize=%u\n", (act_off_u64)dcbuff->src_size,
 			 (act_off_u64)(dcbuff->ver_size ? dcbuff->ver_size : ver_size), matches, intsize);
 
 	buff[0] = intsize;
@@ -76,7 +76,7 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	while (matches--)
 	{
 		DCB_get_next_command(dcbuff, &dc);
-		v2printf("handling match(%u)\n", match_orig - matches);
+		dcb_lprintf(2, "handling match(%u)\n", match_orig - matches);
 		add_len = 0;
 		if (DC_ADD == dc.type)
 		{
@@ -86,7 +86,7 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 				count--;
 				DCB_get_next_command(dcbuff, &dc);
 			} while (count != 0 && DC_ADD == dc.type);
-			v2printf("writing add len=%u\n", add_len);
+			dcb_lprintf(2, "writing add len=%u\n", add_len);
 		}
 		/* basically a fall through to copy, if count!=0 */
 		if (count != 0)
@@ -94,18 +94,18 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 			copy_len = dc.data.len;
 			if (dc_pos > dc.data.src_pos)
 			{
-				v2printf("negative offset, dc_pos(%u), offset(%llu)\n",
+				dcb_lprintf(2, "negative offset, dc_pos(%u), offset(%llu)\n",
 						 dc_pos, (act_off_u64)dc.data.src_pos);
 				copy_offset = dc.data.src_pos + (~dc_pos + 1);
 			}
 			else
 			{
-				v2printf("positive offset, dc_pos(%u), offset(%llu)\n",
+				dcb_lprintf(2, "positive offset, dc_pos(%u), offset(%llu)\n",
 						 dc_pos, (act_off_u64)dc.data.src_pos);
 				copy_offset = dc.data.src_pos - dc_pos;
 			}
 			dc_pos = dc.data.src_pos + dc.data.len;
-			v2printf("writing copy_len=%u, offset=%llu, dc_pos=%u\n",
+			dcb_lprintf(2, "writing copy_len=%u, offset=%llu, dc_pos=%u\n",
 					 copy_len, (act_off_u64)dc.data.src_pos, dc_pos);
 		}
 		else
@@ -121,7 +121,7 @@ bdeltaEncodeDCBuffer(CommandBuffer *dcbuff, cfile *patchf)
 	}
 	/* control block wrote. */
 	DCBufferReset(dcbuff);
-	v2printf("writing add_block at %u\n", (off_u32)ctell(patchf, CSEEK_FSTART));
+	dcb_lprintf(2, "writing add_block at %u\n", (off_u32)ctell(patchf, CSEEK_FSTART));
 	while (DCB_commands_remain(dcbuff))
 	{
 		DCB_get_next_command(dcbuff, &dc);
@@ -158,10 +158,10 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	if (2 != cread(patchf, buff, BDELTA_VERSION_LEN))
 		goto truncated_patch;
 	ver = readUBytesLE(buff, 2);
-	v2printf("ver=%u\n", ver);
+	dcb_lprintf(2, "ver=%u\n", ver);
 	cread(patchf, buff, 1);
 	int_size = buff[0];
-	v2printf("int_size=%u\n", int_size);
+	dcb_lprintf(2, "int_size=%u\n", int_size);
 	if (int_size < 1 || int_size > 4)
 		return PATCH_CORRUPT_ERROR;
 	/* yes, this is an intentional switch fall through. */
@@ -179,11 +179,11 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	cread(patchf, buff, 3 * int_size);
 	size1 = readUBytesLE(buff, int_size);
 	size2 = readUBytesLE(buff + int_size, int_size);
-	v1printf("size1=%u, size2=%u\n", size1, size2);
+	dcb_lprintf(1, "size1=%u, size2=%u\n", size1, size2);
 	dcbuff->src_size = size1;
 	dcbuff->ver_size = size2;
 	matches = readUBytesLE(buff + (2 * int_size), int_size);
-	v2printf("size1=%u, size2=%u\nmatches=%u\n", size1, size2, matches);
+	dcb_lprintf(2, "size1=%u, size2=%u\nmatches=%u\n", size1, size2, matches);
 	/* add_pos = header info, 3 int_size's (size(1|2), num_match) */
 	add_pos = 3 + 2 + 1 + (3 * int_size);
 	/* add block starts after control data. */
@@ -191,24 +191,24 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	add_start = add_pos;
 	add_id = DCB_REGISTER_VOLATILE_ADD_SRC(dcbuff, patchf, NULL, 0);
 	ref_id = src_id;
-	v2printf("add block starts at %u\nprocessing commands\n", add_pos);
+	dcb_lprintf(2, "add block starts at %u\nprocessing commands\n", add_pos);
 	match_orig = matches;
 	if (size1 == 0)
 	{
-		v0printf("size1 was zero, processing anyways.\n");
-		v0printf("this patch should be incompatible w/ bdelta,\n");
-		v0printf("although I have no problems reading it.\n");
+		dcb_lprintf(0, "size1 was zero, processing anyways.\n");
+		dcb_lprintf(0, "this patch should be incompatible w/ bdelta,\n");
+		dcb_lprintf(0, "although I have no problems reading it.\n");
 	}
 	while (matches--)
 	{
-		v2printf("handling match(%u)\n", match_orig - matches);
+		dcb_lprintf(2, "handling match(%u)\n", match_orig - matches);
 		cread(patchf, buff, 3 * int_size);
 		copy_offset = readUBytesLE(buff, int_size);
 		add_len = readUBytesLE(buff + int_size, int_size);
 		copy_len = readUBytesLE(buff + int_size * 2, int_size);
 		if (add_len)
 		{
-			v2printf("add  len(%u)\n", add_len);
+			dcb_lprintf(2, "add  len(%u)\n", add_len);
 			DCB_add_add(dcbuff, add_pos, add_len, add_id);
 			add_pos += add_len;
 		}
@@ -219,18 +219,18 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 		{
 			copy_offset |= or_mask;
 			ver_pos -= (~copy_offset) + 1;
-			v2printf("ver_pos now(%llu)\n", (act_off_u64)ver_pos);
+			dcb_lprintf(2, "ver_pos now(%llu)\n", (act_off_u64)ver_pos);
 		}
 		else
 		{
-			v2printf("positive offset(%llu)\n", (act_off_u64)copy_offset);
+			dcb_lprintf(2, "positive offset(%llu)\n", (act_off_u64)copy_offset);
 			ver_pos += copy_offset;
 		}
 		/* an attempt to ensure things aren't whacky. */
 		assert(size1 == 0 || ver_pos <= size1);
 		if (copy_len)
 		{
-			v2printf("copy len(%u), off(%lld), pos(%llu)\n",
+			dcb_lprintf(2, "copy len(%u), off(%lld), pos(%llu)\n",
 					 copy_len, (act_off_s64)copy_offset, (act_off_u64)ver_pos);
 			DCB_add_copy(dcbuff, ver_pos, 0, copy_len, ref_id);
 			ver_pos += copy_len;
@@ -240,11 +240,11 @@ bdeltaReconstructDCBuff(DCB_SRC_ID src_id, cfile *patchf, CommandBuffer *dcbuff)
 	assert(ctell(patchf, CSEEK_FSTART) == add_start);
 	if (processed_size != size2)
 	{
-		v1printf("hmm, left the trailing nulls out; adding appropriate command\n");
+		dcb_lprintf(1, "hmm, left the trailing nulls out; adding appropriate command\n");
 		DCB_add_add(dcbuff, add_pos, size2 - processed_size, 0);
 	}
 	dcbuff->ver_size = dcbuff->reconstruct_pos;
-	v2printf("finished reading.  ver_pos=%llu, add_pos=%u\n",
+	dcb_lprintf(2, "finished reading.  ver_pos=%llu, add_pos=%u\n",
 			 (act_off_u64)ver_pos, add_pos);
 	return 0;
 

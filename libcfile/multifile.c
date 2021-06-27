@@ -447,7 +447,7 @@ int multifile_recurse_directory(const char *root, const char *directory,
 			}
 			else if (result == 1)
 			{
-				v1printf("multifile: filtering %s\n", directory_start);
+				cfile_lprintf(1, "multifile: filtering %s\n", directory_start);
 				free(st);
 				continue;
 			}

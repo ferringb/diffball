@@ -10,8 +10,6 @@
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
-extern unsigned int global_verbosity;
-
 typedef unsigned int off_u32;
 typedef signed int off_s32;
 #ifdef LARGEFILE_SUPPORT
@@ -35,65 +33,32 @@ typedef signed long long act_off_s64;
 #define PATCH_CORRUPT_ERROR (-18)
 #define UNKNOWN_FORMAT (-19)
 
-#define v0printf(expr...) fprintf(stderr, expr)
+extern unsigned int _diffball_logging_level;
+void diffball_set_logging_level(unsigned int level);
+unsigned int diffball_get_logging_level();
+#define diffball_increase_logging_level() \
+	diffball_set_logging_level(MAX(100, diffball_get_logging_level() + 1))
 
 #ifdef DEV_VERSION
 #include <assert.h>
-#define eprintf(expr...) \
-	abort();             \
-	fprintf(stderr, expr)
-#define errno_printf(context) err(2, "%s", context);
-#define v1printf(expr...) fprintf(stderr, expr)
-#define v2printf(expr...)      \
-	if (global_verbosity > 0)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
-#define v3printf(expr...)      \
-	if (global_verbosity > 1)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
-#define v4printf(expr...)      \
-	if (global_verbosity > 2)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
+#define eprintf(expr...)   \
+	fprintf(stderr, expr); \
+	fflush(stderr);        \
+	abort();
 #else
 #define assert(expr) ((void)0)
 #define eprintf(expr...) fprintf(stderr, expr)
-#define errno_printf(context) err(2, "%s", context);
-#define v1printf(expr...)      \
-	if (global_verbosity > 0)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
-#define v2printf(expr...)      \
-	if (global_verbosity > 1)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
-#define v3printf(expr...)      \
-	if (global_verbosity > 2)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
-#define v4printf(expr...)      \
-	if (global_verbosity > 3)  \
-	{                          \
-		fprintf(stderr, expr); \
-	}
 #endif
+
+#define errno_printf(context) err(2, "%s", context);
+#define dcb_lprintf(level, expr...)           \
+	{                                         \
+		if (level <= _diffball_logging_level) \
+		{                                     \
+			fprintf(stderr, expr);            \
+		}                                     \
+	}
 
 #define SLEEP_DEBUG 1
-
-#ifdef DEBUG_CFILE
-#include <stdio.h>
-#define dcprintf(fmt...)               \
-	fprintf(stderr, "%s: ", __FILE__); \
-	fprintf(stderr, fmt)
-#else
-#define dcprintf(expr...) ((void)0)
-#endif
 
 #endif

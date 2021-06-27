@@ -13,8 +13,6 @@
 #include "options.h"
 #include <diffball/errors.h>
 
-unsigned int global_verbosity = 0;
-
 char *patch_format;
 
 struct option long_opts[] = {
@@ -68,7 +66,7 @@ int main(int argc, char **argv)
 		case OHELP:
 			DUMP_USAGE(0);
 		case OVERBOSE:
-			global_verbosity++;
+			diffball_increase_logging_level();
 			break;
 		case OSAMPLE:
 			sample_rate = atol(optarg);
@@ -92,7 +90,7 @@ int main(int argc, char **argv)
 			patch_format = optarg;
 			break;
 		default:
-			v0printf("invalid arg- %s\n", argv[optind]);
+			dcb_lprintf(0, "invalid arg- %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -104,11 +102,11 @@ int main(int argc, char **argv)
 		{
 			if (err == MEM_ERROR)
 			{
-				v0printf("alloc failure for src_file\n");
+				dcb_lprintf(0, "alloc failure for src_file\n");
 			}
 			else
 			{
-				v0printf("Must specify an existing source file.\n");
+				dcb_lprintf(0, "Must specify an existing source file.\n");
 			}
 			exit(EXIT_USAGE);
 		}
@@ -122,11 +120,11 @@ int main(int argc, char **argv)
 		{
 			if (err == MEM_ERROR)
 			{
-				v0printf("alloc failure for trg_file\n");
+				dcb_lprintf(0, "alloc failure for trg_file\n");
 			}
 			else
 			{
-				v0printf("Must specify an existing target file.\n");
+				dcb_lprintf(0, "Must specify an existing target file.\n");
 			}
 			exit(EXIT_USAGE);
 		}
@@ -142,7 +140,7 @@ int main(int argc, char **argv)
 			DUMP_USAGE(EXIT_USAGE);
 		if ((out_fh = open(patch_name, O_WRONLY | O_TRUNC | O_CREAT, 0644)) == -1)
 		{
-			v0printf("error creating patch file '%s' (open failed)\n", patch_name);
+			dcb_lprintf(0, "error creating patch file '%s' (open failed)\n", patch_name);
 			exit(1);
 		}
 	}
@@ -160,24 +158,25 @@ int main(int argc, char **argv)
 		patch_id = check_for_format(patch_format, strlen(patch_format));
 		if (patch_id == 0)
 		{
-			v0printf("Unknown format '%s'\n", patch_format);
+			dcb_lprintf(0, "Unknown format '%s'\n", patch_format);
 			exit(EXIT_FAILURE);
 		}
 	}
 	if (copen_dup_fd(&out_cfh, out_fh, 0, 0, NO_COMPRESSOR /* patch_compressor */, CFILE_WONLY))
 	{
-		v0printf("error allocing needed memory for output, exiting\n");
+		dcb_lprintf(0, "error allocing needed memory for output, exiting\n");
 		exit(EXIT_FAILURE);
 	}
 
-	v1printf("using patch format %lu\n", patch_id);
-	v1printf("using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
-			 seed_len, sample_rate, hash_size);
-	v1printf("verbosity level(%u)\n", global_verbosity);
-	v1printf("initializing Command Buffer...\n");
+	dcb_lprintf(1, "using patch format %lu\n", patch_id);
+	dcb_lprintf(1, "using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
+			seed_len, sample_rate, hash_size);
+	dcb_lprintf(1, "DCB verbosity level(%u)\n", diffball_get_logging_level());
+	dcb_lprintf(1, "cfile verbosity level(%u)\n", cfile_get_logging_level());
+	dcb_lprintf(1, "initializing Command Buffer...\n");
 
 	encode_result = simple_difference(&ref_cfh, &ver_cfh, &out_cfh, patch_id, seed_len, sample_rate, hash_size);
-	v1printf("flushing and closing out file\n");
+	dcb_lprintf(1, "flushing and closing out file\n");
 	cclose(&out_cfh);
 	close(out_fh);
 	if (err)
@@ -187,11 +186,11 @@ int main(int argc, char **argv)
 			unlink(patch_name);
 		}
 	}
-	v1printf("encode_result=%ld\n", encode_result);
-	v1printf("exiting\n");
-	v1printf("closing reference file\n");
+	dcb_lprintf(1, "encode_result=%ld\n", encode_result);
+	dcb_lprintf(1, "exiting\n");
+	dcb_lprintf(1, "closing reference file\n");
 	cclose(&ref_cfh);
-	v1printf("closing version file\n");
+	dcb_lprintf(1, "closing version file\n");
 	cclose(&ver_cfh);
 	close(out_fh);
 	check_return2(encode_result, "encoding result was nonzero") return 0;

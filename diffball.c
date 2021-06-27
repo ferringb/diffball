@@ -106,7 +106,7 @@ int main(int argc, char **argv)
 			print_version("diffball");
 			exit(0);
 		case OVERBOSE:
-			global_verbosity++;
+			diffball_increase_logging_level();
 			break;
 		case OSTDOUT:
 			patch_to_stdout = 1;
@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 			DUMP_USAGE(0);
 			break;
 		default:
-			v0printf("invalid arg- %s\n", argv[optind]);
+			dcb_lprintf(0, "invalid arg- %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 	{
 		if (src_file)
 		{
-			v0printf("%s not found!\n", src_file);
+			dcb_lprintf(0, "%s not found!\n", src_file);
 			exit(EXIT_USAGE);
 		}
 		DUMP_USAGE(EXIT_USAGE);
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 	{
 		if (trg_file)
 		{
-			v0printf("%s not found!\n", trg_file);
+			dcb_lprintf(0, "%s not found!\n", trg_file);
 			exit(EXIT_USAGE);
 		}
 		DUMP_USAGE(EXIT_USAGE);
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 		patch_format_id = check_for_format(patch_format, strlen(patch_format));
 		if (patch_format_id == 0)
 		{
-			v0printf("Unknown format '%s'\n", patch_format);
+			dcb_lprintf(0, "Unknown format '%s'\n", patch_format);
 			exit(EXIT_USAGE);
 		}
 	}
@@ -163,7 +163,7 @@ int main(int argc, char **argv)
 			DUMP_USAGE(EXIT_USAGE);
 		if ((out_fh = open(patch_name, O_WRONLY | O_TRUNC | O_CREAT, 0644)) == -1)
 		{
-			v0printf("error creating patch file (open failed)\n");
+			dcb_lprintf(0, "error creating patch file (open failed)\n");
 			exit(1);
 		}
 	}
@@ -179,7 +179,7 @@ int main(int argc, char **argv)
 	if (copen(&ref_full, src_file, NO_COMPRESSOR, CFILE_RONLY) ||
 		copen(&ver_full, trg_file, NO_COMPRESSOR, CFILE_RONLY))
 	{
-		v0printf("error opening file; exiting\n");
+		dcb_lprintf(0, "error opening file; exiting\n");
 		exit(1);
 	}
 
@@ -192,33 +192,34 @@ int main(int argc, char **argv)
 		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(&ref_full), seed_len);
 	}
 
-	v1printf("using patch format %lu\n", patch_format_id);
-	v1printf("using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
-			 seed_len, sample_rate, hash_size);
-	v1printf("verbosity level(%u)\n", global_verbosity);
+	dcb_lprintf(1, "using patch format %lu\n", patch_format_id);
+	dcb_lprintf(1, "using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
+				seed_len, sample_rate, hash_size);
+	dcb_lprintf(1, "dcb verbosity level(%u)\n", diffball_get_logging_level());
+	dcb_lprintf(1, "cfile logging level(%u)\n", cfile_get_logging_level());
 
-	v1printf("reading tar entries from src\n");
+	dcb_lprintf(1, "reading tar entries from src\n");
 	if (read_fh_to_tar_entry(&ref_full, &source, &source_count))
 		exit(EXIT_FAILURE);
 
-	v2printf("reading tar entries from trg\n");
+	dcb_lprintf(2, "reading tar entries from trg\n");
 	if (read_fh_to_tar_entry(&ver_full, &target, &target_count))
 		exit(EXIT_FAILURE);
 
-	v2printf("source tarball's entry count=%lu\n", source_count);
-	v2printf("target tarball's entry count=%lu\n", target_count);
+	dcb_lprintf(2, "source tarball's entry count=%lu\n", source_count);
+	dcb_lprintf(2, "target tarball's entry count=%lu\n", target_count);
 
-	v3printf("qsorting\n");
+	dcb_lprintf(3, "qsorting\n");
 	src_ptrs = (tar_entry **)malloc(sizeof(tar_entry *) * source_count);
 	if (src_ptrs == NULL)
 	{
-		v0printf("unable to allocate needed memory, bailing\n");
+		dcb_lprintf(0, "unable to allocate needed memory, bailing\n");
 		exit(EXIT_FAILURE);
 	}
 	for (x = 0; x < source_count; x++)
 		src_ptrs[x] = source + x;
 	qsort(src_ptrs, source_count, sizeof(tar_entry *), cmp_tar_ents);
-	v3printf("qsort done\n");
+	dcb_lprintf(3, "qsort done\n");
 
 	/* alg to basically figure out the common dir prefix... eg, if everything 
    is in dir debianutils-1.16.3; note, we want the slash, hence +1 */
@@ -259,7 +260,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-	v1printf("final src_common='%.*s'\n", src_common_len, src_common);
+	dcb_lprintf(1, "final src_common='%.*s'\n", src_common_len, src_common);
 	p = rindex((const char *)target[0].fullname, '/');
 	if (p != NULL)
 	{
@@ -293,7 +294,7 @@ int main(int argc, char **argv)
 			}
 		}
 	}
-	v1printf("final trg_common='%.*s'\n", trg_common_len, trg_common);
+	dcb_lprintf(1, "final trg_common='%.*s'\n", trg_common_len, trg_common);
 
 	err = DCB_llm_init(&dcbuff, 4096, (unsigned long)ref_stat.st_size,
 					   (unsigned long)ver_stat.st_size) ||
@@ -301,7 +302,7 @@ int main(int argc, char **argv)
 
 	check_return2(err, "DCBufferInit");
 
-	v1printf("looking for matching filenames in the archives...\n");
+	dcb_lprintf(1, "looking for matching filenames in the archives...\n");
 
 	ver_id = DCB_REGISTER_ADD_SRC(&dcbuff, &ver_full, NULL, 0);
 	if (ver_id < 0)
@@ -317,23 +318,23 @@ int main(int argc, char **argv)
 
 	for (x = 0; x < target_count; x++)
 	{
-		v1printf("processing %lu of %lu\n", x + 1, target_count);
+		dcb_lprintf(1, "processing %lu of %lu\n", x + 1, target_count);
 		tar_ptr = &target[x];
 		vptr = bsearch(&tar_ptr, src_ptrs,
 					   source_count, sizeof(tar_entry **), cmp_ver_tar_ent_to_src_tar_ent);
 		if (vptr == NULL)
 		{
-			v1printf("didn't find a match for %.255s, skipping\n",
-					 target[x].fullname);
+			dcb_lprintf(1, "didn't find a match for %.255s, skipping\n",
+						target[x].fullname);
 		}
 		else
 		{
 			tar_ptr = (tar_entry *)*((tar_entry **)vptr);
-			v1printf("found match between %.255s and %.255s\n", target[x].fullname,
-					 tar_ptr->fullname);
-			v2printf("differencing src(%llu:%llu) against trg(%llu:%llu)\n",
-					 (act_off_u64)tar_ptr->start, (act_off_u64)tar_ptr->end,
-					 (act_off_u64)target[x].start, (act_off_u64)target[x].end);
+			dcb_lprintf(1, "found match between %.255s and %.255s\n", target[x].fullname,
+						tar_ptr->fullname);
+			dcb_lprintf(2, "differencing src(%llu:%llu) against trg(%llu:%llu)\n",
+						(act_off_u64)tar_ptr->start, (act_off_u64)tar_ptr->end,
+						(act_off_u64)target[x].start, (act_off_u64)target[x].end);
 
 			copen_child_cfh(&ver_window, &ver_full, target[x].start, target[x].end,
 							NO_COMPRESSOR, CFILE_RONLY | CFILE_BUFFER_ALL);
@@ -354,10 +355,10 @@ int main(int argc, char **argv)
 			if (err)
 			{
 				/* not a graceful exit I realize... */
-				v0printf("OneHalfPassCorrecting returned an error process file %.255s and %.255s\n",
-						 target[x].fullname, tar_ptr->fullname);
-				v0printf("Quite likely this is a bug in diffball; error's should not occur at this point, exempting out of memory errors\n");
-				v0printf("please contact the author so this can be resolved.\n");
+				dcb_lprintf(0, "OneHalfPassCorrecting returned an error process file %.255s and %.255s\n",
+							target[x].fullname, tar_ptr->fullname);
+				dcb_lprintf(0, "Quite likely this is a bug in diffball; error's should not occur at this point, exempting out of memory errors\n");
+				dcb_lprintf(0, "please contact the author so this can be resolved.\n");
 				check_return2(err, "OneHalfPassCorrecting");
 			}
 			err = free_RefHash(&rhash_win);
@@ -377,7 +378,7 @@ int main(int argc, char **argv)
 		free(target[x].fullname);
 	free(target);
 
-	v1printf("beginning search for gaps, and unprocessed files\n");
+	dcb_lprintf(1, "beginning search for gaps, and unprocessed files\n");
 	err = MultiPassAlg(&dcbuff, &ref_full, ref_id, &ver_full, ver_id, hash_size, 512);
 	check_return(err, "MultiPassAlg", "final multipass run failed");
 	err = DCB_finalize(&dcbuff);
@@ -385,7 +386,7 @@ int main(int argc, char **argv)
 	cclose(&ref_full);
 
 	copen_dup_fd(&out_cfh, out_fh, 0, 0, NO_COMPRESSOR, CFILE_WONLY | CFILE_OPEN_FH);
-	v1printf("outputing patch...\n");
+	dcb_lprintf(1, "outputing patch...\n");
 	if (GDIFF4_FORMAT == patch_format_id)
 	{
 		encode_result = gdiff4EncodeDCBuffer(&dcbuff, &out_cfh);
@@ -406,7 +407,7 @@ int main(int argc, char **argv)
 	{
 		encode_result = bdeltaEncodeDCBuffer(&dcbuff, &out_cfh);
 	}
-	v1printf("encoding result was %ld\n", encode_result);
+	dcb_lprintf(1, "encoding result was %ld\n", encode_result);
 	DCBufferFree(&dcbuff);
 	cclose(&ver_full);
 	cclose(&out_cfh);

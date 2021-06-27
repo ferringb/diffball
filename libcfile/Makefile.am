@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = libcfile.la
 AM_CFLAGS = -I$(top_builddir)/include/
-libcfile_la_SOURCES = cfile.c noop.c gzip.c bz2.c lzma.c multifile.c
+libcfile_la_SOURCES = cfile.c noop.c gzip.c bz2.c lzma.c multifile.c logging.c
 libcfile_la_CFLAGS = \
 	$(AM_CFLAGS) \
 	$(LIBLZMA_CFLAGS)

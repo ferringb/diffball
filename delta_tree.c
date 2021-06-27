@@ -79,7 +79,7 @@ exclude_list_add(struct exclude_list *l, const char *pattern)
 		char **tmp = realloc(l->array, new_size * sizeof(char *));
 		if (!tmp)
 		{
-			v0printf("Failed allocating exclude array\n");
+			dcb_lprintf(0, "Failed allocating exclude array\n");
 			return 1;
 		}
 		l->array = tmp;
@@ -89,7 +89,7 @@ exclude_list_add(struct exclude_list *l, const char *pattern)
 	l->array[l->count] = strdup(pattern);
 	if (!l->array[l->count])
 	{
-		v0printf("Failed allocating exclude array\n");
+		dcb_lprintf(0, "Failed allocating exclude array\n");
 		return 1;
 	}
 	l->count++;
@@ -104,7 +104,7 @@ exclude_list_add_from_file(struct exclude_list *l, const char *filepath)
 	int err = copen(&cfh, filepath, NO_COMPRESSOR, CFILE_RONLY);
 	if (err)
 	{
-		v0printf("Failed opening excludes file %s\n", filepath);
+		dcb_lprintf(0, "Failed opening excludes file %s\n", filepath);
 		return 1;
 	}
 	unsigned char *result = cfile_read_string_delim(&cfh, '\n', 1);
@@ -150,12 +150,12 @@ exclude_filter(void *data, const char *filepath, struct stat *st)
 		}
 		if (result == 0)
 		{
-			v1printf("Filtering file %s from the %s directory\n", filepath, excludes->is_src ? "source" : "target");
+			dcb_lprintf(1, "Filtering file %s from the %s directory\n", filepath, excludes->is_src ? "source" : "target");
 			return 1;
 		}
 		else if (result != FNM_NOMATCH)
 		{
-			v0printf("Failed invocation of fnmatch for %s; returned %i, bailing\n", filepath, result);
+			dcb_lprintf(0, "Failed invocation of fnmatch for %s; returned %i, bailing\n", filepath, result);
 			return -1;
 		}
 	}
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
 			}
 			break;
 		default:
-			v0printf("invalid arg- %s\n", argv[optind]);
+			dcb_lprintf(0, "invalid arg- %s\n", argv[optind]);
 			DUMP_USAGE(EXIT_USAGE);
 		}
 	}
@@ -260,7 +260,7 @@ int main(int argc, char **argv)
 									(src_excludes.count ? exclude_filter : NULL), (src_excludes.count ? &src_excludes : 0));
 	if (err)
 	{
-		v0printf("Walking directory %s failed\n", src_file);
+		dcb_lprintf(0, "Walking directory %s failed\n", src_file);
 		exit(EXIT_USAGE);
 	}
 	trg_file = (char *)get_next_arg(argc, argv);
@@ -272,7 +272,7 @@ int main(int argc, char **argv)
 									(trg_excludes.count ? exclude_filter : NULL), (trg_excludes.count ? &trg_excludes : 0));
 	if (err)
 	{
-		v0printf("Walking directory %s failed\n", src_file);
+		dcb_lprintf(0, "Walking directory %s failed\n", src_file);
 		exit(EXIT_USAGE);
 	}
 	if (patch_to_stdout != 0)
@@ -285,7 +285,7 @@ int main(int argc, char **argv)
 			DUMP_USAGE(EXIT_USAGE);
 		if ((out_fh = open(patch_name, O_WRONLY | O_TRUNC | O_CREAT, 0644)) == -1)
 		{
-			v0printf("error creating patch file '%s' (open failed)\n", patch_name);
+			dcb_lprintf(0, "error creating patch file '%s' (open failed)\n", patch_name);
 			exit(1);
 		}
 	}
@@ -303,24 +303,24 @@ int main(int argc, char **argv)
 		patch_id = check_for_format(patch_format, strlen(patch_format));
 		if (patch_id == 0)
 		{
-			v0printf("Unknown format '%s'\n", patch_format);
+			dcb_lprintf(0, "Unknown format '%s'\n", patch_format);
 			exit(EXIT_FAILURE);
 		}
 	}
 	if (copen_dup_fd(&out_cfh, out_fh, 0, 0, NO_COMPRESSOR, CFILE_WONLY))
 	{
-		v0printf("error allocing needed memory for output, exiting\n");
+		dcb_lprintf(0, "error allocing needed memory for output, exiting\n");
 		exit(EXIT_FAILURE);
 	}
 
-	v1printf("using patch format %lu\n", patch_id);
-	v1printf("using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
+	dcb_lprintf(1, "using patch format %lu\n", patch_id);
+	dcb_lprintf(1, "using seed_len(%lu), sample_rate(%lu), hash_size(%lu)\n",
 			 seed_len, sample_rate, hash_size);
-	v1printf("verbosity level(%u)\n", global_verbosity);
-	v1printf("initializing Command Buffer...\n");
+	dcb_lprintf(1, "verbosity level(%u)\n", global_verbosity);
+	dcb_lprintf(1, "initializing Command Buffer...\n");
 
 	encode_result = simple_difference(&ref_cfh, &ver_cfh, &out_cfh, patch_id, seed_len, sample_rate, hash_size);
-	v1printf("flushing and closing out file\n");
+	dcb_lprintf(1, "flushing and closing out file\n");
 	cclose(&out_cfh);
 	close(out_fh);
 	if (err)
@@ -330,11 +330,11 @@ int main(int argc, char **argv)
 			unlink(patch_name);
 		}
 	}
-	v1printf("encode_result=%ld\n", encode_result);
-	v1printf("exiting\n");
-	v1printf("closing reference file\n");
+	dcb_lprintf(1, "encode_result=%ld\n", encode_result);
+	dcb_lprintf(1, "exiting\n");
+	dcb_lprintf(1, "closing reference file\n");
 	cclose(&ref_cfh);
-	v1printf("closing version file\n");
+	dcb_lprintf(1, "closing version file\n");
 	cclose(&ver_cfh);
 	close(out_fh);
 	exclude_list_free(&src_excludes);
