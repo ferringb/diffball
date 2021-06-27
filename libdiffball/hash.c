@@ -5,7 +5,6 @@
 #include <errno.h>
 #include <string.h>
 #include <diffball/adler32.h>
-#include <diffball/primes.h>
 #include <diffball/defs.h>
 #include <diffball/hash.h>
 #include <diffball/bit-functions.h>
