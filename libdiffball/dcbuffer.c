@@ -452,7 +452,7 @@ void DCB_test_total_copy_len(CommandBuffer *buff)
 	}
 
 	dcb_lprintf(0, "dcbuffer test: copy_len(%u==%lu)\n", buff->total_copy_len,
-			 computed_len);
+				computed_len);
 	DCBufferReset(buff);
 #endif
 }
@@ -1051,7 +1051,7 @@ int DCB_add_overlay(CommandBuffer *dcb, off_u64 diff_src_pos, off_u32 len, DCB_S
 int DCB_add_add(CommandBuffer *buffer, off_u64 src_pos, off_u32 len, DCB_SRC_ID src_id)
 {
 	dcb_lprintf(3, "add src_offset(%llu), len(%u), src_id(%u), reconstruct_position(%llu)\n", (act_off_u64)src_pos, len, src_id,
-			 (act_off_u64)buffer->reconstruct_pos);
+				(act_off_u64)buffer->reconstruct_pos);
 	if (buffer->add_add)
 		return buffer->add_add(buffer, src_pos, len, src_id);
 	return 0;
@@ -1110,7 +1110,7 @@ int DCB_add_copy(CommandBuffer *buffer, off_u64 src_pos, off_u64 ver_pos, off_u3
 #endif
 
 	dcb_lprintf(3, "copy src_offset(%llu), version_offset(%llu), len(%u), reconstruct_position(%llu)\n", (act_off_u64)src_pos, (act_off_u64)ver_pos,
-			 len, (act_off_u64)buffer->reconstruct_pos);
+				len, (act_off_u64)buffer->reconstruct_pos);
 	return buffer->add_copy(buffer, src_pos, ver_pos, len, src_id);
 }
 #endif
@@ -1565,8 +1565,8 @@ int DCB_llm_finalize(void *d_ptr)
 	{
 		dcb->cur--;
 		dcb_lprintf(2, "inserting a segment %llu:%llu, commands(%u)\n",
-				 (act_off_u64)dcb->buff->ver_pos, (act_off_u64)(LLM_VEND(dcb->cur)),
-				 dcb->buff_count);
+					(act_off_u64)dcb->buff->ver_pos, (act_off_u64)(LLM_VEND(dcb->cur)),
+					dcb->buff_count);
 
 		assert(dcb->main_head == NULL ? dcb->main == NULL : 1);
 		if ((dcb->buff = (LL_DCLmatch *)realloc(dcb->buff, dcb->buff_count * sizeof(LL_DCLmatch))) == NULL)

@@ -108,7 +108,7 @@ int internal_copen_no_comp(cfile *cfh)
 		return MEM_ERROR;
 	}
 	cfile_lprintf(1, "copen: buffer size(%lu), buffer_all(%u)\n", cfh->data.size,
-			 cfh->access_flags & CFILE_BUFFER_ALL);
+				  cfh->access_flags & CFILE_BUFFER_ALL);
 	cfh->raw.size = 0;
 	cfh->raw.buff = NULL;
 	cfh->raw.pos = cfh->raw.offset = cfh->raw.end = cfh->raw.write_start = cfh->raw.write_end = cfh->data.pos =

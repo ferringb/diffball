@@ -100,7 +100,7 @@ void relative_encoder_free(struct relative_encoder *p)
 	if (p->last_directory)
 	{
 		dcb_lprintf(3, "relative_encoder stats: %zi in %zi out: ratio %2.2f\n", p->total_in, p->total_out,
-				 (float)p->total_in / (float)p->total_out);
+					(float)p->total_in / (float)p->total_out);
 		free(p->last_directory);
 	}
 	free(p);
@@ -889,14 +889,14 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		write_or_return_variable(relative_encoder_encode_time(pe, (st)->st_mtime));            \
 	};
 
-#define write_null_string(value)                             \
-	{                                                        \
-		int len = strlen((value)) + 1;                       \
-		if (len != cwrite(patchf, (value), len))             \
-		{                                                    \
+#define write_null_string(value)                                   \
+	{                                                              \
+		int len = strlen((value)) + 1;                             \
+		if (len != cwrite(patchf, (value), len))                   \
+		{                                                          \
 			dcb_lprintf(0, "Failed writing string len %i\n", len); \
-			ERETURN(IO_ERROR);                               \
-		};                                                   \
+			ERETURN(IO_ERROR);                                     \
+		};                                                         \
 	}
 
 #define write_PE_string(value)                                       \
@@ -904,7 +904,7 @@ encode_fs_entry(cfile *patchf, multifile_file_data *entry, ugm_table *table, str
 		int err = relative_encoder_cwrite_path(pe, patchf, (value)); \
 		if (err)                                                     \
 		{                                                            \
-			dcb_lprintf(0, "Failed writing to the handle\n");              \
+			dcb_lprintf(0, "Failed writing to the handle\n");        \
 			ERETURN(err);                                            \
 		};                                                           \
 	}

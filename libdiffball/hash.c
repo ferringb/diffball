@@ -565,19 +565,15 @@ rh_rbucket_cleanse(RefHash *rhash)
 void print_RefHash_stats(RefHash *rhash)
 {
 	dcb_lprintf(1, "hash stats: inserts(%lu), duplicates(%lu), hash size(%lu)\n",
-			 rhash->inserts, rhash->duplicates, rhash->hr_size);
+				rhash->inserts, rhash->duplicates, rhash->hr_size);
 	dcb_lprintf(1, "hash stats: load factor(%f%%)\n",
-			 ((float)rhash->inserts / rhash->hr_size * 100));
+				((float)rhash->inserts / rhash->hr_size * 100));
 	dcb_lprintf(1, "hash stats: duplicate rate(%f%%)\n",
-			 ((float)rhash->duplicates / (rhash->inserts + rhash->duplicates) * 100));
+				((float)rhash->duplicates / (rhash->inserts + rhash->duplicates) * 100));
 #ifdef DEBUG_HASH
-	dcb_lprintf(1, "hash stats: bad duplicates(%f%%)\n", ((float)
-														rhash->bad_duplicates /
-													rhash->duplicates * 100));
-	dcb_lprintf(1, "hash stats: good duplicates(%f%%)\n", 100.0 - ((float)
-																 rhash->bad_duplicates /
-															 rhash->duplicates * 100));
+	dcb_lprintf(1, "hash stats: bad duplicates(%f%%)\n", ((float)rhash->bad_duplicates / rhash->duplicates * 100));
+	dcb_lprintf(1, "hash stats: good duplicates(%f%%)\n", 100.0 - ((float)rhash->bad_duplicates / rhash->duplicates * 100));
 #endif
 	dcb_lprintf(1, "hash stats: seed_len(%u), sample_rate(%u)\n", rhash->seed_len,
-			 rhash->sample_rate);
+				rhash->sample_rate);
 }

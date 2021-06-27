@@ -288,13 +288,13 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			hash_size = max_hash_size;
 			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, gap_total_len, seed_len);
 			dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
-					 hash_size, sample_rate);
+						hash_size, sample_rate);
 			err = rh_rbucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if (err)
 				ERETURN(err);
 			DCBufferReset(buff);
 			dcb_lprintf(1, "building hash array out of total_gap(%lu)\n",
-					 gap_total_len);
+						gap_total_len);
 			while (DCB_get_next_gap(buff, gap_req, &dc))
 			{
 				RHash_insert_block(&rhash, ver_cfh, dc.offset, dc.len + dc.offset);
@@ -314,7 +314,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			while (DCB_get_next_gap(buff, gap_req, &dc))
 			{
 				dcb_lprintf(2, "handling gap %llu:%llu, size %u\n", (act_off_u64)dc.offset,
-						 (act_off_u64)(dc.offset + dc.len), dc.len);
+							(act_off_u64)(dc.offset + dc.len), dc.len);
 				err = copen_child_cfh(&ver_window, ver_cfh, dc.offset, dc.len + dc.offset, NO_COMPRESSOR, CFILE_RONLY);
 				if (err)
 					ERETURN(err);
@@ -338,7 +338,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 			hash_size = MAX(MIN_RHASH_SIZE, MIN(max_hash_size, cfile_len(ref_cfh)));
 			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh), seed_len);
 			dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
-					 hash_size, sample_rate);
+						hash_size, sample_rate);
 			err = rh_bucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if (err)
 				ERETURN(err);
