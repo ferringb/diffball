@@ -1344,9 +1344,9 @@ enforce_trailing_slash(char **ptr)
 			eprintf("Somehow encountered realloc failure for string of desired size %zi\n", len + 2);
 			ERETURN(MEM_ERROR);
 		}
+		*ptr = p;
 		(*ptr)[len] = '/';
 		(*ptr)[len + 1] = 0;
-		*ptr = p;
 		return 0;
 	}
 	return 0;
