@@ -389,8 +389,8 @@ cclose(cfile *cfh)
 		cfh->raw.pos = cfh->raw.end = cfh->raw.size = cfh->raw.offset =
 			cfh->data.pos = cfh->data.end = cfh->data.size = cfh->data.offset =
 				cfh->raw.window_len = cfh->data.window_len = 0;
+        cfh->state_flags &= ~CFILE_IS_OPEN;
 	}
-	cfh->state_flags &= ~CFILE_IS_OPEN;
 	return result;
 }
 
