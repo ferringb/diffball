@@ -1,35 +1,32 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT(diffball, 1.0.1, ferringb@gmail.com)
-# Checks for programs.
-
-AC_PROG_CC_C99
+AC_INIT([diffball],[1.0.1],[ferringb@gmail.com])
 
 AC_ARG_ENABLE(asserts,
-AC_HELP_STRING([--enable-asserts],[enable all asserts (default no)]),
-[case "${enableval}" in
-  yes) enable_asserts=true ;;
-  no)  enable_asserts=false ;;
-  *)   AC_MSG_ERROR(bad value ${enableval} for --enable-asserts) ;;
-esac], 
-[enable_asserts=false])
+    [AS_HELP_STRING([--enable-asserts],[enable all asserts (default no)])],
+    [case "${enableval}" in
+        yes) enable_asserts=true ;;
+        no)  enable_asserts=false ;;
+        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-asserts) ;;
+    esac]
+)
 
 AC_ARG_ENABLE(debug-dcbuffer,
-AC_HELP_STRING([--enable-debug-dcbuffer],[enable testing of internal command buffer (default no)]),
-[case "${enableval}" in
-  yes) enable_debug_dcbuffer=true ;;
-  no)  enable_debug_dcbuffer=false ;;
-  *)   AC_MSG_ERROR(bad value ${enableval} for --enable-debug-dcbuffer) ;;
-esac], 
-[enable_debug_dcbuffer=false])
+    [AS_HELP_STRING([--enable-debug-dcbuffer],[enable testing of internal command buffer (default no)])],
+    [case "${enableval}" in
+        yes) enable_debug_dcbuffer=true ;;
+        no)  enable_debug_dcbuffer=false ;;
+        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-debug-dcbuffer) ;;
+    esac]
+)
 
 AC_ARG_ENABLE(debug-cfile,
-AC_HELP_STRING([--enable-debug-cfile],[enable testing of internal cfile buffer (default no)]),
-[case "${enableval}" in
-  yes) enable_debug_cfile=true ;;
-  no)  enable_debug_cfile=false ;;
-  *)   AC_MSG_ERROR(bad value ${enableval} for --enable-debug-cfile) ;;
-esac], 
-[enable_debug_cfile=false])
+    [AS_HELP_STRING([--enable-debug-cfile],[enable testing of internal cfile buffer (default no)])],
+    [case "${enableval}" in
+        yes) enable_debug_cfile=true ;;
+        no)  enable_debug_cfile=false ;;
+        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-debug-cfile) ;;
+        esac]
+)
 
 if test x$enable_debug_cfile = xtrue
 then
@@ -56,16 +53,14 @@ if test x$enable_asserts = xtrue
 then
 	AC_MSG_RESULT(DEBUGGING: enabling asserts.)
 	AC_DEFINE(DEV_VERSION, 1, asserts.)
-#lovely lil bugger.  set cflags prior to AC_PROG_CC, and it won't set -o2
-#which is what is desired here.
 	CFLAGS="$CFLAGS -g"
 	CXXFLAGS="$CXXFLAGS -g"
 fi
 
 # keep these here.  they screw with cflags setting, meaning they're *evil*.
-AM_INIT_AUTOMAKE
-AC_PROG_LIBTOOL
-AC_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE([subdir-objects])
+LT_INIT
+AC_CONFIG_HEADERS([config.h])
 
 AM_CONDITIONAL(BUILD_DEBUG_CFILE, test x$enable_debug_cfile = xtrue)
 AM_CONDITIONAL(BUILD_DEBUG_HASH, test x$enable_debug_hash = xtrue)
@@ -81,8 +76,7 @@ AC_CHECK_LIB(m, ceil)
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([LIBLZMA], [liblzma])
 
-# Checks for header files.
-AC_HEADER_STDC
+
 AC_CHECK_HEADERS([errno.h fcntl.h stdlib.h string.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -90,7 +84,6 @@ AC_C_CONST
 AC_C_INLINE
 
 # Checks for library functions.
-AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_FUNC_MEMCMP
 AC_FUNC_STAT
@@ -99,9 +92,7 @@ AC_CHECK_FUNCS([dup2 memmove strtol memset realloc])
 CFLAGS="$CFLAGS -Wall"
 CXXFLAGS="$CXXFLAGS -Wall"
 
-#AC_CONFIG_FILES([])
-AC_OUTPUT(Makefile)
-AC_OUTPUT(libdiffball/Makefile)
-AC_OUTPUT(libcfile/Makefile)
-AC_OUTPUT(include/Makefile)
-AC_OUTPUT(man/Makefile)
+AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([include/Makefile])
+AC_CONFIG_FILES([man/Makefile])
+AC_OUTPUT
