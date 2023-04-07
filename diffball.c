@@ -169,8 +169,8 @@ int main(int argc, char **argv)
 		hash_size = MIN(DEFAULT_MAX_HASH_COUNT, ref_stat.st_size);
 	}
 
-	if (copen(&ref_full, src_file, NO_COMPRESSOR, CFILE_RONLY) ||
-		copen(&ver_full, trg_file, NO_COMPRESSOR, CFILE_RONLY))
+	if (copen_path(&ref_full, src_file, NO_COMPRESSOR, CFILE_RONLY) ||
+		copen_path(&ver_full, trg_file, NO_COMPRESSOR, CFILE_RONLY))
 	{
 		dcb_lprintf(0, "error opening file; exiting\n");
 		exit(1);

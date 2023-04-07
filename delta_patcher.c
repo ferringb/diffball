@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 		exit(EXIT_USAGE);
 	}
 
-	err = copen(&patch_cfh, patch_name, AUTODETECT_COMPRESSOR, CFILE_RONLY);
+	err = copen_path(&patch_cfh, patch_name, AUTODETECT_COMPRESSOR, CFILE_RONLY);
 	check_return2(err, "copen of patch");
 
 	dcb_lprintf(1, "dcb: verbosity level(%u)\n", diffball_get_logging_level());

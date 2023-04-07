@@ -145,7 +145,8 @@ int internal_copen(cfile *cfh, int fh,
 				   unsigned int compressor_type, unsigned int access_flags);
 
 int copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compressor_type, unsigned int access_flags);
-int copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags);
+int copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags) __attribute__((deprecated("use copen_path instead")));
+int copen_path(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags);
 
 int copen_child_cfh(cfile *cfh, cfile *parent, size_t fh_start,
 					size_t fh_end, unsigned int compressor_type, unsigned int access_flags);

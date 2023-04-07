@@ -126,7 +126,7 @@ int main(int argc, char **argv)
 	for (x = 0; x < patch_count; x++)
 	{
 		dcb_lprintf(1, "%u, opening %s\n", x, patch_name[x]);
-		if ((err = copen(in_cfh + x, patch_name[x], NO_COMPRESSOR, CFILE_RONLY)) != 0)
+		if ((err = copen_path(in_cfh + x, patch_name[x], NO_COMPRESSOR, CFILE_RONLY)) != 0)
 		{
 			dcb_lprintf(0, "error opening patch '%s', %d\n", patch_name[x], err);
 			exit(EXIT_FAILURE);

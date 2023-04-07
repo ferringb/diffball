@@ -99,7 +99,7 @@ exclude_list_add_from_file(struct exclude_list *l, const char *filepath)
 {
 	cfile cfh;
 	memset(&cfh, 0, sizeof(cfile));
-	int err = copen(&cfh, filepath, NO_COMPRESSOR, CFILE_RONLY);
+	int err = copen_path(&cfh, filepath, NO_COMPRESSOR, CFILE_RONLY);
 	if (err)
 	{
 		dcb_lprintf(0, "Failed opening excludes file %s\n", filepath);

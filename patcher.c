@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 
 	for (x = 0; x < patch_count; x++)
 	{
-		err = copen(&patch_cfh[x], patch_name[x], AUTODETECT_COMPRESSOR, CFILE_RONLY);
+		err = copen_path(&patch_cfh[x], patch_name[x], AUTODETECT_COMPRESSOR, CFILE_RONLY);
 		check_return2(err, "copen of patch")
 			patch_array[x] = &patch_cfh[x];
 	}
@@ -124,13 +124,13 @@ int main(int argc, char **argv)
 	dcb_lprintf(1, "dcb verbosity level(%u)\n", diffball_get_logging_level());
 	dcb_lprintf(1, "cfile verbosity level(%u)\n", cfile_get_logging_level());
 
-	if ((err = copen(&src_cfh, src_name, AUTODETECT_COMPRESSOR, CFILE_RONLY)) != 0)
+	if ((err = copen_path(&src_cfh, src_name, AUTODETECT_COMPRESSOR, CFILE_RONLY)) != 0)
 	{
 		dcb_lprintf(0, "error opening source file '%s': %i\n", src_name, err);
 		exit(EXIT_FAILURE);
 	}
 
-	if ((err = copen(&out_cfh, out_name, NO_COMPRESSOR, CFILE_WONLY | CFILE_NEW)) != 0)
+	if ((err = copen_path(&out_cfh, out_name, NO_COMPRESSOR, CFILE_WONLY | CFILE_NEW)) != 0)
 	{
 		dcb_lprintf(0, "error opening output file, exitting %i\n", err);
 		exit(EXIT_FAILURE);

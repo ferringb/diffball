@@ -27,7 +27,7 @@ int main(int argc, char **argv)
 		printf("failed opening file...\n");
 		abort();
 	}
-	copen(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
+	copen_path(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	assert(0 == cseek(cfh, 0, CSEEK_FSTART));
 	cread(cfh, buff, 1);
 	assert(48 == buff[0]);
@@ -38,7 +38,7 @@ int main(int argc, char **argv)
 	assert(1 == cseek(cfh, -2, CSEEK_CUR));
 	assert(cfile_len(cfh) == 8);
 	cclose(cfh);
-	copen(cfh, fh, 1, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
+	copen_path(cfh, fh, 1, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	assert(cseek(cfh, 0, CSEEK_FSTART) == 0);
 	assert(cseek(cfh, 1, CSEEK_ABS) == 1);
 	assert(ctell(cfh, CSEEK_FSTART) == 0);
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 	assert(0 == ctell(cfh, CSEEK_END));
 	printf("beginning intrusive tests\n");
 	cclose(cfh);
-	copen(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
+	copen_path(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	cfh->data.size = 2;
 	assert(4 == cseek(cfh, 4, CSEEK_CUR));
 	assert(0 == cseek(cfh, -4, CSEEK_CUR));
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 		printf("kind of hard to test, since can't open a fucking file..\n");
 		exit(1);
 	}
-	copen(cfh, wfh, 0, 0, NO_COMPRESSOR, CFILE_WONLY);
+	copen_path(cfh, wfh, 0, 0, NO_COMPRESSOR, CFILE_WONLY);
 	assert(cwrite(cfh, buff, strlen(buff)) == strlen(buff));
 	printf("begining low level fucking with write\n");
 	cfh->data.size = strlen(buff);
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 	cclose(cfh);
 	close(wfh);
 	printf("beginning another round of cseek testing\n");
-	copen(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
+	copen_path(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	assert(2 == cseek(cfh, 2, CSEEK_FSTART));
 	assert(2 == cfh->data.offset + cfh->data.pos);
 	assert(2 == cread(cfh, buff, 2));
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
 	assert('3' == buff[1]);
 	cclose(cfh);
 	printf("starting window tests\n");
-	copen(cfh, fh, 2, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
+	copen_path(cfh, fh, 2, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	assert(2 == cread(cfh, buff, 2));
 	assert('2' == buff[0]);
 	assert('3' == buff[1]);
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 	assert('3' == buff[0]);
 	printf("starting md5 test.\n");
 	cclose(cfh);
-	copen(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY | CFILE_COMPUTE_MD5);
+	copen_path(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY | CFILE_COMPUTE_MD5);
 	cfh->data.size = 2;
 	assert(cseek(cfh, 2, CSEEK_CUR) == 2);
 	assert(cfh->data_md5_pos == 0);
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 	printf("correct md5.\n");
 	cclose(cfh);
 	printf("beginning page tests\n");
-	copen(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
+	copen_path(cfh, fh, 0, fstat.st_size, NO_COMPRESSOR, CFILE_RONLY);
 	cfh->data.size = 2;
 	cfile_window *cfw;
 	cfw = expose_page(cfh);

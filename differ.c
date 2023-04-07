@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 	}
 	err = 0;
 	if (((src_file = (char *)get_next_arg(argc, argv)) == NULL) ||
-		(err = copen(&ref_cfh, src_file, NO_COMPRESSOR, CFILE_RONLY)) != 0)
+		(err = copen_path(&ref_cfh, src_file, NO_COMPRESSOR, CFILE_RONLY)) != 0)
 	{
 		if (src_file)
 		{
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 	}
 	err = 0;
 	if (((trg_file = (char *)get_next_arg(argc, argv)) == NULL) ||
-		(err = copen(&ver_cfh, trg_file, NO_COMPRESSOR, CFILE_RONLY)) != 0)
+		(err = copen_path(&ver_cfh, trg_file, NO_COMPRESSOR, CFILE_RONLY)) != 0)
 	{
 		if (trg_file)
 		{

@@ -188,7 +188,11 @@ int copen_mem(cfile *cfh, unsigned char *buff, size_t len, unsigned int compress
 	return 0;
 }
 
-int copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags)
+int copen(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags) {
+    return copen_path(cfh, filename, compressor_type, access_flags);
+}
+
+int copen_path(cfile *cfh, const char *filename, unsigned int compressor_type, unsigned int access_flags)
 {
 	if (cfile_is_open(cfh))
 	{
