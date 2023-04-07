@@ -62,18 +62,24 @@ int main(int argc, char **argv)
 			OPTIONS_COMMON_ARGUMENTS("differ");
 		case OSAMPLE:
 			sample_rate = atol(optarg);
-			if (sample_rate == 0 || sample_rate > MAX_SAMPLE_RATE)
-				DUMP_USAGE(EXIT_USAGE);
+			if (sample_rate == 0 || sample_rate > MAX_SAMPLE_RATE) {
+                dcb_lprintf(0, "sample_rate must be less than %u\n\n", MAX_SAMPLE_RATE);
+                DUMP_USAGE(EXIT_USAGE);
+            }
 			break;
 		case OSEED:
 			seed_len = atol(optarg);
-			if (seed_len == 0 || seed_len > MAX_SEED_LEN)
-				DUMP_USAGE(EXIT_USAGE);
+			if (seed_len == 0 || seed_len > MAX_SEED_LEN) {
+                dcb_lprintf(0, "seed_len must be less than %u\n\n", MAX_SEED_LEN);
+                DUMP_USAGE(EXIT_USAGE);
+            }
 			break;
 		case OHASH:
 			hash_size = atol(optarg);
-			if (hash_size == 0 || hash_size > MAX_HASH_SIZE)
-				DUMP_USAGE(EXIT_USAGE);
+			if (hash_size == 0 || hash_size > MAX_HASH_SIZE) {
+                dcb_lprintf(0, "hash_size must be less than %u\n\n", MAX_HASH_SIZE);
+                DUMP_USAGE(EXIT_USAGE);
+            }
 			break;
 		case OSTDOUT:
 			output_to_stdout = 1;
