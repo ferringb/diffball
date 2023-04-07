@@ -8,10 +8,6 @@
 #include <fcntl.h>
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
-unsigned int largefile_support = 0;
-#ifdef _LARGEFILE_SOURCE
-largefile_support = 1;
-#endif
 
 // C standards for inline are stupid.
 extern void flag_lseek_needed(cfile *cfh);
