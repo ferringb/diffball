@@ -244,7 +244,7 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 	unsigned long hash_size = 0, sample_rate = 1;
 	unsigned long gap_req;
 	unsigned long gap_total_len;
-	unsigned char first_run = 0;
+	unsigned char first_run = 0; // first_run is used to control which hashing approach we use.
 	DCLoc dc;
 	assert(buff->DCBtype & DCBUFFER_LLMATCHES_TYPE);
 	err = DCB_finalize(buff);
@@ -266,94 +266,85 @@ MultiPassAlg(CommandBuffer *buff, cfile *ref_cfh, unsigned char ref_id,
 #ifdef DEBUG_DCBUFFER
 		assert(DCB_test_llm_main(buff));
 #endif
-		if (!first_run)
+
+		while (DCB_get_next_gap(buff, gap_req, &dc))
 		{
-			while (DCB_get_next_gap(buff, gap_req, &dc))
-			{
-				assert(dc.len <= buff->ver_size);
-				dcb_lprintf(2, "gap at %llu:%llu size %u\n", (act_off_u64)dc.offset, (act_off_u64)(dc.offset + dc.len), dc.len);
-				gap_total_len += dc.len;
-			}
-			if (gap_total_len == 0)
-			{
-				dcb_lprintf(1, "not worth taking this pass, skipping to next.\n");
-#ifdef DEBUG_DCBUFFER
-				assert(DCB_test_llm_main(buff));
-#endif
-				continue;
-			}
-			hash_size = max_hash_size;
-			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, gap_total_len, seed_len);
-			dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
-						hash_size, sample_rate);
-			err = rh_rbucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
-			if (err)
-				ERETURN(err);
-			DCBufferReset(buff);
-			dcb_lprintf(1, "building hash array out of total_gap(%lu)\n",
-						gap_total_len);
-			while (DCB_get_next_gap(buff, gap_req, &dc))
-			{
-				RHash_insert_block(&rhash, ver_cfh, dc.offset, dc.len + dc.offset);
-			}
-			dcb_lprintf(1, "looking for matches in reference file\n");
-			err = RHash_find_matches(&rhash, ref_cfh, 0, cfile_len(ref_cfh));
-			if (err)
-			{
-				eprintf("error detected\n");
-				ERETURN(err);
-			}
-			dcb_lprintf(1, "cleansing hash, to speed bsearch's\n");
-			RHash_cleanse(&rhash);
-			print_RefHash_stats(&rhash);
-			dcb_lprintf(1, "beginning gap processing...\n");
-			DCBufferReset(buff);
-			while (DCB_get_next_gap(buff, gap_req, &dc))
-			{
-				dcb_lprintf(2, "handling gap %llu:%llu, size %u\n", (act_off_u64)dc.offset,
-							(act_off_u64)(dc.offset + dc.len), dc.len);
-				err = copen_child_cfh(&ver_window, ver_cfh, dc.offset, dc.len + dc.offset, NO_COMPRESSOR, CFILE_RONLY);
-				if (err)
-					ERETURN(err);
-				err = DCB_llm_init_buff(buff, 128);
-				if (err)
-					ERETURN(err);
-				err = OneHalfPassCorrecting(buff, &rhash, ref_id, &ver_window, ver_id);
-				if (err)
-					ERETURN(err);
-				err = DCB_finalize(buff);
-				if (err)
-					ERETURN(err);
-				cclose(&ver_window);
-			}
+			assert(dc.len <= buff->ver_size);
+			dcb_lprintf(2, "gap at %llu:%llu size %u\n", (act_off_u64)dc.offset, (act_off_u64)(dc.offset + dc.len), dc.len);
+			gap_total_len += dc.len;
 		}
-		else
+		if (gap_total_len == 0)
 		{
-			first_run = 0;
-			DCBufferReset(buff);
-			dcb_lprintf(1, "first run\n");
+			dcb_lprintf(1, "not worth taking this pass, skipping to next.\n");
+#ifdef DEBUG_DCBUFFER
+			assert(DCB_test_llm_main(buff));
+#endif
+			continue;
+		}
+		DCBufferReset(buff);
+		if(first_run) {
 			hash_size = MAX(MIN_RHASH_SIZE, MIN(max_hash_size, cfile_len(ref_cfh)));
-			sample_rate = COMPUTE_SAMPLE_RATE(hash_size, cfile_len(ref_cfh), seed_len);
-			dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
-						hash_size, sample_rate);
+        } else {
+			hash_size = max_hash_size;
+        }
+		sample_rate = COMPUTE_SAMPLE_RATE(hash_size, gap_total_len, seed_len);
+		dcb_lprintf(1, "using hash_size(%lu), sample_rate(%lu)\n",
+					hash_size, sample_rate);
+
+		// if this is the first run, build hash directly from the reference file.  If it's not the first run,
+		// build a hash of the remaining version content, then walk the entire reference file finding matches.
+		// In theory, that reverse walk is less effected by hash collisions.  Pragmatic reality, this is
+		// probably better addressed via improving the hashing logic.
+		if(first_run) {
+			dcb_lprintf(1, "building hash array out of the reference file");
 			err = rh_bucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
 			if (err)
 				ERETURN(err);
 			err = RHash_insert_block(&rhash, ref_cfh, 0L, cfile_len(ref_cfh));
 			if (err)
 				ERETURN(err);
-			print_RefHash_stats(&rhash);
-			dcb_lprintf(1, "making initial run...\n");
+			first_run = 0;
+		} else {
+			err = rh_rbucket_hash_init(&rhash, ref_cfh, seed_len, sample_rate, hash_size);
+			if (err) ERETURN(err);
+
+			dcb_lprintf(1, "building hash array from total_gap(%lu) of the version file\n",
+			            gap_total_len);
+			while (DCB_get_next_gap(buff, gap_req, &dc)) {
+				RHash_insert_block(&rhash, ver_cfh, dc.offset, dc.len + dc.offset);
+			}
+			dcb_lprintf(1, "walking the reference file to find matches, rebuilding the ref->ver hash in the process\n");
+			err = RHash_find_matches(&rhash, ref_cfh, 0, cfile_len(ref_cfh));
+			if (err) {
+				eprintf("error detected\n");
+				ERETURN(err);
+			}
+			dcb_lprintf(1, "cleansing hash, to speed bsearch's\n");
+			RHash_cleanse(&rhash);
+		}
+		print_RefHash_stats(&rhash);
+
+		dcb_lprintf(1, "beginning gap processing...\n");
+		DCBufferReset(buff);
+		while (DCB_get_next_gap(buff, gap_req, &dc))
+		{
+			dcb_lprintf(2, "handling gap %llu:%llu, size %u\n", (act_off_u64)dc.offset,
+						(act_off_u64)(dc.offset + dc.len), dc.len);
+			err = copen_child_cfh(&ver_window, ver_cfh, dc.offset, dc.len + dc.offset, NO_COMPRESSOR, CFILE_RONLY);
+			if (err)
+				ERETURN(err);
 			err = DCB_llm_init_buff(buff, 128);
 			if (err)
 				ERETURN(err);
-			err = OneHalfPassCorrecting(buff, &rhash, ref_id, ver_cfh, ver_id);
+			err = OneHalfPassCorrecting(buff, &rhash, ref_id, &ver_window, ver_id);
 			if (err)
 				ERETURN(err);
 			err = DCB_finalize(buff);
 			if (err)
 				ERETURN(err);
+			cclose(&ver_window);
 		}
+
 
 #ifdef DEBUG_DCBUFFER
 		assert(DCB_test_llm_main(buff));
