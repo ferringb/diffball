@@ -127,10 +127,7 @@ OneHalfPassCorrecting(CommandBuffer *dcb, RefHash *rh, unsigned char rid, cfile 
 		rm = hash_offset;
 		cseek(rh->ref_cfh, rm, CSEEK_FSTART);
 		cseek(vcfh, vm, CSEEK_FSTART);
-		if (vm == 10336418 && rm == 922885)
-		{
-			printf("yes'm\n");
-		}
+
 		while (vm > 0 && rm > 0)
 		{
 			while (vcfw->offset > vm - 1)
