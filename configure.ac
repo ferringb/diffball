@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce a configure script.
-AC_INIT([diffball],[1.0.1],[ferringb@gmail.com])
+AC_INIT([diffball],[1.x],[ferringb@gmail.com])
 
 AC_PROG_CC
 AC_PROG_CC_STDC
