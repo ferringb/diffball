@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BSD-3-Clause
-// Copyright (C) 2003-2013 Brian Harring <ferringb@gmail.com>
+// Copyright (C) 2003-2023 Brian Harring <ferringb@gmail.com>
 #ifndef _HEADER_DCBUFFER
 #define _HEADER_DCBUFFER 1
 
@@ -19,8 +19,6 @@
 #define DCBUFFER_MATCHES_TYPE 0x2
 #define DCBUFFER_LLMATCHES_TYPE 0x4
 #define DCBUFFER_BUFFERLESS_TYPE 0x8
-#define DCBUFFER_BUFFERLESS_LINE_TYPE 0x10
-#define DCBUFFER_LINE_TYPE 0x20
 
 #define DCB_LLM_FINALIZED 0x2
 
