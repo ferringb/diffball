@@ -1,6 +1,9 @@
 # Process this file with autoconf to produce a configure script.
 AC_INIT([diffball],[1.0.1],[ferringb@gmail.com])
 
+AC_PROG_CC
+AC_PROG_CC_STDC
+
 AC_ARG_ENABLE(asserts,
     [AS_HELP_STRING([--enable-asserts],[enable all asserts (default no)])],
     [case "${enableval}" in
@@ -64,8 +67,6 @@ AC_CONFIG_HEADERS([config.h])
 
 AM_CONDITIONAL(BUILD_DEBUG_CFILE, test x$enable_debug_cfile = xtrue)
 AM_CONDITIONAL(BUILD_DEBUG_HASH, test x$enable_debug_hash = xtrue)
-
-AC_PROG_CC
 
 # Checks for libraries.
 AC_CHECK_LIB(bz2, BZ2_bzCompressInit, , AC_MSG_ERROR([libbz2 not found]))
