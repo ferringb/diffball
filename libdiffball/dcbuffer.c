@@ -19,7 +19,7 @@ static int internal_DCB_llm_free_resize(DCB_llm *buff);
 static int internal_DCB_matches_resize(DCB_matches *dcb);
 static int internal_DCB_resize_cl(command_list *cl);
 static inline int internal_DCB_resize_srcs(CommandBuffer *buffer);
-int DCB_llm_finalize(void *);
+static int DCB_llm_finalize(void *);
 
 unsigned long
 bail_if_called_func()
